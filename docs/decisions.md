@@ -66,6 +66,24 @@ Decisions taken during development that refine or depart from
   other six are exact quarter turns. `uv run dd-preview-sprites` renders every
   player, facing and a range of backgrounds for review.
 
+## Paint splats
+
+- A shot paints a messy 16-superpixel splat rather than a neat ellipse. Each
+  player cycles deterministically through a few variants (no random numbers)
+  so successive shots do not stamp identical shapes.
+- Splats are drawn for E and NE only (`sprites/splats.spr`, editable ASCII);
+  the other six facings are exact quarter turns about the footprint centre,
+  cell (x, y) -> (5 - y, x), which the 6502 can apply per cell at paint time.
+- Splats are symmetric about the footprint's centre line, not the one-pixel
+  barrel; the half-pixel offset is fine for splatting.
+- Fairness: every splat paints exactly 16 cells, never touches the tank's
+  footprint, lies within 6 degrees of its facing's axis, and all variants
+  reach within 0.6 cells of the same distance (tests enforce all of these).
+  The one-cell gap on a diagonal costs more distance, so the axial splats
+  sit two cells out to match.
+- `uv run dd-preview-splats` renders every variant and facing, plus the
+  overlay of all variants.
+
 ## Input
 
 - Keyboard only for now. Beebium does not yet emulate joysticks, and the

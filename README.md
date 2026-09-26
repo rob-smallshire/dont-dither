@@ -36,7 +36,7 @@ a Model B + DFS: Shift-Break to boot the game.
 |---|---|
 | `asm/` | 6502 source (beebasm). `main.asm` is the game, `testcard.asm` the test card; the rest are shared modules. |
 | `levels/` | Level source files (`*.lvl`): symmetric wall layouts, colouring and starts. |
-| `sprites/` | Player sprite pictures (`*.spr`, editable ASCII art); preview with `uv run dd-preview-sprites`. |
+| `sprites/` | Player tank and paint splats (`*.spr`, editable ASCII art); preview with `uv run dd-preview-sprites` and `uv run dd-preview-splats`. |
 | `data/ink_patterns.json` | The canonical 2×2 pattern for each of the 35 ink states. Source of truth for the generated 6502 tables. |
 | `tools/dontdither/` | Python: ink model, table generator, build, pattern solver. |
 | `tests/` | pytest suite; `conftest.py` has the Beebium fixtures. |
