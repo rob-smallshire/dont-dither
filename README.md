@@ -22,15 +22,19 @@ uv run dd-build     # -> build/dont-dither.ssd (auto-booting DFS disc)
 uv run pytest       # builds, boots the disc in Beebium, checks the screen
 ```
 
-The tests write a screenshot of the booted game to
-`build/screenshots/boot.png`. The disc also runs in the Beebium macOS app, or
-any BBC Micro emulator, with a Model B + DFS: Shift-Break to boot.
+The tests write screenshots to `build/screenshots/`: the booted game
+(`boot.png`) and the test card (`testcard.png`, `testcard_x3.png`). The test
+card, `*RUN TCARD` from the same disc, shows all 35 ink textures as large
+swatches, each with a wall feature, inside a walled border.
+
+The disc also runs in the Beebium macOS app, or any BBC Micro emulator, with
+a Model B + DFS: Shift-Break to boot the game.
 
 ## Layout
 
 | Path | Contents |
 |---|---|
-| `asm/` | 6502 source (beebasm). `main.asm` is the entry point. |
+| `asm/` | 6502 source (beebasm). `main.asm` is the game, `testcard.asm` the test card; the rest are shared modules. |
 | `data/ink_patterns.json` | The canonical 2×2 pattern for each of the 35 ink states. Source of truth for the generated 6502 tables. |
 | `tools/dontdither/` | Python: ink model, table generator, build, pattern solver. |
 | `tests/` | pytest suite; `conftest.py` has the Beebium fixtures. |

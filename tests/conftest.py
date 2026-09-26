@@ -25,6 +25,7 @@ from dontdither.build import BuildResult, build
 
 DEFAULT_PRESET = "model-b-disc"   # Model B, Acorn 1770 FDC, DFS 2.26 in slot 14
 BOOT_TIMEOUT_EMULATED_SECONDS = 20.0
+SETTLE_EMULATED_SECONDS = 0.04     # two frames
 
 Launcher = Callable[..., Beebium]
 
@@ -104,29 +105,66 @@ def game_build() -> BuildResult:
         pytest.skip(str(e))
 
 
+BOOT_READY = 0xFF   # asm/zeropage.asm; `=` constants are not exported as labels
+
+
+def _run_until_ready(bbc: Beebium, labels: dict[str, int], what: str) -> None:
+    status_address = labels["zp_boot_status"]
+    bbc.debugger.stop()
+    ready = bbc.run_until_or_timeout(
+        lambda: bbc.memory.address.peek[status_address] == BOOT_READY,
+        BOOT_TIMEOUT_EMULATED_SECONDS,
+    )
+    assert ready, f"{what} did not become ready within {BOOT_TIMEOUT_EMULATED_SECONDS} emulated seconds"
+    # Screen text and captured frames reflect what has been displayed, not
+    # what is in screen memory. Run two more 50 Hz frames so the final
+    # screen has been scanned out.
+    bbc.run_for_emulated_seconds(SETTLE_EMULATED_SECONDS)
+
+
 def boot_game(bbc: Beebium, game_build: BuildResult) -> None:
     """Shift-Break boot the game disc and run until the game reports it is ready.
 
     Leaves the machine stopped.
     """
-    status_address = game_build.labels["zp_boot_status"]
-    ready = game_build.labels.get("BOOT_READY", 0xFF)
     bbc.boot_disc(game_build.disc_filepath)
-    bbc.debugger.stop()
-    booted = bbc.run_until_or_timeout(
-        lambda: bbc.memory.address.peek[status_address] == ready,
-        BOOT_TIMEOUT_EMULATED_SECONDS,
-    )
-    assert booted, f"Game did not boot within {BOOT_TIMEOUT_EMULATED_SECONDS} emulated seconds"
+    _run_until_ready(bbc, game_build.labels["DITHER"], "Game")
+
+
+def run_program(bbc: Beebium, game_build: BuildResult, program: str) -> None:
+    """Insert the game disc, *RUN one of its programs from the BASIC prompt,
+    and run until it reports it is ready. Leaves the machine stopped."""
+    bbc.expect("BASIC")
+    bbc.disc.drive(0).insert(str(game_build.disc_filepath))
+    bbc.keyboard.type(f"*RUN {program}")
+    bbc.keyboard.press_return()
+    _run_until_ready(bbc, game_build.labels[program], program)
 
 
 @pytest.fixture(scope="module")
-def booted_game(mos_filepath, basic_filepath, beebium_server_filepath, beebium_preset, game_build) -> Iterator[Beebium]:
+def module_launch_bbc(mos_filepath, basic_filepath, beebium_server_filepath, beebium_preset) -> Iterator[Launcher]:
+    """Like launch_bbc, but machines live for the whole test module."""
+    with _launcher(mos_filepath, basic_filepath, beebium_server_filepath, beebium_preset) as launch:
+        yield launch
+
+
+@pytest.fixture(scope="module")
+def booted_game(module_launch_bbc: Launcher, game_build: BuildResult) -> Beebium:
     """One machine per test module with the game booted and stopped.
 
     Tests sharing it must only observe, not change, the machine state.
     """
-    with _launcher(mos_filepath, basic_filepath, beebium_server_filepath, beebium_preset) as launch:
-        bbc = launch()
-        boot_game(bbc, game_build)
-        yield bbc
+    bbc = module_launch_bbc()
+    boot_game(bbc, game_build)
+    return bbc
+
+
+@pytest.fixture(scope="module")
+def testcard(module_launch_bbc: Launcher, game_build: BuildResult) -> Beebium:
+    """One machine per test module showing the test card, stopped.
+
+    Tests sharing it must only observe, not change, the machine state.
+    """
+    bbc = module_launch_bbc()
+    run_program(bbc, game_build, "TCARD")
+    return bbc

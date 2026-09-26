@@ -17,6 +17,9 @@ uv run pytest tests/test_boot.py::test_palette_maps_logical_colours_to_cmyk
 uv run --group solver dd-solve-patterns           # re-solve data/ink_patterns.json (OR-tools CP-SAT)
 ```
 
+Screenshots from emulator tests land in `build/screenshots/` (`boot.png`,
+`testcard.png`, `testcard_x3.png`).
+
 beebasm 1.10 must be on the `PATH`. The Beebium client and headless server
 come from PyPI (`beebium`, `beebium-server`) via the `test` dependency group.
 
@@ -28,14 +31,41 @@ Each superpixel's literal pattern encodes its ink state, a count tuple
 (C,M,Y,K) summing to 4; there are 35 states, each with exactly one canonical
 pattern. There is no separate ownership array. The HUD is byte columns 64-79.
 
+**Programs.** One DFS disc holds several programs, each a beebasm source
+that SAVEs a file of the same name (`PROGRAMS` in `tools/dontdither/build.py`):
+`DITHER` (`asm/main.asm`, run by `!BOOT`) and `TCARD` (`asm/testcard.asm`, the
+texture and wall test card, started with `*RUN TCARD`). Each program INCLUDEs
+the shared modules it needs:
+- `os.asm`, then `macros.asm` first (beebasm needs macros defined before use),
+  then `zeropage.asm`;
+- after the program's code: `display.asm`, `arena.asm`, `walls.asm` and the
+  generated tables.
+
+Labels are per program:
+`BuildResult.labels["DITHER"]["zp_boot_status"]`.
+
+**Walls** are whole character cells (8x8 pixels = 4x4 superpixels, a 32x32
+grid) recorded in a 128-byte bitmap, MSB leftmost; collision/painting use the
+bitmap, not screen decoding. `draw_walls` picks one of 16 tiles by the 4-bit
+neighbour mask (N=1,E=2,S=4,W=8) and patches inner-corner pixels. The wall
+colouring is per level: a (core, rim) pair of different inks, 12 in all
+(`zp_wall_core`/`zp_wall_rim` = `WALL_INK_*`). Tiles are stored as rim masks;
+each byte is drawn as `core EOR ((core EOR rim) AND mask)`.
+`draw_walls_in_rect` draws part of the map, still taking neighbours from
+the whole map. Cells outside the arena count as walls.
+`tools/dontdither/walls.py` models this exactly and the tests compare every
+wall cell byte-for-byte.
+
 **Data flow from one source of truth:**
 
 ```
 data/ink_patterns.json            canonical pattern per state (written by solve_patterns.py)
   -> tools/dontdither/inks.py     model: states, patterns, colour mapping, MODE 1 encoding
-  -> tools/dontdither/gen_tables.py  -> build/generated/ink_tables.asm (tables, palette, STATE_* constants)
-  -> asm/main.asm INCLUDEs it; tools/dontdither/build.py runs beebasm from the project root
-  -> build/dont-dither.ssd + build/labels.txt
+  -> tools/dontdither/gen_tables.py  -> build/generated/*.asm
+       ink_tables (patterns, palette, STATE_*), screen_tables (row addresses),
+       wall_tiles (16 tiles, corner patches), testcard_data (from testcard.py)
+  -> asm/*.asm INCLUDE them; tools/dontdither/build.py runs beebasm from the project root
+  -> build/dont-dither.ssd + build/labels/<PROGRAM>.txt
 ```
 
 Change inks, palette or table layout in the Python model or generator, never
@@ -74,6 +104,9 @@ tests; they must stay consistent):
   name, never hard-coded. Only labels are exported, not `=` constants.
 
 **Beebium fixtures** (`tests/conftest.py`):
+- `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
+- After a program is ready the harness runs two more frames: screen text and
+  captured frames reflect what has been *displayed*, not screen memory.
 - `launch_bbc` is a factory, and `bbc` shadows the plugin fixture of the same
   name.
 - `booted_game` is module-scoped. It boots the disc with Shift-Break, runs in

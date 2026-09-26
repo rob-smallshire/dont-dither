@@ -63,7 +63,7 @@ def test_title_is_shown_in_hud(booted_game):
 
 def test_ink_tables_in_memory_match_the_model(booted_game, game_build, table):
     peek = booted_game.memory.address.peek
-    labels = game_build.labels
+    labels = game_build.labels["DITHER"]
     tops, bottoms = zip(*(pattern_rows_as_mode1_bytes(p) for p in table.patterns))
     assert bytes(peek[labels["state_top_bytes"]:labels["state_top_bytes"] + 35]) == bytes(tops)
     assert bytes(peek[labels["state_bottom_bytes"]:labels["state_bottom_bytes"] + 35]) == bytes(bottoms)
