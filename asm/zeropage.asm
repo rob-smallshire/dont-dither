@@ -105,6 +105,24 @@ GUARD &70
 .zp_sprite_xor      SKIP 1     \ Contrast EOR player ink byte.
 .zp_sprite_tmp      SKIP 1     \ Scratch.
 
+\ ---- Rendering and movement ---------------------------------------------------
+
+.zp_beam            SKIP 1     \ wait_for_beam: beam position, 4-line units.
+.zp_region_top      SKIP 1     \ wait_for_beam: rows a redraw touches, in
+.zp_region_bottom   SKIP 1     \ 4-line units.
+.zp_render_index    SKIP 1     \ render_sprites: entry being redrawn.
+.zp_player_mask     SKIP 1     \ update_players: player_count - 1.
+.zp_update_index    SKIP 1     \ update_players: player moving now.
+.zp_update_remaining SKIP 1    \ update_players: players still to move.
+.zp_step_player     SKIP 1     \ try_step / position_clear: moving player.
+.zp_step_dx         SKIP 1     \ try_step: step, two's complement.
+.zp_step_dy         SKIP 1
+.zp_step_clear      SKIP 1     \ try_step: which single-axis steps are clear.
+.zp_try_x           SKIP 1     \ position_clear: candidate footprint.
+.zp_try_y           SKIP 1
+.zp_other_x         SKIP 1     \ footprints_overlap: the other footprint.
+.zp_other_y         SKIP 1
+
 \ ---- Input --------------------------------------------------------------------
 
 .zp_keys          SKIP 1       \ scan_layout: held keys, up = bit 0 .. fire = 4.

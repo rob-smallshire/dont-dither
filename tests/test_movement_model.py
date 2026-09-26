@@ -62,3 +62,63 @@ def test_tank_stops_at_the_corner():
     for _ in range(20):
         game.tick([7])         # NW into the corner
     assert (game.players[0].sx, game.players[0].sy) == (0, 0)
+
+
+def rotate_player(player, turns):
+    sx, sy, facing = player.sx, player.sy, player.facing
+    for _ in range(turns):
+        sx, sy = MAX_POSITION - sy, sx
+    return (sx, sy, (facing + 2 * turns) % 8)
+
+
+def test_movement_rules_are_the_same_under_rotation():
+    """A scene and its quarter-turned copy evolve as quarter turns of each other."""
+    import random
+
+    rng = random.Random(3)
+    for trial in range(20):
+        a = Player(rng.randrange(40, 70), rng.randrange(40, 70), 0, "C")
+        b = Player(a.sx + rng.choice([-7, 6, 7]), a.sy + rng.choice([-6, 0, 6]), 0, "M")
+        inputs = [[rng.randrange(8), rng.randrange(8)] for _ in range(30)]
+        for turns in (1, 2, 3):
+            base = Game([Player(a.sx, a.sy, 0, "C"), Player(b.sx, b.sy, 0, "M")])
+            turned = Game([Player(*rotate_player(a, turns), "C"), Player(*rotate_player(b, turns), "M")])
+            for step in inputs:
+                base.tick(step)
+                turned.tick([(d + 2 * turns) % 8 for d in step])
+            for p, q in zip(base.players, turned.players):
+                assert rotate_player(p, turns) == (q.sx, q.sy, q.facing), (trial, turns)
+
+
+def test_tanks_are_solid():
+    game = Game([Player(40, 40, 2, "C"), Player(46, 40, 6, "M")])   # touching, facing each other
+    for _ in range(10):
+        game.tick([2, 6])
+    assert (game.players[0].sx, game.players[1].sx) == (40, 46)
+
+
+def test_diagonal_slides_along_a_tank():
+    # Player 1 sits east of player 0; player 0 heads SE and slides south.
+    game = Game([Player(40, 40, 3, "C"), Player(46, 40, 0, "M")])
+    for _ in range(10):
+        game.tick([3, NO_DIRECTION])
+    assert game.players[0].sx == 40 and game.players[0].sy > 40
+
+
+def test_diagonal_into_a_corner_between_tanks_stops():
+    # Both single-axis steps clear, diagonal blocked by a tank to the SE.
+    game = Game([Player(40, 40, 3, "C"), Player(46, 46, 0, "M")])
+    game.players[0].accumulator = 255
+    game.tick([3, NO_DIRECTION])
+    assert (game.players[0].sx, game.players[0].sy) == (40, 40)
+
+
+def test_first_mover_rotates_each_tick():
+    """Two tanks racing for the same cell: each tick a different one gets it."""
+    winners = []
+    for first_tick in range(2):
+        game = Game([Player(40, 40, 2, "C"), Player(47, 40, 6, "M")], ticks=first_tick)
+        game.players[0].accumulator = game.players[1].accumulator = 255
+        game.tick([2, 6])        # both step into the one-cell gap
+        winners.append((game.players[0].sx, game.players[1].sx))
+    assert winners[0] != winners[1]

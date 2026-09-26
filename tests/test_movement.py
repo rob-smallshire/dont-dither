@@ -68,6 +68,26 @@ def test_scripted_inputs_match_the_model_every_tick(game):
         assert state(bbc, labels) == model_state(model), f"after tick {tick + 1}"
 
 
+def test_tanks_never_overlap_under_random_driving(game):
+    bbc, labels, model = game
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    rng = random.Random(7)
+    # Herd the tanks towards the centre, where they jostle.
+    heading = [3, 5, 7, 1]
+    for tick in range(120):
+        inputs = [heading[p] if rng.random() < 0.7 else rng.randrange(8) for p in range(4)]
+        for p, byte in enumerate(inputs):
+            bbc.memory.address.bus[labels["player_input"] + p] = byte
+        step_ticks(bbc, labels)
+        model.tick(inputs)
+        positions = [(x, y) for x, y, _, _ in state(bbc, labels)]
+        for i in range(4):
+            for j in range(i + 1, 4):
+                (ax, ay), (bx, by) = positions[i], positions[j]
+                assert not (abs(ax - bx) < 6 and abs(ay - by) < 6), f"tanks {i} and {j} overlap"
+    assert state(bbc, labels) == model_state(model)
+
+
 def test_screen_shows_the_tanks_where_the_model_puts_them(game):
     bbc, labels, model = game
     set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
@@ -116,6 +136,18 @@ def test_releasing_keys_stops_the_tank(game):
 
 def test_game_ticks_at_25_hz(game):
     bbc, labels, _ = game
+    peek = bbc.memory.address.peek
+    start = peek.word(labels["tick_count"])
+    bbc.run_for_emulated_seconds(2.0)
+    ticks = (peek.word(labels["tick_count"]) - start) & 0xFFFF
+    assert 49 <= ticks <= 51
+
+
+def test_game_keeps_25_hz_with_all_tanks_moving(game):
+    bbc, labels, _ = game
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    for p, byte in enumerate([3, 5, 7, 1]):
+        bbc.memory.address.bus[labels["player_input"] + p] = byte
     peek = bbc.memory.address.peek
     start = peek.word(labels["tick_count"])
     bbc.run_for_emulated_seconds(2.0)

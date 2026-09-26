@@ -3,12 +3,11 @@
 \
 \ The game advances in ticks at 25 Hz, two 50 Hz video fields each. Every
 \ tick (see main_loop in main.asm):
-\   wait_for_tick    wait for two vertical syncs
+\   wait_for_tick    wait for two vertical syncs, then start the beam clock
 \   read_inputs      fill player_input for every player from its control
 \                    source (keyboard, scripted, or none)
-\   hide_sprites     restore the bare arena
 \   update_players   move and turn the players (the world update)
-\   show_sprites     save backgrounds and draw the tanks
+\   render_sprites   redraw the tanks that changed, racing the beam
 \
 \ The simulation depends only on the level and the ordered per-tick inputs,
 \ never on timing, so it is deterministic and replayable. The Python model
@@ -37,16 +36,29 @@
     JMP OSBYTE                 \ Tail call; OSBYTE returns to our caller.
 
 \ ----------------------------------------------------------------------------
-\ wait_for_tick -- wait for the start of the next tick (two vertical syncs)
+\ wait_for_tick -- wait for the vertical sync that starts the next tick
 \
 \ On exit:  A, X, Y corrupted
+\
+\ A tick is two fields. Rather than wait for two vertical syncs after the
+\ tick's work (which would make a tick three fields whenever the work runs
+\ into its second field), wait for vertical syncs until at least one and a
+\ half fields have passed since this tick started, measured by the beam
+\ timer that start_beam_timer restarted then. Ticks therefore start on
+\ every second vertical sync as long as their work fits in two fields.
 \ ----------------------------------------------------------------------------
+
+TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
 
 .wait_for_tick
     LDA #19                    \ OSBYTE 19 (*FX19): wait for vertical sync.
     JSR OSBYTE
-    LDA #19                    \ Twice: 25 ticks per second.
-    JMP OSBYTE
+    LDA #&FF                   \ Elapsed beam units since the tick started
+    SEC                        \ = &FF - timer 2's high byte.
+    SBC USER_VIA_T2_HIGH
+    CMP #TICK_MIN_UNITS
+    BCC wait_for_tick          \ Too soon: this is the tick's middle sync.
+    RTS
 
 \ ----------------------------------------------------------------------------
 \ read_inputs -- set player_input for every player from its control source
@@ -146,19 +158,26 @@
 \
 \ On exit:  A, X, Y corrupted
 \
-\ For a player with a direction: face that way; add the direction's speed
-\ to the player's accumulator; if that carries, step one superpixel,
-\ taking each axis only if it keeps the footprint in the arena (0 ..
-\ MAX_POSITION), so a tank slides along the arena edge. With no direction
-\ nothing changes.
+\ Players move one after another; the first to move rotates with the tick
+\ count (player_count is 2 or 4, so AND with player_count - 1 is MOD). For a
+\ player with a direction: face that way; add the direction's speed to the
+\ player's accumulator; if that carries, try to step (see try_step). With
+\ no direction nothing changes.
 \ ----------------------------------------------------------------------------
 
 .update_players
-    LDX #0
-.update_players_loop
-    CPX player_count
-    BEQ update_players_done
+    LDA player_count
+    SEC
+    SBC #1
+    STA zp_player_mask         \ player_count - 1: 1 or 3.
+    LDA tick_count
+    AND zp_player_mask
+    STA zp_update_index        \ First player to move this tick.
+    LDA player_count
+    STA zp_update_remaining
 
+.update_players_loop
+    LDX zp_update_index
     LDA player_input,X
     AND #DIRECTION_MASK
     CMP #NO_DIRECTION
@@ -171,25 +190,183 @@
     ADC direction_speed,Y
     STA player_accumulator,X
     BCC update_players_next
-
-    \ Step x: new = sx + dx, accepted if it is 0..MAX_POSITION. Moving left
-    \ from 0 wraps to &FF, which the unsigned compare also rejects.
-    LDA player_sx,X
-    CLC
-    ADC direction_dx,Y
-    CMP #MAX_POSITION + 1
-    BCS update_players_y
-    STA player_sx,X
-.update_players_y
-    LDA player_sy,X            \ Step y likewise.
-    CLC
-    ADC direction_dy,Y
-    CMP #MAX_POSITION + 1
-    BCS update_players_next
-    STA player_sy,X
+    JSR try_step
 
 .update_players_next
+    LDA zp_update_index        \ Next player, wrapping round.
+    CLC
+    ADC #1
+    AND zp_player_mask
+    STA zp_update_index
+    DEC zp_update_remaining
+    BNE update_players_loop
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ try_step -- step player X one superpixel in direction Y if the way is clear
+\
+\ On entry:  X = player, Y = direction
+\ On exit:   player_sx/sy updated; A, X, Y corrupted
+\
+\ An axial step is taken if clear. A diagonal step is taken whole if clear;
+\ otherwise, if exactly one of its single-axis steps is clear, that one is
+\ taken; if both or neither are, the tank stays put. The rule is the same
+\ under every rotation, so no facing is favoured.
+\ ----------------------------------------------------------------------------
+
+.try_step
+    STX zp_step_player
+    LDA direction_dx,Y
+    STA zp_step_dx
+    LDA direction_dy,Y
+    STA zp_step_dy
+
+    \ The whole step.
+    LDA player_sx,X
+    CLC
+    ADC zp_step_dx
+    STA zp_try_x
+    LDA player_sy,X
+    CLC
+    ADC zp_step_dy
+    STA zp_try_y
+    JSR position_clear
+    BCC try_step_diagonal
+    LDX zp_step_player         \ Clear: take it.
+    LDA zp_try_x
+    STA player_sx,X
+    LDA zp_try_y
+    STA player_sy,X
+    RTS
+
+.try_step_diagonal
+    \ Blocked. Only a diagonal step (both dx and dy non-zero) may slide.
+    LDA zp_step_dx
+    BEQ try_step_done
+    LDA zp_step_dy
+    BEQ try_step_done
+
+    LDX zp_step_player         \ The x-only step.
+    LDA player_sx,X
+    CLC
+    ADC zp_step_dx
+    STA zp_try_x
+    LDA player_sy,X
+    STA zp_try_y
+    JSR position_clear
+    ROL zp_step_clear          \ Bit 0 := x-only step clear.
+
+    LDX zp_step_player         \ The y-only step.
+    LDA player_sx,X
+    STA zp_try_x
+    LDA player_sy,X
+    CLC
+    ADC zp_step_dy
+    STA zp_try_y
+    JSR position_clear
+    ROL zp_step_clear          \ Bit 0 := y-only, bit 1 := x-only.
+
+    LDX zp_step_player
+    LDA zp_step_clear
+    AND #3
+    CMP #2                     \ x-only clear, y-only blocked: slide in x.
+    BNE try_step_not_x
+    LDA player_sx,X
+    CLC
+    ADC zp_step_dx
+    STA player_sx,X
+    RTS
+.try_step_not_x
+    CMP #1                     \ y-only clear, x-only blocked: slide in y.
+    BNE try_step_done
+    LDA player_sy,X
+    CLC
+    ADC zp_step_dy
+    STA player_sy,X
+.try_step_done
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ position_clear -- may player zp_step_player's footprint be at (zp_try_x,
+\ zp_try_y)?
+\
+\ On exit:  carry set if clear, clear if blocked; A, X corrupted
+\
+\ Blocked if the footprint would leave the arena (either coordinate beyond
+\ MAX_POSITION; a step left from 0 gives &FF, which the unsigned compare
+\ also rejects) or overlap another tank's footprint where that tank is now
+\ (player_sx/sy) or was drawn at the start of the tick (saved_sx/sy).
+\ Footprints overlap when both coordinate differences are under
+\ SPRITE_FOOTPRINT.
+\ ----------------------------------------------------------------------------
+
+.position_clear
+    LDA zp_try_x
+    CMP #MAX_POSITION + 1
+    BCS position_clear_blocked
+    LDA zp_try_y
+    CMP #MAX_POSITION + 1
+    BCS position_clear_blocked
+
+    LDX #0
+.position_clear_loop
+    CPX player_count
+    BEQ position_clear_yes
+    CPX zp_step_player         \ A tank never blocks itself.
+    BEQ position_clear_next
+    LDA player_sx,X            \ Against where the other tank is now...
+    STA zp_other_x
+    LDA player_sy,X
+    STA zp_other_y
+    JSR footprints_overlap
+    BCS position_clear_blocked
+    LDA saved_sx,X             \ ...and where it was drawn.
+    STA zp_other_x
+    LDA saved_sy,X
+    STA zp_other_y
+    JSR footprints_overlap
+    BCS position_clear_blocked
+.position_clear_next
     INX
-    JMP update_players_loop
-.update_players_done
+    JMP position_clear_loop
+.position_clear_yes
+    SEC
+    RTS
+.position_clear_blocked
+    CLC
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ footprints_overlap -- do footprints at (zp_try_x, zp_try_y) and
+\ (zp_other_x, zp_other_y) overlap?
+\
+\ On exit:  carry set if they overlap; A corrupted; X, Y preserved
+\ Coordinates are 0..MAX_POSITION, so differences fit in a signed byte.
+\ ----------------------------------------------------------------------------
+
+.footprints_overlap
+    LDA zp_try_x
+    SEC
+    SBC zp_other_x
+    BPL footprints_overlap_x   \ |dx|: negate if negative.
+    EOR #&FF
+    CLC
+    ADC #1
+.footprints_overlap_x
+    CMP #SPRITE_FOOTPRINT      \ Carry set if |dx| >= 6: apart.
+    BCS footprints_apart
+    LDA zp_try_y
+    SEC
+    SBC zp_other_y
+    BPL footprints_overlap_y
+    EOR #&FF
+    CLC
+    ADC #1
+.footprints_overlap_y
+    CMP #SPRITE_FOOTPRINT
+    BCS footprints_apart
+    SEC                        \ Both differences under 6: overlap.
+    RTS
+.footprints_apart
+    CLC
     RTS

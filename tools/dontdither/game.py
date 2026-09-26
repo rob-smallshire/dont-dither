@@ -10,9 +10,23 @@ Movement: a direction input sets the facing at once. Each player has an
 8-bit speed accumulator; each tick with a direction it adds the speed for
 that direction (axial or diagonal), and when the addition carries past 255
 the tank steps one superpixel in that direction. The diagonal speed is the
-axial speed divided by sqrt 2, so diagonal travel is no faster. Each axis of
-a step is taken only if it keeps the footprint inside the arena, so a tank
-slides along the arena edge. (Wall collision comes later.)
+axial speed divided by sqrt 2, so diagonal travel is no faster.
+
+A step is blocked if the tank's new footprint would leave the arena or
+overlap another tank's footprint, either where that tank is now or where it
+was at the start of the tick. (Checking both keeps every tank's old and new
+pictures clear of every other tank's, which lets the renderer redraw each
+tank on its own.) Tanks are solid: they never overlap. (Wall collision comes
+later.)
+
+Sliding: an axial step is taken if clear. A diagonal step is taken whole if
+clear; otherwise, if exactly one of its two single-axis steps is clear, that
+one is taken (the tank slides); if both or neither are clear, the tank does
+not move. This rule is the same under every rotation, so no facing is
+favoured.
+
+Order: players move one after another, and each tick the first to move
+rotates: tick t (counting from 0) starts with player t mod player_count.
 """
 
 from __future__ import annotations
@@ -59,9 +73,14 @@ class Player:
     accumulator: int = 0
 
 
+def footprints_overlap(ax: int, ay: int, bx: int, by: int) -> bool:
+    return abs(ax - bx) < FOOTPRINT and abs(ay - by) < FOOTPRINT
+
+
 @dataclass
 class Game:
     players: list[Player] = field(default_factory=list)
+    ticks: int = 0
 
     @classmethod
     def start(cls, level: Level) -> Game:
@@ -69,18 +88,44 @@ class Game:
 
     def tick(self, inputs: list[int]) -> None:
         """Advance one tick; inputs[p] is player p's input byte."""
-        for player, byte in zip(self.players, inputs):
-            direction = byte & DIRECTION_MASK
-            if direction == NO_DIRECTION:
+        count = len(self.players)
+        starts = [(p.sx, p.sy) for p in self.players]
+        first = self.ticks % count
+        for i in range(count):
+            index = (first + i) % count
+            self._move(index, inputs[index], starts)
+        self.ticks += 1
+
+    def _clear(self, index: int, x: int, y: int, starts) -> bool:
+        if not (0 <= x <= MAX_POSITION and 0 <= y <= MAX_POSITION):
+            return False
+        for other, player in enumerate(self.players):
+            if other == index:
                 continue
-            player.facing = direction
-            player.accumulator += DIAGONAL_SPEED if direction % 2 else AXIAL_SPEED
-            if player.accumulator < 256:
-                continue
-            player.accumulator -= 256
-            x = player.sx + DIRECTION_DX[direction]
-            y = player.sy + DIRECTION_DY[direction]
-            if 0 <= x <= MAX_POSITION:
-                player.sx = x
-            if 0 <= y <= MAX_POSITION:
-                player.sy = y
+            if footprints_overlap(x, y, player.sx, player.sy):
+                return False
+            if footprints_overlap(x, y, *starts[other]):
+                return False
+        return True
+
+    def _move(self, index: int, byte: int, starts) -> None:
+        player = self.players[index]
+        direction = byte & DIRECTION_MASK
+        if direction == NO_DIRECTION:
+            return
+        player.facing = direction
+        player.accumulator += DIAGONAL_SPEED if direction % 2 else AXIAL_SPEED
+        if player.accumulator < 256:
+            return
+        player.accumulator -= 256
+        dx, dy = DIRECTION_DX[direction], DIRECTION_DY[direction]
+        x, y = player.sx, player.sy
+        if self._clear(index, x + dx, y + dy, starts):
+            player.sx, player.sy = x + dx, y + dy
+        elif dx and dy:
+            x_clear = self._clear(index, x + dx, y, starts)
+            y_clear = self._clear(index, x, y + dy, starts)
+            if x_clear and not y_clear:
+                player.sx = x + dx
+            elif y_clear and not x_clear:
+                player.sy = y + dy

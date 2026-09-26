@@ -73,10 +73,23 @@ Decisions taken during development that refine or depart from
   each: 16 frames, about 1.5 KB. Colour is applied at draw time
   (contrast EOR ((contrast EOR ink) AND select)), so all players share the
   frames. Runtime shifting could halve the frame memory if space runs short.
-- Draw cycle: hide_sprites restores every saved background in reverse player
-  order; show_sprites saves then draws each player in order. Overlaps unwind
-  exactly. Measured: about 6,750 cycles to hide and 16,800 to show four
-  tanks, roughly 30% of a 25 Hz tick.
+- Tanks are solid: they cannot pass through each other, so their pictures
+  never overlap. Each tank that moved or turned is redrawn on its own
+  (restore, save, draw); the rest are untouched. Painting will write cells
+  under a tank into that tank's save buffer.
+- Flicker-free: render_sprites races the beam. The User VIA's timer 2 is
+  restarted at each tick's vertical sync as a beam clock (4-line units), and
+  each redraw waits until the beam will not reach the tank before the redraw
+  is done. Redraws are ordered by how low the tank reaches. A test captures
+  every field while tanks move and requires every tank to appear whole.
+- Rendering four moving tanks, including beam waits, takes about 42,000 to
+  47,000 cycles of the 80,000-cycle tick. The waits are idle time that
+  painting could later use.
+- The tick keeps a fixed rhythm: wait_for_tick waits for vertical syncs until
+  1.5 fields have passed since the tick started, so ticks start on every
+  second sync even when their work runs into the second field.
+- (Superseded: global hide_sprites/show_sprites each tick. They remain for a
+  level's first frame and for clearing the tanks.)
 - In two-player levels the players take inks C and Y.
 
 ## Paint splats
@@ -121,8 +134,14 @@ Decisions taken during development that refine or depart from
   diagonal 141 = 200/sqrt 2, in 1/256 superpixel per tick) and a carry means
   one step, so diagonals are no faster and no multiplication is needed.
   About 19.5 superpixels per second axially; tunable in game.py.
-- For now each axis of a step is taken only if the footprint stays inside
-  the arena, so tanks slide along its edges. Wall collision is next.
+- A step is blocked if the footprint would leave the arena or overlap another
+  tank where that tank is now or was drawn at the start of the tick (so no
+  tank's old or new picture ever touches another's). Wall collision is next.
+- Sliding, the same under every rotation: an axial step is taken if clear; a
+  diagonal step whole if clear, otherwise the one clear single-axis step if
+  exactly one is clear, otherwise none.
+- Fair order: players move one after another, and the first to move rotates
+  each tick (tick t starts with player t mod player_count).
 
 ## Input
 

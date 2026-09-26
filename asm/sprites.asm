@@ -7,13 +7,23 @@
 \ before a sprite is drawn, the screen bytes beneath it are saved, and before
 \ the world is next updated every sprite is removed by restoring those bytes.
 \
-\ The draw cycle (see the design document):
-\   hide_sprites   restore each player's saved background, in REVERSE player
-\                  order, so that where sprites overlap, the earlier sprite's
-\                  background (saved first, beneath the later sprite) is put
-\                  back last and the bare arena reappears exactly
-\   ... update the world on the bare arena ...
-\   show_sprites   for each player in order: save the background, then draw
+\ Tanks are solid, so their pictures never overlap, and the movement rules
+\ keep each tank's old and new footprints clear of every other tank's (see
+\ position_clear in game.asm). So each tank can be redrawn on its own:
+\ render_sprites redraws just the tanks that moved or turned, each by
+\ restore (old background), save (new background), draw. The world (paint)
+\ can then be updated without hiding the tanks: a cell under a tank lives in
+\ that tank's save buffer until the tank moves off it.
+\
+\ Flicker: while a tank is being redrawn it is briefly missing from the
+\ screen. render_sprites races the beam: each redraw waits until the video
+\ beam is somewhere it will not reach the tank before the redraw is done,
+\ so the gap is never scanned out. The beam position is timed from vertical
+\ sync by the User VIA's timer 2 (see start_beam_timer).
+\
+\ show_sprites (save and draw everything) and hide_sprites (restore
+\ everything, in reverse order) remain for drawing a level's first frame
+\ and for clearing the tanks away.
 \
 \ Screen footprint: a sprite covers raster lines 2*sy .. 2*sy+11 and pixel
 \ columns 2*sx .. 2*sx+11. For even sx it starts at the left of screen byte
@@ -137,6 +147,223 @@ MAX_PLAYERS = 4
     LDA #0
     STA sprites_shown
 .hide_sprites_done
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ Beam timing
+\
+\ MODE 1 has 312 raster lines per field: visible lines 0..255, then vertical
+\ sync starting at line 272 (CRTC R7 = 34 character rows). The User VIA's
+\ timer 2 counts down at 1 MHz; started at &FFFF just after vertical sync,
+\ its high byte falls by one every 256 us, which is 4 raster lines (64 us
+\ per line). We work in these 4-line units: a field is 78 units, the
+\ visible area units 0..63, and vertical sync is unit 68. So the beam is at
+\ unit (68 + elapsed units) MOD 78.
+\ ----------------------------------------------------------------------------
+
+USER_VIA_T2_LOW  = &FE68
+USER_VIA_T2_HIGH = &FE69
+USER_VIA_ACR     = &FE6B
+USER_VIA_IER     = &FE6E
+
+BEAM_FIELD_UNITS = 78          \ 312 lines / 4.
+BEAM_VSYNC_UNIT  = 68          \ Line 272 / 4.
+BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
+                               \ 6,000 cycles = 3,000 us = 12 units) with a
+                               \ margin.
+
+\ ----------------------------------------------------------------------------
+\ init_beam_timer -- set up the User VIA's timer 2 as a free-running clock
+\ start_beam_timer -- restart it; call just after vertical sync
+\ ----------------------------------------------------------------------------
+
+.init_beam_timer
+    LDA USER_VIA_ACR           \ ACR bit 5 = 0: timer 2 counts clock
+    AND #&DF                   \ cycles (one-shot mode).
+    STA USER_VIA_ACR
+    LDA #&20                   \ IER bit 7 = 0 with bit 5: disable timer 2
+    STA USER_VIA_IER           \ interrupts; we only read the counter.
+    \ Fall through to start it.
+.start_beam_timer
+    LDA #&FF
+    STA USER_VIA_T2_LOW        \ Low byte of the count (latched)...
+    STA USER_VIA_T2_HIGH       \ ...writing the high byte loads and starts.
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ beam_unit -- where is the beam now?
+\
+\ On exit:  A = beam position in 4-line units, 0..77 (0 = top visible line)
+\ ----------------------------------------------------------------------------
+
+.beam_unit
+    LDA #&FF                   \ Elapsed units = &FF - count high byte.
+    SEC
+    SBC USER_VIA_T2_HIGH
+    CLC
+    ADC #BEAM_VSYNC_UNIT       \ Units since line 0 of the current field...
+.beam_unit_wrap
+    CMP #BEAM_FIELD_UNITS      \ ...reduced MOD 78 (a tick is at most two
+    BCC beam_unit_done         \ fields, so this loops at most three times).
+    SBC #BEAM_FIELD_UNITS      \ Carry is set here, as SBC needs.
+    JMP beam_unit_wrap
+.beam_unit_done
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ wait_for_beam -- wait until a redraw of rows zp_region_top..bottom is safe
+\
+\ On entry:  zp_region_top, zp_region_bottom = the rows the redraw touches,
+\            in 4-line beam units
+\ On exit:   A corrupted
+\
+\ Safe when the beam is not inside the region and will not reach its top
+\ within BEAM_REDRAW_UNITS: distance to top = (top - beam) MOD 78.
+\ ----------------------------------------------------------------------------
+
+.wait_for_beam
+    JSR beam_unit
+    STA zp_beam
+    CMP zp_region_top          \ Inside the region (top <= beam <= bottom)?
+    BCC wait_for_beam_outside
+    LDA zp_region_bottom
+    CMP zp_beam
+    BCS wait_for_beam          \ Yes: wait.
+.wait_for_beam_outside
+    LDA zp_region_top          \ Distance until the beam reaches the top.
+    SEC
+    SBC zp_beam
+    BCS wait_for_beam_distance
+    ADC #BEAM_FIELD_UNITS      \ (top - beam) was negative: wrap round.
+.wait_for_beam_distance
+    CMP #BEAM_REDRAW_UNITS + 1
+    BCC wait_for_beam          \ Too close: wait.
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ render_sprites -- redraw every tank that moved or turned, racing the beam
+\
+\ On exit:  A, X, Y corrupted
+\
+\ Each such tank is restored from its save buffer, then saved and drawn at
+\ its new position, once wait_for_beam says the rows covering both its old
+\ and new footprints are safe. Tanks are redrawn in order of how low on
+\ screen they reach, so the beam, travelling down, is passed as rarely as
+\ possible.
+\ ----------------------------------------------------------------------------
+
+.render_sprites
+    \ Collect the tanks needing a redraw, with each one's lowest row (the
+    \ larger of old and new sy) as its sort key.
+    LDY #0                     \ Y = number collected.
+    LDX #0
+.render_collect
+    CPX player_count
+    BEQ render_sort
+    LDA player_sx,X
+    CMP saved_sx,X
+    BNE render_collect_add
+    LDA player_sy,X
+    CMP saved_sy,X
+    BNE render_collect_add
+    LDA player_facing,X
+    CMP drawn_facing,X
+    BEQ render_collect_next
+.render_collect_add
+    TXA
+    STA render_list,Y
+    LDA player_sy,X
+    CMP saved_sy,X
+    BCS render_collect_key     \ A = max(player_sy, saved_sy).
+    LDA saved_sy,X
+.render_collect_key
+    STA render_key,Y
+    INY
+.render_collect_next
+    INX
+    JMP render_collect
+
+.render_sort
+    STY render_count
+    \ Sort the (at most four) entries by key: a simple exchange sort.
+    LDX #0
+.render_sort_outer
+    TXA
+    CLC
+    ADC #1
+    CMP render_count
+    BCS render_draw            \ X reached the last entry.
+    TAY
+.render_sort_inner
+    CPY render_count
+    BEQ render_sort_next
+    LDA render_key,Y
+    CMP render_key,X
+    BCS render_sort_no_swap
+    PHA                        \ Swap entries X and Y.
+    LDA render_key,X
+    STA render_key,Y
+    PLA
+    STA render_key,X
+    LDA render_list,Y
+    PHA
+    LDA render_list,X
+    STA render_list,Y
+    PLA
+    STA render_list,X
+.render_sort_no_swap
+    INY
+    JMP render_sort_inner
+.render_sort_next
+    INX
+    JMP render_sort_outer
+
+.render_draw
+    LDA #0
+    STA zp_render_index
+.render_draw_loop
+    LDX zp_render_index
+    CPX render_count
+    BEQ render_done
+    LDA render_list,X
+    TAX
+    STX zp_player
+
+    \ Region: from the higher of old and new top rows to the lower of the
+    \ bottoms, in beam units. Superpixel row sy starts at raster line 2*sy,
+    \ unit sy DIV 2; a footprint ends 12 lines lower. One unit of margin
+    \ each side covers the timer's granularity.
+    LDA player_sy,X
+    CMP saved_sy,X
+    BCC render_top
+    LDA saved_sy,X             \ A = min(player_sy, saved_sy).
+.render_top
+    LSR A
+    BEQ render_top_store
+    SEC
+    SBC #1
+.render_top_store
+    STA zp_region_top
+    LDX zp_render_index
+    LDA render_key,X           \ max(sy): bottom = (2*sy + 12) DIV 4 + 1
+    CLC                        \ = (sy + 6) DIV 2 + 1, plus 1 margin.
+    ADC #6
+    LSR A
+    CLC
+    ADC #2
+    STA zp_region_bottom
+
+    JSR wait_for_beam
+    LDX zp_player
+    JSR restore_under
+    LDX zp_player
+    JSR save_under
+    LDX zp_player
+    JSR draw_sprite
+
+    INC zp_render_index
+    JMP render_draw_loop
+.render_done
     RTS
 
 \ ----------------------------------------------------------------------------
@@ -286,6 +513,9 @@ MAX_PLAYERS = 4
 \ ----------------------------------------------------------------------------
 
 .draw_sprite
+    LDA player_facing,X        \ Remember the facing drawn, so render_sprites
+    STA drawn_facing,X         \ can tell when the tank turns.
+
     \ Colours: zp_sprite_contrast = contrast ink byte; zp_sprite_xor =
     \ contrast EOR player ink, so contrast EOR (xor AND select) picks the
     \ player's ink where select is set.

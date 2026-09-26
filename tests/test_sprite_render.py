@@ -1,11 +1,12 @@
-"""Tanks are drawn, moved and removed exactly, including where they overlap.
+"""Tanks are drawn, moved and redrawn exactly, including when touching.
 
 One machine boots the game (level 0, four tanks at their starts). All players
 are put under scripted control with no input, so nothing moves by itself.
 Tests move tanks by writing player_sx/sy/facing between ticks and running one
 tick (which restores the old backgrounds and draws the tanks anew), then
 compare the whole arena in screen memory with the model: the bare arena with
-the tanks composited in player order.
+the tanks composited in player order. Tanks are solid, so test positions never
+overlap another tank's old or new footprint.
 """
 
 import random
@@ -88,29 +89,32 @@ def test_tank_moves_in_every_facing_and_alignment(game, sx, facing):
     assert_screen_matches(bbc, player_table(bbc, labels))
 
 
-def test_overlapping_tanks_draw_in_player_order(game):
+def overlaps(ax, ay, bx, by):
+    return abs(ax - bx) < 6 and abs(ay - by) < 6
+
+
+def test_touching_tanks_redraw_cleanly(game):
     bbc, labels = game
     move(bbc, labels, 0, 60, 60, 2)
-    move(bbc, labels, 1, 63, 62, 6)          # overlaps player 0
+    move(bbc, labels, 1, 66, 60, 6)          # touching player 0's east side
+    move(bbc, labels, 2, 60, 66, 0)          # touching player 0's south side
     assert_screen_matches(bbc, player_table(bbc, labels))
-
-
-def test_separating_overlapped_tanks_leaves_no_residue(game):
-    bbc, labels = game
-    move(bbc, labels, 0, 60, 60, 2)
-    move(bbc, labels, 1, 63, 62, 6)
-    move(bbc, labels, 0, 20, 70, 0)
-    move(bbc, labels, 1, 90, 70, 4)
+    move(bbc, labels, 1, 70, 64, 5)          # and move one away again
     assert_screen_matches(bbc, player_table(bbc, labels))
 
 
 def test_random_moves_soak(game):
-    """Many moves, often overlapping; the arena must stay exact throughout."""
+    """Many teleports in a crowded region; the arena must stay exact."""
     bbc, labels = game
     rng = random.Random(1234)
-    for _ in range(25):
+    moves = 0
+    while moves < 25:
+        players = player_table(bbc, labels)
         player = rng.randrange(4)
-        sx = rng.randrange(30, 60)            # a crowded region, so tanks overlap
-        sy = rng.randrange(40, 70)
+        sx, sy = rng.randrange(30, 70), rng.randrange(40, 80)
+        others = [p for i, p in enumerate(players) if i != player]
+        if any(overlaps(sx, sy, ox, oy) for ox, oy, _, _ in others):
+            continue
         move(bbc, labels, player, sx, sy, rng.randrange(8))
         assert_screen_matches(bbc, player_table(bbc, labels))
+        moves += 1

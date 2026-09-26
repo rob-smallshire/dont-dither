@@ -49,6 +49,7 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
 
     JSR init_display           \ MODE 1, cursor off, CMYK palette.
     JSR init_keyboard          \ Cursor keys and COPY as plain keys.
+    JSR init_beam_timer        \ User VIA timer 2 as a beam clock.
 
     LDA #0                     \ Start with the first level.
     STA zp_level
@@ -107,11 +108,11 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
 \ ----------------------------------------------------------------------------
 
 .main_loop
-    JSR wait_for_tick          \ Two vertical syncs.
+    JSR wait_for_tick          \ Two vertical syncs...
+    JSR start_beam_timer       \ ...then time the beam from here.
     JSR read_inputs            \ player_input from keyboard or script.
-    JSR hide_sprites           \ Bare arena...
-    JSR update_players         \ ...update the world on it...
-    JSR show_sprites           \ ...then the tanks back on top.
+    JSR update_players         \ Move and turn the tanks.
+    JSR render_sprites         \ Redraw those that changed, racing the beam.
     INC tick_count             \ Count ticks (16 bits).
     BNE tick_done
     INC tick_count+1
@@ -207,6 +208,10 @@ INCLUDE "build/generated/game_data.asm"
 .player_control   SKIP MAX_PLAYERS \ CONTROL_NONE, _KEYS_A, _KEYS_B, _SCRIPTED.
 .player_input     SKIP MAX_PLAYERS \ This tick's input byte (see game.asm).
 .player_accumulator SKIP MAX_PLAYERS \ Movement speed accumulator.
+.drawn_facing     SKIP MAX_PLAYERS \ Facing each tank was last drawn with.
+.render_count     SKIP 1       \ render_sprites: tanks to redraw this tick.
+.render_list      SKIP MAX_PLAYERS \ render_sprites: their player numbers,
+.render_key       SKIP MAX_PLAYERS \ and lowest rows, sorted.
 .tick_count       SKIP 2       \ Ticks since the level started.
 
 .sprite_save_buffers
