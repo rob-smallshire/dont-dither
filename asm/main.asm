@@ -6,7 +6,7 @@
 \ program, saved as DITHER.
 \
 \ CURRENT STAGE: tanks driven by the keyboard, blocked by walls and each
-\ other. The program
+\ other, firing splats that paint the arena. The program
 \   1. selects MODE 1, hides the cursor, programs the CMYK palette and makes
 \      the cursor keys plain keys,
 \   2. enters level 0 (see enter_level): fills the arena with the level's
@@ -14,8 +14,9 @@
 \      its symmetry, draws them in the level's colouring, shows the title
 \      and level name in the HUD, and draws each player's tank at its start,
 \   3. sets zp_boot_status to BOOT_READY and runs the 25 Hz main loop, in
-\      which players move and turn under keyboard control (player 1: W A S
-\      D, player 2: cursor keys; see tools/dontdither/controls.py).
+\      which players move, turn and fire under keyboard control (player 1:
+\      W A S D and SHIFT, player 2: cursor keys and COPY; see
+\      tools/dontdither/controls.py), painting the arena.
 \
 \ Test hooks: the label tick_done is reached once per tick, between ticks,
 \ with the tanks drawn; tests step the simulation by running to it. Stopped
@@ -123,7 +124,8 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     JSR start_beam_timer       \ ...then time the beam from here.
     JSR read_inputs            \ player_input from keyboard or script.
     JSR update_players         \ Move and turn the tanks.
-    JSR render_sprites         \ Redraw those that changed, racing the beam.
+    JSR fire_players           \ Shoot: splats paint the arena.
+    JSR render_sprites         \ Redraw tanks that changed, racing the beam.
     INC tick_count             \ Count ticks (16 bits).
     BNE tick_done
     INC tick_count+1
@@ -191,12 +193,14 @@ INCLUDE "asm/walls.asm"
 INCLUDE "asm/level.asm"
 INCLUDE "asm/sprites.asm"
 INCLUDE "asm/game.asm"
+INCLUDE "asm/paint.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
 INCLUDE "build/generated/level_data.asm"
 INCLUDE "build/generated/sprite_data.asm"
 INCLUDE "build/generated/game_data.asm"
+INCLUDE "build/generated/paint_data.asm"
 
 .end
 
@@ -224,6 +228,13 @@ INCLUDE "build/generated/game_data.asm"
 .render_list      SKIP MAX_PLAYERS \ render_sprites: their player numbers,
 .render_key       SKIP MAX_PLAYERS \ and lowest rows, sorted.
 .tick_count       SKIP 2       \ Ticks since the level started.
+.player_cooldown  SKIP MAX_PLAYERS \ Ticks until the player may fire again.
+.player_variant   SKIP MAX_PLAYERS \ The player's next splat variant.
+.player_last_victim SKIP MAX_PLAYERS \ Round-robin: last ink painted over.
+.player_repaint   SKIP MAX_PLAYERS \ Non-zero: redraw the tank (the arena
+                               \ under it was painted).
+.splat_blocked    SKIP SPLAT_MAX_NODES \ fire_splat: which tree nodes are
+                               \ shadowed by walls.
 
 .sprite_save_buffers
     SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.

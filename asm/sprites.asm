@@ -91,6 +91,11 @@ MAX_PLAYERS = 4
     STA player_input,Y
     LDA #0
     STA player_accumulator,Y
+    STA player_cooldown,Y
+    STA player_variant,Y
+    STA player_repaint,Y
+    LDA player_ink,Y           \ Round-robin starts after the player's own ink.
+    STA player_last_victim,Y
     INX                        \ Next four-byte slot record.
     INX
     INX
@@ -268,8 +273,12 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     BNE render_collect_add
     LDA player_facing,X
     CMP drawn_facing,X
+    BNE render_collect_add
+    LDA player_repaint,X       \ Or the arena under it was painted.
     BEQ render_collect_next
 .render_collect_add
+    LDA #0                     \ The redraw will show the paint.
+    STA player_repaint,X
     TXA
     STA render_list,Y
     LDA player_sy,X

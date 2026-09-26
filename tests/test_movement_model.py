@@ -15,6 +15,8 @@ from dontdither.game import (
 )
 
 UP, DOWN, LEFT, RIGHT, FIRE = 1, 2, 4, 8, 16
+STILL = NO_DIRECTION
+STILL_FIRE = NO_DIRECTION | FIRE_BIT
 
 
 def test_keys_map_to_eight_directions_and_cancel():
@@ -147,3 +149,53 @@ def test_footprint_covers_two_or_three_wall_cells_each_way():
     from dontdither.game import footprint_wall_cells
     assert len(footprint_wall_cells(0, 0)) == 4        # 0..5: cells 0, 1
     assert len(footprint_wall_cells(3, 3)) == 9        # 3..8: cells 0, 1, 2
+
+
+def test_players_fire_on_ticks_of_their_own_parity():
+    """Player 1 holding fire from tick 0 first shoots on tick 1, when
+    (tick + player) is even."""
+    from dontdither.levels import load_levels
+
+    game = Game.start(load_levels()[0])
+    for p in game.players:
+        p.facing = 2
+    fired = []
+    for _ in range(3):
+        before = dict(game.cells)
+        game.tick([STILL, STILL_FIRE, STILL, STILL])
+        fired.append(game.cells != before)
+    assert fired == [False, True, False]
+
+
+def test_holding_fire_shoots_every_fire_period_ticks():
+    from dontdither.game import FIRE_PERIOD
+    from dontdither.levels import load_levels
+
+    game = Game.start(load_levels()[0])
+    shots = []
+    for t in range(3 * FIRE_PERIOD):
+        before = dict(game.cells)
+        game.tick([NO_DIRECTION | FIRE_BIT, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION])
+        if game.cells != before:
+            shots.append(t)
+    assert shots == [0, FIRE_PERIOD, 2 * FIRE_PERIOD]
+
+
+def test_a_shot_moves_its_cells_one_quantum_towards_the_shooter():
+    from dontdither.levels import load_levels
+
+    game = Game.start(load_levels()[0])
+    game.players[0].facing = 2        # east, into open space (SE hits a wall)
+    game.tick([NO_DIRECTION | FIRE_BIT, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION])
+    changed = [s for s in game.cells.values() if s != (1, 1, 1, 1)]
+    assert len(changed) == 16
+    assert all(s[0] == 2 and sum(s) == 4 for s in changed)
+
+
+def test_a_shot_at_a_wall_is_shadowed():
+    from dontdither.levels import load_levels
+
+    game = Game.start(load_levels()[0])        # player 0 faces SE, at a wall
+    game.tick([NO_DIRECTION | FIRE_BIT, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION])
+    changed = [s for s in game.cells.values() if s != (1, 1, 1, 1)]
+    assert 0 < len(changed) < 16

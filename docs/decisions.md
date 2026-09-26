@@ -145,6 +145,22 @@ Decisions taken during development that refine or depart from
 - Fair order: players move one after another, and the first to move rotates
   each tick (tick t starts with player t mod player_count).
 
+## Firing and painting
+
+- Holding fire shoots every FIRE_PERIOD (6) ticks, about 4 shots a second.
+  Shots happen after all movement in the tick, in the same rotating player
+  order, from each tank's new position and facing.
+- Players shoot only on ticks of their own parity ((tick + player) even), so
+  at most half the players shoot in a tick. This keeps painting within the
+  tick budget (each shot costs about 13,000 cycles); as FIRE_PERIOD is even,
+  a held fire is never delayed, and a new press waits at most one tick.
+- A cell under a tank is painted in that tank's save buffer (the arena
+  beneath it), and the tank is flagged for a redraw so the change shows.
+- Restores are masked to the tank's footprint, so tanks side by side that
+  share a screen byte column never disturb each other.
+- Measured worst tick with all four players driving and firing: about
+  58,600 of 80,000 cycles.
+
 ## Input
 
 - Keyboard only for now. Beebium does not yet emulate joysticks, and the

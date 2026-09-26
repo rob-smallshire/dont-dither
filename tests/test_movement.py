@@ -143,10 +143,10 @@ def test_game_ticks_at_25_hz(game):
     assert 49 <= ticks <= 51
 
 
-def test_game_keeps_25_hz_with_all_tanks_moving(game):
+def test_game_keeps_25_hz_with_all_tanks_moving_and_firing(game):
     bbc, labels, _ = game
     set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
-    for p, byte in enumerate([3, 5, 7, 1]):
+    for p, byte in enumerate([3 | 0x10, 5 | 0x10, 7 | 0x10, 1 | 0x10]):
         bbc.memory.address.bus[labels["player_input"] + p] = byte
     peek = bbc.memory.address.peek
     start = peek.word(labels["tick_count"])

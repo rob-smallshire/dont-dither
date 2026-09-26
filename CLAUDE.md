@@ -76,6 +76,15 @@ updated between the two. Frames (mask + select planes, from
 self-modifying abs,X operands. `tools/dontdither/render.py` models the whole
 arena with tanks for byte-exact tests.
 
+**Painting** (`asm/paint.asm`): after movement, players fire in the same
+rotating order. A shot walks its splat's ray tree (rotated per facing),
+blocking nodes in walls or behind blocked parents, and applies one quantum
+(round-robin victim) to each unblocked splat cell. A cell inside a tank's
+drawn footprint is painted in that tank's save buffer and the tank is
+flagged for redraw. `tools/dontdither/game.py` models all of it; tests
+compare every arena byte with `render.arena_screen(level, model.cells)`
+plus tanks.
+
 **Data flow from one source of truth:**
 
 ```
@@ -84,7 +93,8 @@ data/ink_patterns.json            canonical pattern per state (written by solve_
   -> tools/dontdither/gen_tables.py  -> build/generated/*.asm
        ink_tables (patterns, palette, STATE_*), screen_tables (row addresses),
        wall_tiles (16 tiles, corner patches), testcard_data (from testcard.py),
-       level_data (from levels/*.lvl), sprite_data (from sprites/tank.spr)
+       level_data (from levels/*.lvl), sprite_data (from sprites/tank.spr),
+       game_data (controls, speeds), paint_data (state arithmetic, splat trees)
   -> asm/*.asm INCLUDE them; tools/dontdither/build.py runs beebasm from the project root
   -> build/dont-dither.ssd + build/labels/<PROGRAM>.txt
 ```

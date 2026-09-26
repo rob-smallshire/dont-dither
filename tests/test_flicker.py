@@ -1,4 +1,5 @@
-"""Tanks never flicker: every video field shows every tank whole.
+"""Tanks never flicker: every video field shows every tank whole, while they
+drive and fire (shots painting under tanks force extra redraws).
 
 The game redraws a tank by restoring its background, then drawing it anew;
 in between it is missing from screen memory. render_sprites races the beam
@@ -51,7 +52,7 @@ def test_every_field_shows_every_tank_whole(game):
     picture = load_tank()
     for p in range(4):
         bbc.memory.address.bus[labels["player_control"] + p] = CONTROL_SCRIPTED
-        bbc.memory.address.bus[labels["player_input"] + p] = [3, 5, 7, 1][p]   # towards the centre
+        bbc.memory.address.bus[labels["player_input"] + p] = [3, 5, 7, 1][p] | 0x10   # to the centre, firing
 
     # Capture a frame every field, and record the tanks' positions at every
     # tick boundary. A frame captured after state k was recorded may show any

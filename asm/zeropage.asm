@@ -126,6 +126,36 @@ GUARD &70
 .zp_wall_cx1        SKIP 1     \ covers, columns cx0..cx1 and rows up to
 .zp_wall_cy1        SKIP 1     \ cy1.
 
+\ ---- Painting -----------------------------------------------------------------
+
+.zp_shooter         SKIP 1     \ fire_splat: the player shooting.
+.zp_painter_ink     SKIP 1     \ The shooter's ink (0 = C .. 3 = K).
+.zp_last_victim     SKIP 1     \ The shooter's round-robin position.
+.zp_shot_x          SKIP 1     \ The shooter's footprint top-left.
+.zp_shot_y          SKIP 1
+.zp_shot_base       SKIP 1     \ 0: tree drawn for E; 1: for NE.
+.zp_shot_turns      SKIP 1     \ Quarter turns from the stored tree.
+.zp_tree_ptr        SKIP 2     \ The splat tree.
+.zp_tree_nodes      SKIP 1     \ Its node count.
+.zp_node_index      SKIP 1     \ Node being processed...
+.zp_node_offset     SKIP 1     \ ...and its byte offset in the tree.
+.zp_node_dx         SKIP 1     \ Its cell offset, rotated.
+.zp_node_dy         SKIP 1
+.zp_node_parent     SKIP 1     \ Its parent index | SPLAT_PAINTS.
+.zp_cell_x          SKIP 1     \ paint_cell: the cell.
+.zp_cell_y          SKIP 1
+.zp_cell_ptr        SKIP 2     \ Where its bytes live (screen or buffer)...
+.zp_cell_top_offset SKIP 1     \ ...with these offsets for the top and
+.zp_cell_bottom_offset SKIP 1  \ bottom raster bytes.
+.zp_cell_mask       SKIP 1     \ &CC (even x) or &33 (odd x).
+.zp_cell_top        SKIP 1     \ The two raster bytes as read.
+.zp_cell_bottom     SKIP 1
+.zp_cell_index      SKIP 1     \ pattern_to_state index being built.
+.zp_cell_row        SKIP 1     \ Row / byte column within a save buffer.
+.zp_cell_column     SKIP 1
+.zp_cell_state      SKIP 1     \ The cell's ink state before painting...
+.zp_count_base      SKIP 1     \ ...and state * 4, its state_counts offset.
+
 \ ---- Input --------------------------------------------------------------------
 
 .zp_keys          SKIP 1       \ scan_layout: held keys, up = bit 0 .. fire = 4.
