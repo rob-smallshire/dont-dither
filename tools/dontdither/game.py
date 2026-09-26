@@ -12,12 +12,13 @@ that direction (axial or diagonal), and when the addition carries past 255
 the tank steps one superpixel in that direction. The diagonal speed is the
 axial speed divided by sqrt 2, so diagonal travel is no faster.
 
-A step is blocked if the tank's new footprint would leave the arena or
-overlap another tank's footprint, either where that tank is now or where it
-was at the start of the tick. (Checking both keeps every tank's old and new
-pictures clear of every other tank's, which lets the renderer redraw each
-tank on its own.) Tanks are solid: they never overlap. (Wall collision comes
-later.)
+A step is blocked if the tank's new footprint would leave the arena, cover
+any part of a wall cell, or overlap another tank's footprint, either where
+that tank is now or where it was at the start of the tick. (Checking both
+keeps every tank's old and new pictures clear of every other tank's, which
+lets the renderer redraw each tank on its own.) Tanks are solid: they never
+overlap. A footprint at superpixel (x, y) covers wall cells x DIV 4 ..
+(x + 5) DIV 4 across and likewise down.
 
 Sliding: an axial step is taken if clear. A diagonal step is taken whole if
 clear; otherwise, if exactly one of its two single-axis steps is clear, that
@@ -34,6 +35,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from dontdither.levels import Level
+from dontdither.walls import WallCells
 
 NO_DIRECTION = 0x08
 DIRECTION_MASK = 0x0F
@@ -77,14 +79,22 @@ def footprints_overlap(ax: int, ay: int, bx: int, by: int) -> bool:
     return abs(ax - bx) < FOOTPRINT and abs(ay - by) < FOOTPRINT
 
 
+def footprint_wall_cells(x: int, y: int) -> list[tuple[int, int]]:
+    """The wall cells a footprint at superpixel (x, y) covers."""
+    return [(cx, cy) for cy in range(y // 4, (y + FOOTPRINT - 1) // 4 + 1)
+            for cx in range(x // 4, (x + FOOTPRINT - 1) // 4 + 1)]
+
+
 @dataclass
 class Game:
     players: list[Player] = field(default_factory=list)
     ticks: int = 0
+    walls: WallCells = frozenset()
 
     @classmethod
     def start(cls, level: Level) -> Game:
-        return cls([Player(s.sx, s.sy, s.facing, ink) for s, ink in zip(level.starts(), level.player_inks())])
+        return cls([Player(s.sx, s.sy, s.facing, ink) for s, ink in zip(level.starts(), level.player_inks())],
+                   walls=level.wall_cells())
 
     def tick(self, inputs: list[int]) -> None:
         """Advance one tick; inputs[p] is player p's input byte."""
@@ -98,6 +108,8 @@ class Game:
 
     def _clear(self, index: int, x: int, y: int, starts) -> bool:
         if not (0 <= x <= MAX_POSITION and 0 <= y <= MAX_POSITION):
+            return False
+        if any(cell in self.walls for cell in footprint_wall_cells(x, y)):
             return False
         for other, player in enumerate(self.players):
             if other == index:

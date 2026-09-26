@@ -136,7 +136,9 @@ Decisions taken during development that refine or depart from
   About 19.5 superpixels per second axially; tunable in game.py.
 - A step is blocked if the footprint would leave the arena or overlap another
   tank where that tank is now or was drawn at the start of the tick (so no
-  tank's old or new picture ever touches another's). Wall collision is next.
+  tank's old or new picture ever touches another's), or cover any part of a
+  wall cell. A footprint at superpixel (x, y) covers wall cells x DIV 4 ..
+  (x + 5) DIV 4 across and likewise down, checked against the wall map.
 - Sliding, the same under every rotation: an axial step is taken if clear; a
   diagonal step whole if clear, otherwise the one clear single-axis step if
   exactly one is clear, otherwise none.

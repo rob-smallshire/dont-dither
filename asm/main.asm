@@ -5,7 +5,8 @@
 \ why INCLUDE paths are relative to the root). The disc's !BOOT runs this
 \ program, saved as DITHER.
 \
-\ CURRENT STAGE: tanks driven by the keyboard. The program
+\ CURRENT STAGE: tanks driven by the keyboard, blocked by walls and each
+\ other. The program
 \   1. selects MODE 1, hides the cursor, programs the CMYK palette and makes
 \      the cursor keys plain keys,
 \   2. enters level 0 (see enter_level): fills the arena with the level's

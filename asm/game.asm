@@ -301,10 +301,14 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
 \
 \ Blocked if the footprint would leave the arena (either coordinate beyond
 \ MAX_POSITION; a step left from 0 gives &FF, which the unsigned compare
-\ also rejects) or overlap another tank's footprint where that tank is now
-\ (player_sx/sy) or was drawn at the start of the tick (saved_sx/sy).
-\ Footprints overlap when both coordinate differences are under
-\ SPRITE_FOOTPRINT.
+\ also rejects), cover any part of a wall cell, or overlap another tank's
+\ footprint where that tank is now (player_sx/sy) or was drawn at the start
+\ of the tick (saved_sx/sy). Footprints overlap when both coordinate
+\ differences are under SPRITE_FOOTPRINT.
+\
+\ Walls: a footprint at superpixel (x, y) covers wall cells x DIV 4 ..
+\ (x + 5) DIV 4 across and y DIV 4 .. (y + 5) DIV 4 down: two or three each
+\ way. Each is tested against the wall map with is_wall.
 \ ----------------------------------------------------------------------------
 
 .position_clear
@@ -314,6 +318,40 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     LDA zp_try_y
     CMP #MAX_POSITION + 1
     BCS position_clear_blocked
+
+    \ Wall cells covered: columns zp_wall_cx0..zp_wall_cx1, rows from
+    \ zp_wall_cy (counting up) to zp_wall_cy1.
+    LDA zp_try_x
+    LSR A
+    LSR A
+    STA zp_wall_cx0
+    LDA zp_try_x
+    CLC
+    ADC #SPRITE_FOOTPRINT - 1
+    LSR A
+    LSR A
+    STA zp_wall_cx1
+    LDA zp_try_y
+    CLC
+    ADC #SPRITE_FOOTPRINT - 1
+    LSR A
+    LSR A
+    STA zp_wall_cy1
+    LDA zp_try_y
+    LSR A
+    LSR A
+    TAY                        \ Y = wall row.
+.position_clear_wall_row
+    LDX zp_wall_cx0            \ X = wall column.
+.position_clear_wall_cell
+    JSR is_wall                \ Preserves X and Y; Z clear for a wall.
+    BNE position_clear_blocked
+    CPX zp_wall_cx1
+    INX
+    BCC position_clear_wall_cell   \ Carry from CPX: X was below cx1.
+    CPY zp_wall_cy1
+    INY
+    BCC position_clear_wall_row
 
     LDX #0
 .position_clear_loop

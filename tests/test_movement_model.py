@@ -122,3 +122,28 @@ def test_first_mover_rotates_each_tick():
         game.tick([2, 6])        # both step into the one-cell gap
         winners.append((game.players[0].sx, game.players[1].sx))
     assert winners[0] != winners[1]
+
+
+def test_walls_stop_tanks():
+    # A wall cell at (10, 10) covers superpixels 40..43; a tank moving east
+    # at sy 40 stops with its footprint (sx..sx+5) just short of it.
+    game = Game([Player(20, 40, 2, "C")], walls=frozenset({(10, 10)}))
+    for _ in range(40):
+        game.tick([2])
+    assert game.players[0].sx == 34
+
+
+def test_diagonal_slides_along_a_wall():
+    # A wall along row 10 (superpixels 40..43) below a tank heading SE.
+    wall = frozenset((cx, 10) for cx in range(32))
+    game = Game([Player(20, 30, 3, "C")], walls=wall)
+    for _ in range(40):
+        game.tick([3])
+    player = game.players[0]
+    assert player.sy == 34 and player.sx > 30
+
+
+def test_footprint_covers_two_or_three_wall_cells_each_way():
+    from dontdither.game import footprint_wall_cells
+    assert len(footprint_wall_cells(0, 0)) == 4        # 0..5: cells 0, 1
+    assert len(footprint_wall_cells(3, 3)) == 9        # 3..8: cells 0, 1, 2

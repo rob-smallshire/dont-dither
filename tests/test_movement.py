@@ -153,3 +153,45 @@ def test_game_keeps_25_hz_with_all_tanks_moving(game):
     bbc.run_for_emulated_seconds(2.0)
     ticks = (peek.word(labels["tick_count"]) - start) & 0xFFFF
     assert 49 <= ticks <= 51
+
+
+def test_a_tank_driven_into_a_wall_stops_short_of_it(game):
+    bbc, labels, model = game
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    inputs = [2, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION]     # player 0 heads east
+    bbc.memory.address.bus[labels["player_input"]] = 2
+    step_ticks(bbc, labels, 80)
+    for _ in range(80):
+        model.tick(inputs)
+    sx = state(bbc, labels)[0][0]
+    # FOURFOLD's spur at wall column 15 (superpixels 60..63) blocks a tank
+    # whose footprint (sx..sx+5) would reach superpixel 60.
+    assert sx == 54
+    assert state(bbc, labels) == model_state(model)
+
+
+@pytest.mark.parametrize("level_number", range(len(load_levels())))
+def test_random_driving_never_enters_a_wall(game, game_build, level_number):
+    from conftest import enter_routine
+    from dontdither.game import footprint_wall_cells
+
+    bbc, labels, _ = game
+    level = load_levels()[level_number]
+    bbc.memory.address.bus[labels["zp_level"]] = level_number
+    enter_routine(bbc, labels, "enter_level", f"level {level_number}")
+    model = Game.start(level)
+    count = len(model.players)
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * count)
+    walls = level.wall_cells()
+    rng = random.Random(level_number)
+    inputs = [rng.randrange(8) for _ in range(count)]
+    for tick in range(150):
+        if tick % 10 == 0:                     # hold a direction for a while
+            inputs = [rng.randrange(8) for _ in range(count)]
+        for p, byte in enumerate(inputs):
+            bbc.memory.address.bus[labels["player_input"] + p] = byte
+        step_ticks(bbc, labels)
+        model.tick(inputs)
+        for x, y, _, _ in state(bbc, labels):
+            assert not set(footprint_wall_cells(x, y)) & walls, f"tank in a wall at tick {tick}"
+    assert state(bbc, labels) == model_state(model)

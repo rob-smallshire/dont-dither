@@ -122,6 +122,9 @@ GUARD &70
 .zp_try_y           SKIP 1
 .zp_other_x         SKIP 1     \ footprints_overlap: the other footprint.
 .zp_other_y         SKIP 1
+.zp_wall_cx0        SKIP 1     \ position_clear: wall cells a footprint
+.zp_wall_cx1        SKIP 1     \ covers, columns cx0..cx1 and rows up to
+.zp_wall_cy1        SKIP 1     \ cy1.
 
 \ ---- Input --------------------------------------------------------------------
 
