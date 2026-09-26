@@ -22,13 +22,14 @@ CONTROL_NONE, CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_SCRIPTED = range(4)
 
 @pytest.fixture
 def game(launch_bbc, game_build):
-    """A freshly booted game, stopped between ticks, with a matching model."""
-    from conftest import boot_game
+    """A freshly booted game, stopped before level 0's first tick, with a
+    model in step with it."""
+    from conftest import boot_game, enter_level
 
     bbc = launch_bbc()
     boot_game(bbc, game_build)
     labels = game_build.labels["DITHER"]
-    align_to_tick(bbc, labels)
+    enter_level(bbc, labels, 0)
     return bbc, labels, Game.start(LEVEL)
 
 

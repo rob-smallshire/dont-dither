@@ -9,7 +9,7 @@ import random
 
 import pytest
 
-from conftest import align_to_tick, boot_game, step_ticks
+from conftest import boot_game, enter_level, step_ticks
 from dontdither.game import FIRE_BIT, FIRE_PERIOD, NO_DIRECTION, Game
 from dontdither.levels import load_levels
 from dontdither.render import arena_bytes, arena_screen, draw_players
@@ -25,7 +25,7 @@ def game(launch_bbc, game_build):
     bbc = launch_bbc()
     boot_game(bbc, game_build)
     labels = game_build.labels["DITHER"]
-    align_to_tick(bbc, labels)
+    enter_level(bbc, labels, 0)          # exactly at the level's first tick
     for p in range(4):
         bbc.memory.address.bus[labels["player_control"] + p] = CONTROL_SCRIPTED
     return bbc, labels, Game.start(LEVEL)
