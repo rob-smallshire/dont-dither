@@ -108,6 +108,12 @@ class Level:
         """Every player's start: player k gets k symmetry steps of rotation."""
         return [rotate_start(self.start, k * self.symmetry.value) for k in range(self.symmetry.copies)]
 
+    def player_inks(self) -> list[str]:
+        """Each player's ink. Four players take C, M, Y, K; two players take
+        C and Y (player k takes the ink of the quarter turns it is rotated
+        by), leaving M and K as neutral territory."""
+        return [INKS[k * self.symmetry.value] for k in range(self.symmetry.copies)]
+
     # ---- Bytecode ----------------------------------------------------------------
 
     def bytecode(self, table: InkTable) -> bytes:

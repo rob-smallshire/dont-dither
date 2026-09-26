@@ -11,9 +11,9 @@ import pytest
 
 from conftest import enter_routine
 from dontdither.build import BUILD_DIRPATH
-from dontdither.inks import InkTable
 from dontdither.levels import Level, load_levels
-from dontdither.screen import MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE, arena_patterns
+from dontdither.render import arena_bytes, arena_screen, draw_players
+from dontdither.screen import MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
 from dontdither.walls import render_wall_cell, wall_bitmap
 
 SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
@@ -68,17 +68,13 @@ def test_every_wall_cell_shows_its_tile(rendered, number, level: Level):
 
 
 @pytest.mark.parametrize("number, level", level_params())
-def test_every_open_superpixel_has_the_fill_state(rendered, number, level: Level):
-    expected = InkTable.load().pattern(level.fill)
-    walls = level.wall_cells()
-    patterns = arena_patterns(rendered[number].screen)
-    wrong = [
-        (sx, sy)
-        for sy in range(128)
-        for sx in range(128)
-        if (sx // 4, sy // 4) not in walls and patterns[sy][sx] != expected
-    ]
-    assert not wrong, f"{len(wrong)} superpixels differ, first: {wrong[:5]}"
+def test_arena_matches_the_model_with_tanks_at_their_starts(rendered, number, level: Level):
+    """Every arena byte: fill, walls, and each player's tank at its start."""
+    expected = arena_screen(level)
+    draw_players(expected, [(s.sx, s.sy, s.facing, ink) for s, ink in zip(level.starts(), level.player_inks())])
+    actual, wanted = arena_bytes(rendered[number].screen), arena_bytes(expected)
+    wrong = [i for i, (a, e) in enumerate(zip(actual, wanted)) if a != e]
+    assert not wrong, f"{len(wrong)} arena bytes differ, first offsets {wrong[:8]}"
 
 
 @pytest.mark.parametrize("number, level", level_params())

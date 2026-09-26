@@ -66,6 +66,19 @@ Decisions taken during development that refine or depart from
   other six are exact quarter turns. `uv run dd-preview-sprites` renders every
   player, facing and a range of backgrounds for review.
 
+### Drawing tanks on the 6502
+
+- Frames are stored as a mask plane and a select plane per facing and per
+  horizontal alignment (even or odd superpixel column), 4 bytes x 12 lines
+  each: 16 frames, about 1.5 KB. Colour is applied at draw time
+  (contrast EOR ((contrast EOR ink) AND select)), so all players share the
+  frames. Runtime shifting could halve the frame memory if space runs short.
+- Draw cycle: hide_sprites restores every saved background in reverse player
+  order; show_sprites saves then draws each player in order. Overlaps unwind
+  exactly. Measured: about 6,750 cycles to hide and 16,800 to show four
+  tanks, roughly 30% of a 25 Hz tick.
+- In two-player levels the players take inks C and Y.
+
 ## Paint splats
 
 - A shot paints a messy 16-superpixel splat rather than a neat ellipse. Each

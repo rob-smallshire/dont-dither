@@ -68,6 +68,14 @@ bytecode once per symmetric copy, rotating each plotted cell ((x, y) ->
 and hence fairness, is structural. `enter_level` in `asm/main.asm` fills the
 arena, builds and draws the walls, and prints the level name.
 
+**Sprites** (`asm/sprites.asm`): tanks are drawn straight into screen memory
+with save-under. `hide_sprites` restores backgrounds in reverse player order,
+`show_sprites` saves then draws in order; the world must only be read or
+updated between the two. Frames (mask + select planes, from
+`sprites/tank.spr`) are generated into `sprite_data.asm`; the inner loops use
+self-modifying abs,X operands. `tools/dontdither/render.py` models the whole
+arena with tanks for byte-exact tests.
+
 **Data flow from one source of truth:**
 
 ```
@@ -76,7 +84,7 @@ data/ink_patterns.json            canonical pattern per state (written by solve_
   -> tools/dontdither/gen_tables.py  -> build/generated/*.asm
        ink_tables (patterns, palette, STATE_*), screen_tables (row addresses),
        wall_tiles (16 tiles, corner patches), testcard_data (from testcard.py),
-       level_data (from levels/*.lvl)
+       level_data (from levels/*.lvl), sprite_data (from sprites/tank.spr)
   -> asm/*.asm INCLUDE them; tools/dontdither/build.py runs beebasm from the project root
   -> build/dont-dither.ssd + build/labels/<PROGRAM>.txt
 ```
@@ -122,7 +130,8 @@ tests; they must stay consistent):
 **Beebium fixtures** (`tests/conftest.py`):
 - `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
 - `enter_routine` jumps an idling program to a routine (e.g. `enter_level`
-  after setting `zp_level`). It runs to the `idle` label first, because
+  after setting `zp_level`, or `redraw_sprites` after changing
+  `player_sx/sy/facing`). It runs to the `idle` label first, because
   cycle-based stepping (`run_for_emulated_seconds`) can stop the CPU
   mid-instruction, and writing PC then corrupts the in-flight instruction
   (beebium #106). Always reach an instruction boundary (`run_to` or

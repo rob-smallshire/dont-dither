@@ -5,17 +5,19 @@
 \ why INCLUDE paths are relative to the root). The disc's !BOOT runs this
 \ program, saved as DITHER.
 \
-\ CURRENT STAGE: arena rendering. The program
+\ CURRENT STAGE: arena and player sprites. The program
 \   1. selects MODE 1, hides the cursor and programs the CMYK palette,
 \   2. enters level 0 (see enter_level): fills the arena with the level's
 \      initial ink state, expands the level's walls into the wall map under
-\      its symmetry, draws them in the level's colouring, and shows the
-\      title and level name in the HUD,
+\      its symmetry, draws them in the level's colouring, shows the title
+\      and level name in the HUD, and draws each player's tank at its start,
 \   3. sets zp_boot_status to BOOT_READY and idles.
 \
-\ Test hook: with the machine stopped anywhere, a test may set zp_level and
-\ jump to enter_level (by setting PC) to draw any level; enter_level never
-\ returns, it sets BOOT_READY and idles.
+\ Test hooks: with the machine idling, a test may jump (by setting PC at an
+\ instruction boundary) to
+\   enter_level     after setting zp_level, to draw any level;
+\   redraw_sprites  after changing player_sx/sy/facing, to move tanks.
+\ Both set BOOT_READY and idle when done.
 \
 \ Memory map (for now):
 \   &0000-&006F  zero page, former BASIC workspace (see zeropage.asm)
@@ -84,12 +86,33 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     SEND_VDU title_vdu_bytes, title_vdu_bytes_end
     JSR print_level_name
 
+    \ Put each player's tank at its start and draw it, saving the arena
+    \ beneath.
+    JSR place_players
+    JSR show_sprites
+
     \ Tell the harness we have finished.
     LDA #BOOT_READY
     STA zp_boot_status
 
 .idle
     JMP idle                   \ Nothing else to do yet.
+
+\ ----------------------------------------------------------------------------
+\ redraw_sprites -- test hook: move the tanks to their current positions
+\
+\ Restores the arena under every tank (in reverse order), then saves and
+\ draws every tank at its current player_sx/sy/facing. Never returns.
+\ ----------------------------------------------------------------------------
+
+.redraw_sprites
+    LDA #0
+    STA zp_boot_status
+    JSR hide_sprites
+    JSR show_sprites
+    LDA #BOOT_READY
+    STA zp_boot_status
+    JMP idle
 
 \ ----------------------------------------------------------------------------
 \ print_level_name -- print level zp_level's name in the HUD
@@ -140,10 +163,12 @@ INCLUDE "asm/display.asm"
 INCLUDE "asm/arena.asm"
 INCLUDE "asm/walls.asm"
 INCLUDE "asm/level.asm"
+INCLUDE "asm/sprites.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
 INCLUDE "build/generated/level_data.asm"
+INCLUDE "build/generated/sprite_data.asm"
 
 .end
 
@@ -153,5 +178,18 @@ INCLUDE "build/generated/level_data.asm"
 
 .wall_map
     SKIP 128                   \ The current level's 32x32 wall bitmap.
+
+\ Player state, indexed by player slot 0..MAX_PLAYERS-1.
+.player_count     SKIP 1       \ Players in this level (2 or 4).
+.player_sx        SKIP MAX_PLAYERS \ Footprint top-left superpixel.
+.player_sy        SKIP MAX_PLAYERS
+.player_facing    SKIP MAX_PLAYERS \ 0 = N, clockwise to 7 = NW.
+.player_ink       SKIP MAX_PLAYERS \ 0 = C, 1 = M, 2 = Y, 3 = K.
+.saved_sx         SKIP MAX_PLAYERS \ Where each saved background came from.
+.saved_sy         SKIP MAX_PLAYERS
+.sprites_shown    SKIP 1       \ Non-zero while sprites are on screen.
+
+.sprite_save_buffers
+    SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.
 
 SAVE "DITHER", start, end, start

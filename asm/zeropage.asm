@@ -95,6 +95,16 @@ GUARD &70
 .zp_plot_x        SKIP 1       \ plot_wall_cell: the cell after rotation.
 .zp_plot_y        SKIP 1
 
+\ ---- Sprites -----------------------------------------------------------------
+
+.zp_player          SKIP 1     \ Player being saved, restored or drawn.
+.zp_sprite_row_sy   SKIP 1     \ Superpixel row of the sprite row being walked.
+.zp_sprite_column   SKIP 2     \ (sx DIV 2) * 8: offset of the sprite's first
+                               \ byte column from the start of a raster line.
+.zp_sprite_contrast SKIP 1     \ Contrast ink byte of the sprite being drawn.
+.zp_sprite_xor      SKIP 1     \ Contrast EOR player ink byte.
+.zp_sprite_tmp      SKIP 1     \ Scratch.
+
 \ ---- Test card ---------------------------------------------------------------
 
 .zp_swatch        SKIP 1       \ Offset of the current testcard_swatch_walls
