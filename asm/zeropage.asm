@@ -105,6 +105,12 @@ GUARD &70
 .zp_sprite_xor      SKIP 1     \ Contrast EOR player ink byte.
 .zp_sprite_tmp      SKIP 1     \ Scratch.
 
+\ ---- Input --------------------------------------------------------------------
+
+.zp_keys          SKIP 1       \ scan_layout: held keys, up = bit 0 .. fire = 4.
+.zp_key_index     SKIP 1       \ scan_layout: offset of the key being scanned.
+.zp_key_end       SKIP 1       \ scan_layout: offset just past the layout.
+
 \ ---- Test card ---------------------------------------------------------------
 
 .zp_swatch        SKIP 1       \ Offset of the current testcard_swatch_walls

@@ -122,17 +122,38 @@ def _run_until_ready(bbc: Beebium, labels: dict[str, int], what: str) -> None:
     bbc.run_for_emulated_seconds(SETTLE_EMULATED_SECONDS)
 
 
-def enter_routine(bbc: Beebium, labels: dict[str, int], routine: str, what: str) -> None:
-    """Jump the idling program to one of its routines and run until ready.
+TICK_BOUNDARY = "tick_done"      # reached once per tick, between ticks
 
-    The program must be idling in its `idle` loop. Running to `idle` first
-    stops the CPU at an instruction boundary: after cycle-based stepping it
-    may be part-way through an instruction, and writing PC then corrupts the
-    instruction in flight (reported to beebium-architect).
+
+def align_to_tick(bbc: Beebium, labels: dict[str, int]) -> None:
+    """Stop the game between ticks, at tick_done, with the tanks drawn."""
+    if bbc.cpu.pc != labels[TICK_BOUNDARY]:
+        bbc.debugger.run_to(labels[TICK_BOUNDARY])
+
+
+def step_ticks(bbc: Beebium, labels: dict[str, int], count: int = 1) -> None:
+    """Run the game for `count` whole ticks, stopping between ticks.
+
+    run_to stops at once if the CPU is already at the address, so each tick
+    first steps one instruction off tick_done.
     """
-    bbc.debugger.run_to(labels["idle"])
+    align_to_tick(bbc, labels)
+    for _ in range(count):
+        bbc.debugger.step(1)
+        bbc.debugger.run_to(labels[TICK_BOUNDARY])
+
+
+def enter_routine(bbc: Beebium, labels: dict[str, int], routine: str, what: str) -> None:
+    """Jump the running game to one of its routines and run until ready.
+
+    Stopping at tick_done first puts the CPU at an instruction boundary:
+    after cycle-based stepping it may be part-way through an instruction,
+    and writing PC then corrupts the instruction in flight (beebium #106).
+    """
+    align_to_tick(bbc, labels)
     bbc.cpu.pc = labels[routine]
     _run_until_ready(bbc, labels, what)
+    align_to_tick(bbc, labels)
 
 
 def boot_game(bbc: Beebium, game_build: BuildResult) -> None:

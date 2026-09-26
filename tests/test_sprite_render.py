@@ -1,16 +1,18 @@
 """Tanks are drawn, moved and removed exactly, including where they overlap.
 
-One machine boots the game (level 0, four tanks at their starts). Tests move
-tanks by writing player_sx/sy/facing and jumping to the redraw_sprites hook,
-then compare the whole arena in screen memory with the model: the bare arena
-with the tanks composited in player order.
+One machine boots the game (level 0, four tanks at their starts). All players
+are put under scripted control with no input, so nothing moves by itself.
+Tests move tanks by writing player_sx/sy/facing between ticks and running one
+tick (which restores the old backgrounds and draws the tanks anew), then
+compare the whole arena in screen memory with the model: the bare arena with
+the tanks composited in player order.
 """
 
 import random
 
 import pytest
 
-from conftest import enter_routine
+from conftest import align_to_tick, step_ticks
 from dontdither.levels import load_levels
 from dontdither.render import arena_bytes, arena_screen, draw_players
 from dontdither.screen import MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
@@ -19,9 +21,18 @@ LEVEL = load_levels()[0]
 MAX_POSITION = 128 - 6
 
 
+CONTROL_SCRIPTED = 3
+NO_DIRECTION = 0x08
+
+
 @pytest.fixture(scope="module")
 def game(booted_game, game_build):
-    return booted_game, game_build.labels["DITHER"]
+    bbc, labels = booted_game, game_build.labels["DITHER"]
+    align_to_tick(bbc, labels)
+    for p in range(4):
+        bbc.memory.address.bus[labels["player_control"] + p] = CONTROL_SCRIPTED
+        bbc.memory.address.bus[labels["player_input"] + p] = NO_DIRECTION
+    return bbc, labels
 
 
 def player_table(bbc, labels):
@@ -39,7 +50,7 @@ def move(bbc, labels, player, sx, sy, facing):
     bus[labels["player_sx"] + player] = sx
     bus[labels["player_sy"] + player] = sy
     bus[labels["player_facing"] + player] = facing
-    enter_routine(bbc, labels, "redraw_sprites", "redraw")
+    step_ticks(bbc, labels)
 
 
 def expected_arena(players):

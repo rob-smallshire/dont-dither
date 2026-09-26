@@ -129,9 +129,14 @@ tests; they must stay consistent):
 
 **Beebium fixtures** (`tests/conftest.py`):
 - `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
-- `enter_routine` jumps an idling program to a routine (e.g. `enter_level`
-  after setting `zp_level`, or `redraw_sprites` after changing
-  `player_sx/sy/facing`). It runs to the `idle` label first, because
+- The game runs a 25 Hz main loop. `align_to_tick` stops it at `tick_done`
+  (between ticks, tanks drawn) and `step_ticks` runs whole ticks; between
+  ticks tests may change player state or set a player's control to
+  scripted and write `player_input`. `tools/dontdither/game.py` is the
+  model the 6502 simulation must match tick for tick.
+- `enter_routine` jumps the game to a routine (e.g. `enter_level` after
+  setting `zp_level`) from `tick_done`. `hold_display` parks the CPU so a
+  field can be scanned out with no redraw in progress. It runs to the `idle` label first, because
   cycle-based stepping (`run_for_emulated_seconds`) can stop the CPU
   mid-instruction, and writing PC then corrupts the in-flight instruction
   (beebium #106). Always reach an instruction boundary (`run_to` or

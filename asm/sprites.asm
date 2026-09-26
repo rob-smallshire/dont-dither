@@ -45,7 +45,9 @@ MAX_PLAYERS = 4
 \ place_players -- set up the players for level zp_level
 \
 \ On exit:  player_count and each player's position, facing and ink set from
-\           the level's level_players record; no sprites shown
+\           the level's level_players record; control sources set (player 1
+\           keyboard layout A, player 2 layout B, the rest none); inputs,
+\           accumulators and the tick count cleared; no sprites shown
 \           A, X, Y corrupted
 \ ----------------------------------------------------------------------------
 
@@ -73,6 +75,12 @@ MAX_PLAYERS = 4
     STA player_facing,Y
     LDA level_players+4,X
     STA player_ink,Y
+    LDA default_controls,Y     \ Keyboard for the first two players.
+    STA player_control,Y
+    LDA #NO_DIRECTION
+    STA player_input,Y
+    LDA #0
+    STA player_accumulator,Y
     INX                        \ Next four-byte slot record.
     INX
     INX
@@ -83,7 +91,12 @@ MAX_PLAYERS = 4
 
     LDA #0                     \ Nothing is on screen to restore yet.
     STA sprites_shown
+    STA tick_count
+    STA tick_count+1
     RTS
+
+.default_controls
+    EQUB CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_NONE, CONTROL_NONE
 
 \ ----------------------------------------------------------------------------
 \ show_sprites -- save the background under, then draw, each player in order

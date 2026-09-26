@@ -6,6 +6,8 @@ All tests share one booted machine (see `booted_game`) and only observe it.
 
 import pytest
 
+from conftest import align_to_tick
+
 from dontdither.build import BUILD_DIRPATH
 from dontdither.gen_tables import NON_CANONICAL, superpixel_index
 from dontdither.inks import (
@@ -32,7 +34,8 @@ def table() -> InkTable:
 
 
 @pytest.fixture(scope="module")
-def screen(booted_game) -> bytes:
+def screen(booted_game, game_build) -> bytes:
+    align_to_tick(booted_game, game_build.labels["DITHER"])   # tanks drawn
     return bytes(booted_game.memory.address.peek[MODE1_SCREEN_BASE:MODE1_SCREEN_BASE + MODE1_SCREEN_SIZE])
 
 
@@ -88,9 +91,19 @@ def test_ink_tables_in_memory_match_the_model(booted_game, game_build, table):
     assert sum(1 for v in lookup if v == NON_CANONICAL) == 256 - 35
 
 
-def test_displayed_arena_matches_screen_memory(booted_game, screen):
-    """The frame Beebium displays shows exactly the arena in screen memory."""
-    frame = booted_game.video.capture_frame()
+def test_displayed_arena_matches_screen_memory(booted_game, game_build, screen):
+    """The frame Beebium displays shows exactly the arena in screen memory.
+
+    The game redraws its tanks every tick, so the display is compared while
+    the CPU is held in hold_display, with no redraw in progress.
+    """
+    bbc, labels = booted_game, game_build.labels["DITHER"]
+    align_to_tick(bbc, labels)
+    bbc.cpu.pc = labels["hold_display"]
+    bbc.run_for_emulated_seconds(0.06)            # three fields
+    frame = bbc.video.capture_frame()
+    bbc.debugger.run_to(labels["hold_display"])   # an instruction boundary
+    bbc.cpu.pc = labels["tick_done"]
     SCREENSHOT_DIRPATH.mkdir(parents=True, exist_ok=True)
     frame.save_png(SCREENSHOT_DIRPATH / "boot.png")
 

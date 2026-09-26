@@ -5,19 +5,24 @@
 \ why INCLUDE paths are relative to the root). The disc's !BOOT runs this
 \ program, saved as DITHER.
 \
-\ CURRENT STAGE: arena and player sprites. The program
-\   1. selects MODE 1, hides the cursor and programs the CMYK palette,
+\ CURRENT STAGE: tanks driven by the keyboard. The program
+\   1. selects MODE 1, hides the cursor, programs the CMYK palette and makes
+\      the cursor keys plain keys,
 \   2. enters level 0 (see enter_level): fills the arena with the level's
 \      initial ink state, expands the level's walls into the wall map under
 \      its symmetry, draws them in the level's colouring, shows the title
 \      and level name in the HUD, and draws each player's tank at its start,
-\   3. sets zp_boot_status to BOOT_READY and idles.
+\   3. sets zp_boot_status to BOOT_READY and runs the 25 Hz main loop, in
+\      which players move and turn under keyboard control (player 1: W A S
+\      D, player 2: cursor keys; see tools/dontdither/controls.py).
 \
-\ Test hooks: with the machine idling, a test may jump (by setting PC at an
-\ instruction boundary) to
-\   enter_level     after setting zp_level, to draw any level;
-\   redraw_sprites  after changing player_sx/sy/facing, to move tanks.
-\ Both set BOOT_READY and idle when done.
+\ Test hooks: the label tick_done is reached once per tick, between ticks,
+\ with the tanks drawn; tests step the simulation by running to it. Stopped
+\ there, a test may change player state (position, facing, control source,
+\ scripted input) for the next tick, or jump (by setting PC) to
+\   enter_level     after setting zp_level, to start any level;
+\   hold_display    to scan out fields with no redraw in progress (return by
+\                   running to hold_display and setting PC to tick_done).
 \
 \ Memory map (for now):
 \   &0000-&006F  zero page, former BASIC workspace (see zeropage.asm)
@@ -43,16 +48,17 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     STA zp_boot_status
 
     JSR init_display           \ MODE 1, cursor off, CMYK palette.
+    JSR init_keyboard          \ Cursor keys and COPY as plain keys.
 
     LDA #0                     \ Start with the first level.
     STA zp_level
     \ Fall through into enter_level.
 
 \ ----------------------------------------------------------------------------
-\ enter_level -- draw level zp_level and idle
+\ enter_level -- draw level zp_level and start playing it
 \
 \ On entry:  zp_level = level number (0..LEVEL_COUNT-1); display initialised
-\ Never returns: sets zp_boot_status to BOOT_READY and idles.
+\ Never returns: sets zp_boot_status to BOOT_READY and runs the main loop.
 \ ----------------------------------------------------------------------------
 
 .enter_level
@@ -91,28 +97,36 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     JSR place_players
     JSR show_sprites
 
-    \ Tell the harness we have finished.
+    \ Tell the harness we have finished setting up.
     LDA #BOOT_READY
     STA zp_boot_status
-
-.idle
-    JMP idle                   \ Nothing else to do yet.
+    \ Fall through into the main loop.
 
 \ ----------------------------------------------------------------------------
-\ redraw_sprites -- test hook: move the tanks to their current positions
+\ main_loop -- one 25 Hz tick per iteration (see game.asm)
+\ ----------------------------------------------------------------------------
+
+.main_loop
+    JSR wait_for_tick          \ Two vertical syncs.
+    JSR read_inputs            \ player_input from keyboard or script.
+    JSR hide_sprites           \ Bare arena...
+    JSR update_players         \ ...update the world on it...
+    JSR show_sprites           \ ...then the tanks back on top.
+    INC tick_count             \ Count ticks (16 bits).
+    BNE tick_done
+    INC tick_count+1
+.tick_done
+    JMP main_loop              \ Tests stop here, between ticks.
+
+\ ----------------------------------------------------------------------------
+\ hold_display -- test hook: spin without touching the screen
 \
-\ Restores the arena under every tank (in reverse order), then saves and
-\ draws every tank at its current player_sx/sy/facing. Never returns.
+\ Tests jump here from tick_done to let whole video fields be scanned out
+\ with no redraw in progress, then jump back to tick_done.
 \ ----------------------------------------------------------------------------
 
-.redraw_sprites
-    LDA #0
-    STA zp_boot_status
-    JSR hide_sprites
-    JSR show_sprites
-    LDA #BOOT_READY
-    STA zp_boot_status
-    JMP idle
+.hold_display
+    JMP hold_display
 
 \ ----------------------------------------------------------------------------
 \ print_level_name -- print level zp_level's name in the HUD
@@ -164,11 +178,13 @@ INCLUDE "asm/arena.asm"
 INCLUDE "asm/walls.asm"
 INCLUDE "asm/level.asm"
 INCLUDE "asm/sprites.asm"
+INCLUDE "asm/game.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
 INCLUDE "build/generated/level_data.asm"
 INCLUDE "build/generated/sprite_data.asm"
+INCLUDE "build/generated/game_data.asm"
 
 .end
 
@@ -188,6 +204,10 @@ INCLUDE "build/generated/sprite_data.asm"
 .saved_sx         SKIP MAX_PLAYERS \ Where each saved background came from.
 .saved_sy         SKIP MAX_PLAYERS
 .sprites_shown    SKIP 1       \ Non-zero while sprites are on screen.
+.player_control   SKIP MAX_PLAYERS \ CONTROL_NONE, _KEYS_A, _KEYS_B, _SCRIPTED.
+.player_input     SKIP MAX_PLAYERS \ This tick's input byte (see game.asm).
+.player_accumulator SKIP MAX_PLAYERS \ Movement speed accumulator.
+.tick_count       SKIP 2       \ Ticks since the level started.
 
 .sprite_save_buffers
     SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.

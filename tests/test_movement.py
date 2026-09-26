@@ -1,0 +1,123 @@
+"""Tanks move and turn in the game exactly as the model says.
+
+Players are driven by scripted input (written between ticks) and by real
+keys held through Beebium's keyboard matrix; after every tick the 6502's
+player state must equal the Python model's.
+"""
+
+import random
+
+import pytest
+
+from conftest import align_to_tick, step_ticks
+from dontdither.controls import LAYOUTS, matrix_position
+from dontdither.game import NO_DIRECTION, Game, input_of_keys
+from dontdither.levels import load_levels
+from dontdither.render import arena_bytes, arena_screen, draw_players
+from dontdither.screen import MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
+
+LEVEL = load_levels()[0]
+CONTROL_NONE, CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_SCRIPTED = range(4)
+
+
+@pytest.fixture
+def game(launch_bbc, game_build):
+    """A freshly booted game, stopped between ticks, with a matching model."""
+    from conftest import boot_game
+
+    bbc = launch_bbc()
+    boot_game(bbc, game_build)
+    labels = game_build.labels["DITHER"]
+    align_to_tick(bbc, labels)
+    return bbc, labels, Game.start(LEVEL)
+
+
+def state(bbc, labels):
+    peek = bbc.memory.address.peek
+    return [
+        (peek[labels["player_sx"] + p], peek[labels["player_sy"] + p],
+         peek[labels["player_facing"] + p], peek[labels["player_accumulator"] + p])
+        for p in range(peek[labels["player_count"]])
+    ]
+
+
+def model_state(model):
+    return [(p.sx, p.sy, p.facing, p.accumulator) for p in model.players]
+
+
+def set_controls(bbc, labels, controls):
+    for p, control in enumerate(controls):
+        bbc.memory.address.bus[labels["player_control"] + p] = control
+
+
+def test_starting_state_matches_the_model(game):
+    bbc, labels, model = game
+    assert state(bbc, labels) == model_state(model)
+
+
+def test_scripted_inputs_match_the_model_every_tick(game):
+    bbc, labels, model = game
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    rng = random.Random(42)
+    for tick in range(60):
+        inputs = [rng.choice(list(range(8)) + [NO_DIRECTION] * 2) for _ in range(4)]
+        for p, byte in enumerate(inputs):
+            bbc.memory.address.bus[labels["player_input"] + p] = byte
+        step_ticks(bbc, labels)
+        model.tick(inputs)
+        assert state(bbc, labels) == model_state(model), f"after tick {tick + 1}"
+
+
+def test_screen_shows_the_tanks_where_the_model_puts_them(game):
+    bbc, labels, model = game
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    inputs = [3, 5, 7, 1]      # every tank heads for the centre
+    for p, byte in enumerate(inputs):
+        bbc.memory.address.bus[labels["player_input"] + p] = byte
+    step_ticks(bbc, labels, 30)
+    for _ in range(30):
+        model.tick(inputs)
+    expected = arena_screen(LEVEL)
+    draw_players(expected, [(p.sx, p.sy, p.facing, p.ink) for p in model.players])
+    actual = bytes(bbc.memory.address.peek[MODE1_SCREEN_BASE:MODE1_SCREEN_BASE + MODE1_SCREEN_SIZE])
+    assert arena_bytes(actual) == arena_bytes(expected)
+
+
+@pytest.mark.parametrize("player, layout", [(0, "A"), (1, "B")])
+@pytest.mark.parametrize("held", [("up",), ("right",), ("down", "left"), ("up", "right")])
+def test_held_keys_drive_the_players(game, player, layout, held):
+    bbc, labels, model = game
+    keys = [LAYOUTS[layout][k] for k in held]
+    for key in keys:
+        bbc.keyboard.matrix_down(*matrix_position(key))
+    step_ticks(bbc, labels, 20)
+    for key in keys:
+        bbc.keyboard.matrix_up(*matrix_position(key))
+
+    mask = sum(1 << ("up", "down", "left", "right").index(k) for k in held)
+    inputs = [NO_DIRECTION] * 4
+    inputs[player] = input_of_keys(mask)
+    for _ in range(20):
+        model.tick(inputs)
+    assert state(bbc, labels) == model_state(model)
+
+
+def test_releasing_keys_stops_the_tank(game):
+    bbc, labels, _ = game
+    w = matrix_position(LAYOUTS["A"]["right"])
+    bbc.keyboard.matrix_down(*w)
+    step_ticks(bbc, labels, 10)
+    bbc.keyboard.matrix_up(*w)
+    step_ticks(bbc, labels, 1)       # the release is seen on this tick
+    before = state(bbc, labels)
+    step_ticks(bbc, labels, 10)
+    assert state(bbc, labels) == before
+
+
+def test_game_ticks_at_25_hz(game):
+    bbc, labels, _ = game
+    peek = bbc.memory.address.peek
+    start = peek.word(labels["tick_count"])
+    bbc.run_for_emulated_seconds(2.0)
+    ticks = (peek.word(labels["tick_count"]) - start) & 0xFFFF
+    assert 49 <= ticks <= 51

@@ -108,10 +108,30 @@ Decisions taken during development that refine or depart from
 - `uv run dd-preview-splats` renders every variant and facing, cumulative
   shots, and shots against a wall, all with the true one-quantum effect.
 
+## Game loop and movement
+
+- The game ticks at 25 Hz (two vertical syncs per tick). Each tick: read
+  inputs, hide sprites, update players on the bare arena, show sprites.
+  tick_done marks the point between ticks where tests stop and step.
+- Each player's per-tick input is a direction (0-7 or none) plus fire, from
+  a control source: keyboard layout A, keyboard layout B, scripted (tests,
+  later AI) or none. The simulation never sees where input came from.
+- Movement is in whole superpixels. A direction input sets the facing at
+  once. An 8-bit accumulator per player adds the speed each tick (axial 200,
+  diagonal 141 = 200/sqrt 2, in 1/256 superpixel per tick) and a carry means
+  one step, so diagonals are no faster and no multiplication is needed.
+  About 19.5 superpixels per second axially; tunable in game.py.
+- For now each axis of a step is taken only if the footprint stays inside
+  the arena, so tanks slide along its edges. Wall collision is next.
+
 ## Input
 
 - Keyboard only for now. Beebium does not yet emulate joysticks, and the
   SPItFIRE four-joystick interface comes later.
+- Player 1: W A S D, fire SHIFT. Player 2: cursor keys, fire COPY
+  (tools/dontdither/controls.py). Keys are read with OSBYTE &81; *FX4,1
+  stops the cursor keys and COPY doing cursor editing, and the keyboard
+  buffer is flushed every tick.
 
 ## Memory
 
