@@ -44,18 +44,21 @@ a Model B + DFS: Shift-Break to boot the game.
 ## The canonical ink patterns
 
 `data/ink_patterns.json` is produced by `uv run --group solver dd-solve-patterns`,
-which solves for the table exactly with OR-tools CP-SAT under two hard
+which solves for the table exactly with OR-tools CP-SAT under three hard
 constraints:
 
 - every 2+2 state (50:50 mixture) is a checkerboard;
+- in every 2+1+1 state the doubled ink lies on a diagonal, so it tiles as a
+  checkerboard rather than one-pixel stripes;
 - cycling inks C→M→Y→K corresponds to a clockwise 90° rotation of the tile,
   up to a one-pixel translation of the repeating texture.
 
 Subject to those, it minimises the pixels changed by a one-quantum ownership
-transfer: of the 120 adjacent state pairs, 78 change one pixel, 36 two and
-6 three (proved optimal). Without the constraints the optimum is 84/36/0/0.
-The constraints cannot both hold strictly (without translation): see
-`tools/dontdither/solve_patterns.py`.
+transfer: of the 120 adjacent state pairs, 78 change one pixel, 32 two,
+6 three and 4 four (proved optimal). Without the diagonal constraint it
+would be 78/36/6/0, and without any constraints 84/36/0/0. The checkerboard
+and colour-cycling constraints cannot both hold strictly (without
+translation): see `tools/dontdither/solve_patterns.py`.
 
 This supersedes the table in `docs/dont_dither_35_minimal_churn_patterns.md`,
 which is the unconstrained churn optimum.

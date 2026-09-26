@@ -17,7 +17,9 @@ from dontdither.inks import (
     cycle_inks,
     cycle_state,
     decode_superpixel,
+    has_doubled_ink_on_diagonal,
     is_checkerboard,
+    is_two_one_one,
     is_two_two,
     mode1_byte,
     mode1_pixels,
@@ -52,6 +54,12 @@ def test_two_two_states_are_checkerboards(table):
             assert is_checkerboard(pattern), (state, pattern)
 
 
+def test_two_one_one_states_have_the_doubled_ink_on_a_diagonal(table):
+    for state, pattern in zip(table.states, table.patterns):
+        if is_two_one_one(state):
+            assert has_doubled_ink_on_diagonal(pattern), (state, pattern)
+
+
 def test_colour_cycling_is_clockwise_rotation_up_to_translation(table):
     for state, pattern in zip(table.states, table.patterns):
         image = table.pattern(cycle_state(state))
@@ -59,7 +67,7 @@ def test_colour_cycling_is_clockwise_rotation_up_to_translation(table):
 
 
 def test_churn_is_the_proved_optimum(table):
-    assert table.churn_histogram() == {1: 78, 2: 36, 3: 6, 4: 0}
+    assert table.churn_histogram() == {1: 78, 2: 32, 3: 6, 4: 4}
 
 
 def test_mode1_byte_round_trips():

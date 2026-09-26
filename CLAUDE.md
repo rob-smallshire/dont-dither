@@ -86,11 +86,12 @@ tests; they must stay consistent):
   for odd sx. `tests/test_inks.py` checks this formula against the model.
 
 **The canonical table** is solved exactly, not hand-picked:
-- **Hard constraints:** 2+2 states are checkerboards, and colour cycling
-  C->M->Y->K equals a clockwise 90 degree tile rotation up to a one-pixel
-  texture translation.
+- **Hard constraints:** 2+2 states are checkerboards, 2+1+1 states have the
+  doubled ink on a diagonal (no stripes), and colour cycling C->M->Y->K
+  equals a clockwise 90 degree tile rotation up to a one-pixel texture
+  translation.
 - **Objective:** the solver then minimises pixel churn per one-quantum transfer.
-  The proved result is 78/36/6/0 edges changing 1/2/3/4 pixels.
+  The proved result is 78/32/6/4 edges changing 1/2/3/4 pixels.
 - `tests/test_inks.py` asserts these properties, so any edit to the table
   must keep them or deliberately change the tests.
 - The table supersedes the one in

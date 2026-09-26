@@ -105,6 +105,16 @@ def is_two_two(state: State) -> bool:
     return sorted(state) == [0, 0, 2, 2]
 
 
+def is_two_one_one(state: State) -> bool:
+    return sorted(state) == [0, 1, 1, 2]
+
+
+def has_doubled_ink_on_diagonal(pattern: str) -> bool:
+    """True if some ink fills a diagonal (TL and BR, or TR and BL)."""
+    tl, tr, bl, br = pattern
+    return tl == br or tr == bl
+
+
 # ---------------------------------------------------------------------------
 # MODE 1 encoding
 # ---------------------------------------------------------------------------
