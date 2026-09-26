@@ -11,14 +11,14 @@
 #     uv run dd-preview-sprites     (writes build/design/sprites.png)
 
 E
-............
 .ooooooooo..
 .oopopopoo..
 .opppppppo..
-.opppoopooo.
-.oppoppppppo
-.oppoppoooo.
-.opppooppo..
+.oppoooppo..
+.opopppoooo.
+.opopppppppo
+.opopppoooo.
+.oppoooppo..
 .opppppppo..
 .oopopopoo..
 .ooooooooo..

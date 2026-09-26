@@ -66,3 +66,16 @@ def test_bad_rows_are_rejected():
 def test_missing_facing_is_rejected():
     with pytest.raises(SpriteError, match="facing NE"):
         parse_sprite("E\n" + ("." * 12 + "\n") * 12)
+
+
+def test_axial_tank_is_mirror_symmetric_about_its_barrel_row(tank):
+    """Drawn in 11 rows (row 11 empty) so the one-pixel barrel has a centre row."""
+    east = tank["E"]
+    assert east[11] == "." * SPRITE_PIXELS
+    assert all(east[5 - d] == east[5 + d] for d in range(6))
+
+
+def test_diagonal_tank_is_mirror_symmetric_about_the_box_diagonal(tank):
+    north_east = tank["NE"]
+    n = SPRITE_PIXELS - 1
+    assert all(north_east[y][x] == north_east[n - x][n - y] for y in range(n + 1) for x in range(n + 1))

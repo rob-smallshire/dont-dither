@@ -56,6 +56,12 @@ Decisions taken during development that refine or depart from
   C, M and Y; yellow for K), so it stays visible over any texture, including
   its own colour. The barrel has a player-ink core with a contrast outline so
   that direction stays readable on any ground.
+- Every facing is mirror-symmetric about its own axis. The axial tank is drawn
+  within 11 rows of the 12x12 picture so its one-pixel barrel has a centre
+  row; the diagonal tank is symmetric about the box diagonal. Game geometry
+  (collision footprint, brush) is in superpixels and so is symmetric about
+  the 6x6-superpixel footprint's centre instead; the half-pixel offset
+  between picture and footprint axes is imperceptible.
 - Only facings E and NE are drawn (`sprites/tank.spr`, editable ASCII); the
   other six are exact quarter turns. `uv run dd-preview-sprites` renders every
   player, facing and a range of backgrounds for review.
