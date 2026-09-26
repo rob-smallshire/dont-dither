@@ -67,3 +67,25 @@ def test_miscounted_splat_is_rejected():
     grid = "E 1\nTTTTTT..*\n" + "TTTTTT...\n" * 5
     with pytest.raises(SplatError, match="exactly 16"):
         parse_splats(grid + "NE 1\n" + grid.split("\n", 1)[1])
+
+
+def test_ray_trees_list_parents_before_children_and_cover_the_splat():
+    from dontdither.splats import load_trees
+
+    trees = load_trees()
+    for facing in FACINGS:
+        for tree, splat in zip(trees[facing], load_splats()[facing]):
+            assert all(n.parent < i for i, n in enumerate(tree))
+            assert sorted(n.cell for n in tree if n.paints) == list(splat)
+            assert not any(0 <= x < FOOTPRINT and 0 <= y < FOOTPRINT for x, y in (n.cell for n in tree))
+
+
+def test_ray_tree_parents_are_adjacent_cells():
+    from dontdither.splats import load_trees
+
+    for trees in load_trees().values():
+        for tree in trees:
+            for node in tree:
+                if node.parent >= 0:
+                    px, py = tree[node.parent].cell
+                    assert max(abs(px - node.cell[0]), abs(py - node.cell[1])) == 1

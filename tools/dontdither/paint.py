@@ -9,8 +9,9 @@ non-zero count. A cell already solidly the painter's is unchanged and does not
 advance the round-robin. Inks without a player (neutral inks in a two-player
 game) are victims like any other.
 
-A splat applies paint once to each of its cells, in the splat's stored order,
-so the round-robin advances across the cells of a single shot.
+A splat applies paint once to each of its cells that walls do not shadow
+(see splats.ray_tree), in the tree's order, so the round-robin advances
+across the cells of a single shot.
 """
 
 from __future__ import annotations
@@ -51,11 +52,16 @@ class Painter:
 def apply_splat(
     grid: dict[tuple[int, int], State],
     painter: Painter,
-    cells: list[tuple[int, int]],
+    tree,
+    origin: tuple[int, int] = (0, 0),
 ) -> None:
-    """Paint each cell of a splat once, in order. Cells not in the grid
-    (walls, or outside the arena) are skipped without advancing the
-    round-robin."""
-    for cell in cells:
-        if cell in grid:
-            grid[cell], painter.last_victim = paint_cell(grid[cell], painter.ink, painter.last_victim)
+    """Fire one shot. `tree` is the splat's shadowing tree (splats.RayTree)
+    in footprint-relative cells; `origin` is the footprint's top-left cell in
+    the grid. Grid cells that are absent are walls (or outside the arena):
+    they, and every cell they shadow, are not painted."""
+    from dontdither.splats import unblocked_cells
+
+    ox, oy = origin
+    for cx, cy in unblocked_cells(tree, lambda c: (c[0] + ox, c[1] + oy) not in grid):
+        cell = (cx + ox, cy + oy)
+        grid[cell], painter.last_victim = paint_cell(grid[cell], painter.ink, painter.last_victim)

@@ -2,6 +2,7 @@
 
 from dontdither.inks import INKS, all_states
 from dontdither.paint import Painter, apply_splat, paint_cell
+from dontdither.splats import load_trees
 
 C, M, Y, K = range(4)
 
@@ -70,8 +71,35 @@ def test_the_rule_is_the_same_for_every_player_under_relabelling():
                 assert new2 == cycle(new) and victim2 == (victim + 1) % 4
 
 
-def test_splat_skips_cells_outside_the_grid_without_advancing():
-    grid = {(0, 0): (1, 1, 1, 1), (2, 0): (1, 1, 1, 1)}
-    painter = Painter(INKS.index("C"))
-    apply_splat(grid, painter, [(0, 0), (1, 0), (2, 0)])   # (1, 0) is a wall
-    assert grid == {(0, 0): (2, 0, 1, 1), (2, 0): (2, 1, 0, 1)}
+def open_grid(size=30, offset=10):
+    return {(x, y): (1, 1, 1, 1) for x in range(-offset, size - offset) for y in range(-offset, size - offset)}
+
+
+def test_unobstructed_splat_paints_all_sixteen_cells():
+    tree = load_trees()["E"][0]
+    grid = open_grid()
+    apply_splat(grid, Painter(C), tree)
+    assert sum(1 for s in grid.values() if s != (1, 1, 1, 1)) == 16
+
+
+def test_wall_in_the_gap_blocks_the_whole_splat():
+    tree = load_trees()["E"][0]
+    grid = open_grid()
+    for y in range(-10, 20):
+        grid.pop((6, y), None)          # a wall column just beyond the footprint
+    apply_splat(grid, Painter(C), tree)
+    assert all(s == (1, 1, 1, 1) for s in grid.values())
+
+
+def test_wall_shadows_only_the_cells_behind_it():
+    tree = load_trees()["E"][0]
+    splat = [n.cell for n in tree if n.paints]
+    grid = open_grid()
+    wall = (11, 3)
+    assert wall in splat
+    grid.pop(wall)
+    apply_splat(grid, Painter(C), tree)
+    painted = {c for c, s in grid.items() if s != (1, 1, 1, 1)}
+    shadowed = set(splat) - painted - {wall}
+    assert 0 < len(painted) < 16
+    assert all(x > wall[0] for x, _ in shadowed), "only cells beyond the wall are shadowed"

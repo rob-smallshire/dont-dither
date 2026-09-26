@@ -81,8 +81,19 @@ Decisions taken during development that refine or depart from
   reach within 0.6 cells of the same distance (tests enforce all of these).
   The one-cell gap on a diagonal costs more distance, so the axial splats
   sit two cells out to match.
-- `uv run dd-preview-splats` renders every variant and facing, plus the
-  overlay of all variants.
+- Walls stop splats: a splat cell is painted only if the straight line from
+  the centre of the tank's footprint to the cell crosses no wall, so a wall
+  shadows everything behind it (including a wall in the gap, which blocks
+  the whole shot). This is precomputed per variant as a ray tree whose
+  nodes are the cells on those lines, each with its parent (the previous
+  cell on its line). The 6502 walks the nodes in order with one wall test
+  each (about 30 per shot); a node is blocked if it is a wall or its parent
+  is blocked. Trees are built for E and NE and rotated, never re-traced, so
+  shadowing is identical for every facing.
+- Cells are painted in tree order, which the round-robin victim rule
+  follows.
+- `uv run dd-preview-splats` renders every variant and facing, cumulative
+  shots, and shots against a wall, all with the true one-quantum effect.
 
 ## Input
 
