@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Don't Dither! is a BBC Micro Model B game in 6502 assembly (beebasm), tested in
 the Beebium emulator through its Python client and pytest. The design is in
 `docs/dont_dither_game_design.md` (a rendering of the `.docx`, which is the
-source).
+source). Decisions that refine or depart from it are recorded in
+`docs/decisions.md`; add to it when a design decision is made.
 
 ## Commands
 
