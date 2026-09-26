@@ -477,6 +477,12 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
 \
 \ On entry:  X = player (whose background was saved by save_under)
 \ On exit:   A, X, Y corrupted
+\
+\ Only the bits inside the tank's footprint are restored, merged under the
+\ footprint mask for the saved alignment:
+\     screen EOR ((screen EOR saved) AND footprint_mask)
+\ A tank's four saved byte columns can include half a byte column of a
+\ neighbouring tank touching it side by side; masking leaves that alone.
 \ ----------------------------------------------------------------------------
 
 .restore_under
@@ -484,6 +490,14 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     STA restore_under_load+1   \ PATCHED: LDA buffer,X below.
     LDA zp_sprite_tmp
     STA restore_under_load+2
+
+    LDA saved_sx,X             \ Footprint mask for the saved alignment.
+    AND #1
+    TAY
+    LDA footprint_mask_lo,Y
+    STA restore_under_mask+1   \ PATCHED: AND mask,X below.
+    LDA footprint_mask_hi,Y
+    STA restore_under_mask+2
 
     LDY saved_sy,X             \ Restore where the background was saved,
     LDA saved_sx,X             \ wherever the player has moved to since.
@@ -495,7 +509,11 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
 .restore_under_byte
     LDY sprite_line_offsets,X
 .restore_under_load
-    LDA &FFFF,X                \ PATCHED to the player's save buffer.
+    LDA &FFFF,X                \ PATCHED: the player's save buffer.
+    EOR (zp_screen_ptr),Y
+.restore_under_mask
+    AND &FFFF,X                \ PATCHED: the footprint mask.
+    EOR (zp_screen_ptr),Y
     STA (zp_screen_ptr),Y
     INX
     TXA
@@ -504,6 +522,11 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     CPX #SPRITE_FRAME_BYTES
     BNE restore_under_row
     RTS
+
+.footprint_mask_lo
+    EQUB LO(footprint_mask_0), LO(footprint_mask_1)
+.footprint_mask_hi
+    EQUB HI(footprint_mask_0), HI(footprint_mask_1)
 
 \ ----------------------------------------------------------------------------
 \ draw_sprite -- draw player X's tank at its position and facing

@@ -141,3 +141,14 @@ def draw_sprite_on_screen(screen: bytearray, sx: int, sy: int, picture: Picture,
         bits = ((colour >> 1) & 1) << (7 - shift) | (colour & 1) << (3 - shift)
         keep = ~((1 << (7 - shift)) | (1 << (3 - shift))) & 0xFF
         screen[address] = (screen[address] & keep) | bits
+
+
+def footprint_mask_plane(alignment: int) -> bytes:
+    """Per frame byte, ones on the pixels inside the 6x6-superpixel
+    footprint. A tank owns exactly these bits of screen memory."""
+    offset = 2 * alignment
+    plane = []
+    for _, byte in frame_order():
+        pixels = [3 if 0 <= byte * 4 + p - offset < SPRITE_PIXELS else 0 for p in range(4)]
+        plane.append(mode1_byte(pixels))
+    return bytes(plane)

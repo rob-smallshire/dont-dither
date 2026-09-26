@@ -118,3 +118,17 @@ def test_random_moves_soak(game):
         move(bbc, labels, player, sx, sy, rng.randrange(8))
         assert_screen_matches(bbc, player_table(bbc, labels))
         moves += 1
+
+
+@pytest.mark.parametrize("left_sx", [60, 61])      # even and odd alignment
+def test_redrawing_a_tank_beside_another_leaves_its_neighbour_intact(game, left_sx):
+    """Tanks touching side by side can share a screen byte column. Redrawing
+    one must not disturb the other, which is not redrawn."""
+    bbc, labels = game
+    move(bbc, labels, 1, 100, 30, 6)             # clear of where player 0 goes
+    move(bbc, labels, 0, left_sx, 50, 2)
+    move(bbc, labels, 1, left_sx + 6, 50, 6)     # touching player 0's east side
+    move(bbc, labels, 0, left_sx, 50, 0)         # player 0 turns: redrawn alone
+    assert_screen_matches(bbc, player_table(bbc, labels))
+    move(bbc, labels, 1, left_sx + 6, 50, 4)     # and the other way round
+    assert_screen_matches(bbc, player_table(bbc, labels))
