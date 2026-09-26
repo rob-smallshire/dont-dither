@@ -3,11 +3,14 @@ name = "dont-dither"
 version = "0.1.0"
 description = "Don't Dither! -- a territory game for the BBC Micro Model B"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "Pillow>=10",
+]
 
 [project.scripts]
 dd-build = "dontdither.build:main"
 dd-solve-patterns = "dontdither.solve_patterns:main"
+dd-preview-sprites = "dontdither.preview_sprites:main"
 
 [dependency-groups]
 test = [

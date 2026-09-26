@@ -16,6 +16,7 @@ uv run pytest                                     # all tests (builds the disc f
 uv run pytest tests/test_inks.py                  # pure-Python tests, no emulator
 uv run pytest tests/test_boot.py::test_palette_maps_logical_colours_to_cmyk
 uv run --group solver dd-solve-patterns           # re-solve data/ink_patterns.json (OR-tools CP-SAT)
+uv run dd-preview-sprites                         # render sprites/tank.spr to build/design/sprites.png
 ```
 
 Screenshots from emulator tests land in `build/screenshots/` (`boot.png`,

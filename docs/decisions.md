@@ -45,6 +45,21 @@ Decisions taken during development that refine or depart from
   screen. A natural default is player k = ink k, giving C against Y on a ROT2
   level.
 
+## Player sprites
+
+- Players are told apart by colour only, not by silhouette: this saves memory
+  and lets the shape show direction as clearly as possible.
+- The sprite is a top-down tank, 12x12 pixels (6x6 superpixels), with its
+  barrel pointing in the facing direction, which is also the direction of
+  travel and of the splat.
+- Every sprite is two-tone: the player's ink plus a contrast ink (black for
+  C, M and Y; yellow for K), so it stays visible over any texture, including
+  its own colour. The barrel has a player-ink core with a contrast outline so
+  that direction stays readable on any ground.
+- Only facings E and NE are drawn (`sprites/tank.spr`, editable ASCII); the
+  other six are exact quarter turns. `uv run dd-preview-sprites` renders every
+  player, facing and a range of backgrounds for review.
+
 ## Input
 
 - Keyboard only for now. Beebium does not yet emulate joysticks, and the
