@@ -1,0 +1,27 @@
+# Fourfold: an introductory four-player arena.
+#
+# Only the top-left quadrant's walls are written here; SYMMETRY ROT4 repeats
+# them under quarter turns about the arena centre. Wall coordinates are
+# character cells 0..31; START is in superpixels 0..127.
+
+NAME FOURFOLD
+SYMMETRY ROT4
+WALLS K Y
+START 13 13 SE
+
+# The top edge of the arena; its rotations complete the border.
+MOVE 0 0
+DRAW 31 0
+
+# A bracket sheltering each player's corner.
+MOVE 9 5
+DRAW 5 5
+DRAW 5 9
+
+# A spur reaching in from the middle of each edge.
+MOVE 15 1
+DRAW 15 5
+
+# A block beside the centre.
+MOVE 12 11
+DRAW 13 11

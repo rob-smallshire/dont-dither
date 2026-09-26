@@ -122,6 +122,19 @@ def _run_until_ready(bbc: Beebium, labels: dict[str, int], what: str) -> None:
     bbc.run_for_emulated_seconds(SETTLE_EMULATED_SECONDS)
 
 
+def enter_routine(bbc: Beebium, labels: dict[str, int], routine: str, what: str) -> None:
+    """Jump the idling program to one of its routines and run until ready.
+
+    The program must be idling in its `idle` loop. Running to `idle` first
+    stops the CPU at an instruction boundary: after cycle-based stepping it
+    may be part-way through an instruction, and writing PC then corrupts the
+    instruction in flight (reported to beebium-architect).
+    """
+    bbc.debugger.run_to(labels["idle"])
+    bbc.cpu.pc = labels[routine]
+    _run_until_ready(bbc, labels, what)
+
+
 def boot_game(bbc: Beebium, game_build: BuildResult) -> None:
     """Shift-Break boot the game disc and run until the game reports it is ready.
 

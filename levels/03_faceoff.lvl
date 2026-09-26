@@ -1,0 +1,25 @@
+# Face-off: a two-player arena with twofold (180 degree) symmetry. The top
+# half is written; SYMMETRY ROT2 repeats it rotated to form the bottom half.
+
+NAME FACE-OFF
+SYMMETRY ROT2
+WALLS K M
+START 61 8 S
+
+# Border: the top edge and the upper halves of both sides.
+MOVE 0 15
+DRAW 0 0
+DRAW 31 0
+DRAW 31 15
+
+# Two bunkers flanking player 0's start.
+MOVE 9 5
+DRAW 12 5
+DRAW 12 8
+MOVE 22 5
+DRAW 19 5
+DRAW 19 8
+
+# A central divider with a gap in the middle.
+MOVE 4 15
+DRAW 12 15

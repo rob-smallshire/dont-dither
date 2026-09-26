@@ -1,0 +1,20 @@
+# Pinwheel: four long arms sweeping around the centre, dividing the arena
+# into pockets reached through gaps. Cyan-core walls with black rims.
+
+NAME PINWHEEL
+SYMMETRY ROT4
+WALLS C K
+START 10 10 SE
+
+# Border: the top edge, completed by rotation.
+MOVE 0 0
+DRAW 31 0
+
+# An arm from the top edge down towards the centre, then bending east.
+MOVE 12 4
+DRAW 12 12
+DRAW 17 12
+
+# A short baffle in the corner pocket.
+MOVE 4 8
+DRAW 7 8

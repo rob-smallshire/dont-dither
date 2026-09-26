@@ -56,6 +56,15 @@ the whole map. Cells outside the arena count as walls.
 `tools/dontdither/walls.py` models this exactly and the tests compare every
 wall cell byte-for-byte.
 
+**Levels** are text files in `levels/` (format in `tools/dontdither/levels.py`),
+compiled in filename order. A level stores one quadrant (`ROT4`) or half
+(`ROT2`) of its walls as MOVE/DRAW lines in wall-cell coordinates, plus its
+colouring, fill state and player 0's START. `asm/level.asm` interprets the
+bytecode once per symmetric copy, rotating each plotted cell ((x, y) ->
+(31 - y, x) per quarter turn) into a 128-byte `wall_map` buffer. So symmetry,
+and hence fairness, is structural. `enter_level` in `asm/main.asm` fills the
+arena, builds and draws the walls, and prints the level name.
+
 **Data flow from one source of truth:**
 
 ```
@@ -63,7 +72,8 @@ data/ink_patterns.json            canonical pattern per state (written by solve_
   -> tools/dontdither/inks.py     model: states, patterns, colour mapping, MODE 1 encoding
   -> tools/dontdither/gen_tables.py  -> build/generated/*.asm
        ink_tables (patterns, palette, STATE_*), screen_tables (row addresses),
-       wall_tiles (16 tiles, corner patches), testcard_data (from testcard.py)
+       wall_tiles (16 tiles, corner patches), testcard_data (from testcard.py),
+       level_data (from levels/*.lvl)
   -> asm/*.asm INCLUDE them; tools/dontdither/build.py runs beebasm from the project root
   -> build/dont-dither.ssd + build/labels/<PROGRAM>.txt
 ```
@@ -99,13 +109,21 @@ tests; they must stay consistent):
 
 **Tests link to the assembly by label.**
 - beebasm's `-d -labels` output is parsed into `BuildResult.labels`.
-- Zero-page variables are declared with `ORG &70` / `SKIP` (not as `=`
-  constants) so that they appear in the labels.
+- Zero-page variables are declared with `ORG`/`SKIP` (not as `=` constants)
+  so that they appear in the labels. `zp_boot_status` lives in the MOS user
+  block &70-&8F. Everything else is in &00-&6F, BASIC's workspace, which is
+  free because our programs never return to BASIC.
 - Tests look up addresses such as `zp_boot_status` and `pattern_to_state` by
   name, never hard-coded. Only labels are exported, not `=` constants.
 
 **Beebium fixtures** (`tests/conftest.py`):
 - `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
+- `enter_routine` jumps an idling program to a routine (e.g. `enter_level`
+  after setting `zp_level`). It runs to the `idle` label first, because
+  cycle-based stepping (`run_for_emulated_seconds`) can stop the CPU
+  mid-instruction, and writing PC then corrupts the in-flight instruction
+  (beebium #106). Always reach an instruction boundary (`run_to` or
+  `debugger.step(1)`) before writing registers.
 - After a program is ready the harness runs two more frames: screen text and
   captured frames reflect what has been *displayed*, not screen memory.
 - `launch_bbc` is a factory, and `bbc` shadows the plugin fixture of the same

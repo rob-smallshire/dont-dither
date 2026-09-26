@@ -1,22 +1,42 @@
 \ ============================================================================
 \ zeropage.asm -- zero page variables shared by all Don't Dither! programs
 \
-\ The MOS reserves &70-&8F for user programs and leaves it alone, so all our
-\ zero page lives there. Variables are declared with ORG/SKIP rather than as
-\ `=` constants so that beebasm exports them as labels, which the Python tests
-\ use to find them by name.
+\ Two blocks:
+\
+\   &70-&8F  reserved by the MOS for user programs, so nothing else writes it
+\            even before our program starts. Holds zp_boot_status, which the
+\            test harness polls from the moment the disc is booted.
+\
+\   &00-&6F  BASIC's workspace. Our programs are *RUN from BASIC and never
+\            return to it, so once they start this is ours. (&90-&FF stays
+\            with Econet, the filing system and the MOS.)
+\
+\ Variables are declared with ORG/SKIP rather than as `=` constants so that
+\ beebasm exports them as labels, which the Python tests use to find them by
+\ name.
 \
 \ INCLUDE this before the program's code ORG; it emits no bytes.
+\ ============================================================================
+
+\ ============================================================================
+\ &70-&8F: user zero page
 \ ============================================================================
 
 ORG &70
 GUARD &90                      \ Assembly fails if we outgrow &70-&8F.
 
-\ ---- Harness handshake ------------------------------------------------------
-
 .zp_boot_status   SKIP 1       \ 0 while setting up; BOOT_READY when the
                                \ program has finished and is idling. The test
                                \ harness polls this.
+
+BOOT_READY = &FF               \ zp_boot_status value once set-up is done.
+
+\ ============================================================================
+\ &00-&6F: former BASIC workspace
+\ ============================================================================
+
+ORG &00
+GUARD &70
 
 \ ---- Screen access -----------------------------------------------------------
 
@@ -53,14 +73,29 @@ GUARD &90                      \ Assembly fails if we outgrow &70-&8F.
 .zp_neighbours    SKIP 1       \ Neighbour mask of the wall cell being drawn
                                \ (WALL_NORTH | WALL_EAST | ...).
 .zp_corner        SKIP 1       \ Offset of the current wall_corners record.
-.zp_wall_byte     SKIP 1       \ is_wall: the bitmap byte being tested.
+.zp_wall_byte     SKIP 1       \ is_wall / plot_wall_cell: scratch byte.
 .zp_saved_y       SKIP 1       \ is_wall: caller's Y, restored on exit.
 
-\ ---- Test card -----------------------------------------------------------------
+\ ---- Levels ------------------------------------------------------------------
+
+.zp_level         SKIP 1       \ Level number to enter (0..LEVEL_COUNT-1).
+.zp_level_ptr     SKIP 2       \ Pointer to the current level's bytecode.
+.zp_level_offset  SKIP 1       \ run_level_commands: offset of the next
+                               \ bytecode byte, saved across calls.
+.zp_symmetry_step SKIP 1       \ Quarter turns between symmetric copies:
+                               \ 1 (ROT4) or 2 (ROT2).
+.zp_copy_turns    SKIP 1       \ Quarter turns applied to the copy being
+                               \ drawn: 0..3.
+.zp_pen_x         SKIP 1       \ Level pen position, wall cells 0..31.
+.zp_pen_y         SKIP 1
+.zp_target_x      SKIP 1       \ End of the DRAW line being plotted.
+.zp_target_y      SKIP 1
+.zp_step_x        SKIP 1       \ Per-cell step along the line: -1 (&FF), 0
+.zp_step_y        SKIP 1       \ or +1.
+.zp_plot_x        SKIP 1       \ plot_wall_cell: the cell after rotation.
+.zp_plot_y        SKIP 1
+
+\ ---- Test card ---------------------------------------------------------------
 
 .zp_swatch        SKIP 1       \ Offset of the current testcard_swatch_walls
                                \ record.
-
-\ ---- Constants for the above ---------------------------------------------------
-
-BOOT_READY = &FF               \ zp_boot_status value once set-up is done.

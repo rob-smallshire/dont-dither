@@ -5,16 +5,23 @@
 \ why INCLUDE paths are relative to the root). The disc's !BOOT runs this
 \ program, saved as DITHER.
 \
-\ CURRENT STAGE: boot smoke test. The program
+\ CURRENT STAGE: arena rendering. The program
 \   1. selects MODE 1, hides the cursor and programs the CMYK palette,
-\   2. fills the 256x256-pixel arena with the four-way ink state (1,1,1,1),
-\   3. prints the title in the right-hand HUD column,
-\   4. sets zp_boot_status to BOOT_READY so the test harness knows it is done,
-\   5. idles forever.
+\   2. enters level 0 (see enter_level): fills the arena with the level's
+\      initial ink state, expands the level's walls into the wall map under
+\      its symmetry, draws them in the level's colouring, and shows the
+\      title and level name in the HUD,
+\   3. sets zp_boot_status to BOOT_READY and idles.
+\
+\ Test hook: with the machine stopped anywhere, a test may set zp_level and
+\ jump to enter_level (by setting PC) to draw any level; enter_level never
+\ returns, it sets BOOT_READY and idles.
 \
 \ Memory map (for now):
-\   &0070-&008F  zero page reserved for user programs (see zeropage.asm)
-\   &1900-       program code and tables (loaded and run by DFS via !BOOT)
+\   &0000-&006F  zero page, former BASIC workspace (see zeropage.asm)
+\   &0070-&008F  zero page reserved for user programs
+\   &1900-       program code and tables (loaded and run by DFS via !BOOT),
+\                then uninitialised buffers (wall_map)
 \   &3000-&7FFF  MODE 1 screen memory (20 KB)
 \ Later the program will reclaim DFS workspace below &1900 once loaded.
 \ ============================================================================
@@ -24,8 +31,8 @@ INCLUDE "asm/macros.asm"
 INCLUDE "asm/zeropage.asm"
 
 ORG &1900
-GUARD MODE1_SCREEN_BASE        \ Assembly fails if code/data reach the
-                               \ screen.
+GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
+                               \ reach the screen.
 
 .start
     \ Mark boot as in progress. RAM contents at power-on are not guaranteed,
@@ -35,18 +42,81 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code/data reach the
 
     JSR init_display           \ MODE 1, cursor off, CMYK palette.
 
-    \ Fill the arena with the four-player initial ink state.
-    LDX #STATE_FOUR_WAY
+    LDA #0                     \ Start with the first level.
+    STA zp_level
+    \ Fall through into enter_level.
+
+\ ----------------------------------------------------------------------------
+\ enter_level -- draw level zp_level and idle
+\
+\ On entry:  zp_level = level number (0..LEVEL_COUNT-1); display initialised
+\ Never returns: sets zp_boot_status to BOOT_READY and idles.
+\ ----------------------------------------------------------------------------
+
+.enter_level
+    LDA #0                     \ Not ready while drawing (matters when a test
+    STA zp_boot_status         \ jumps here to draw another level).
+
+    JSR select_level           \ zp_level_ptr -> the level's bytecode.
+
+    \ Fill every arena superpixel with the level's initial ink state.
+    LDY #LEVEL_HEADER_FILL
+    LDA (zp_level_ptr),Y
+    TAX
     JSR fill_arena_with_state
 
-    SEND_VDU title_vdu_bytes, title_vdu_bytes_end
+    \ Expand the level's walls into wall_map and draw them over the ink in
+    \ the level's colouring.
+    JSR build_wall_map
+    LDY #LEVEL_HEADER_CORE
+    LDA (zp_level_ptr),Y
+    STA zp_wall_core
+    LDY #LEVEL_HEADER_RIM
+    LDA (zp_level_ptr),Y
+    STA zp_wall_rim
+    LDA #LO(wall_map)
+    STA zp_wall_map
+    LDA #HI(wall_map)
+    STA zp_wall_map+1
+    JSR draw_walls
 
-    \ Tell the harness we have finished setting up.
+    \ HUD: the title, then the level name.
+    SEND_VDU title_vdu_bytes, title_vdu_bytes_end
+    JSR print_level_name
+
+    \ Tell the harness we have finished.
     LDA #BOOT_READY
     STA zp_boot_status
 
 .idle
     JMP idle                   \ Nothing else to do yet.
+
+\ ----------------------------------------------------------------------------
+\ print_level_name -- print level zp_level's name in the HUD
+\
+\ On exit:  A, X, Y corrupted
+\
+\ Names are LEVEL_NAME_LENGTH (8) characters, space padded, which exactly
+\ fills the HUD's eight text columns.
+\ ----------------------------------------------------------------------------
+
+.print_level_name
+    SEND_VDU level_name_tab_vdu_bytes, level_name_tab_vdu_bytes_end
+
+    \ X = zp_level * 8, the offset of this level's name in level_names.
+    LDA zp_level
+    ASL A
+    ASL A
+    ASL A
+    TAX
+    LDY #LEVEL_NAME_LENGTH     \ Y counts characters remaining.
+.print_level_name_loop
+    LDA level_names,X
+    JSR OSWRCH                 \ OSWRCH preserves X and Y.
+    INX
+    DEY
+    BNE print_level_name_loop
+    RTS
 
 .title_vdu_bytes
     \ Two lines of title text in the HUD, in text colour 3 (Y), centred in
@@ -58,15 +128,30 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code/data reach the
     EQUS "DITHER!"
 .title_vdu_bytes_end
 
+.level_name_tab_vdu_bytes
+    EQUB VDU_TAB, HUD_TEXT_COLUMN, 4   \ Level name on HUD text row 4.
+.level_name_tab_vdu_bytes_end
+
 \ ----------------------------------------------------------------------------
 \ Shared modules and generated tables
 \ ----------------------------------------------------------------------------
 
 INCLUDE "asm/display.asm"
 INCLUDE "asm/arena.asm"
+INCLUDE "asm/walls.asm"
+INCLUDE "asm/level.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
+INCLUDE "build/generated/wall_tiles.asm"
+INCLUDE "build/generated/level_data.asm"
 
 .end
+
+\ ----------------------------------------------------------------------------
+\ Uninitialised buffers: after .end, so not saved to disc or loaded.
+\ ----------------------------------------------------------------------------
+
+.wall_map
+    SKIP 128                   \ The current level's 32x32 wall bitmap.
 
 SAVE "DITHER", start, end, start

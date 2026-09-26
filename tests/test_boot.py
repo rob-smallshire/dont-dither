@@ -1,4 +1,5 @@
-"""Boot smoke tests: the game disc boots in Beebium and sets up the display.
+"""Boot smoke tests: the game disc boots in Beebium, sets up the display and
+draws the first level. (test_level_render.py checks every level in detail.)
 
 All tests share one booted machine (see `booted_game`) and only observe it.
 """
@@ -7,8 +8,19 @@ import pytest
 
 from dontdither.build import BUILD_DIRPATH
 from dontdither.gen_tables import NON_CANONICAL, superpixel_index
-from dontdither.inks import INK_RGB, LOGICAL_COLOUR, PHYSICAL_COLOUR, InkTable, pattern_rows_as_mode1_bytes
-from dontdither.screen import ARENA_CELLS, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE, arena_patterns
+from dontdither.inks import (
+    INK_RGB,
+    LOGICAL_COLOUR,
+    PHYSICAL_COLOUR,
+    InkTable,
+    mode1_pixels,
+    pattern_rows_as_mode1_bytes,
+)
+from dontdither.levels import load_levels
+from dontdither.screen import ARENA_CELLS, MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
+from dontdither.walls import wall_bitmap
+
+HUD_TEXT_ROWS = (1, 2, 4)   # title, title, level name
 
 MOS_CURRENT_MODE = 0x0355
 SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
@@ -38,20 +50,21 @@ def test_palette_maps_logical_colours_to_cmyk(booted_game):
                 assert palette[index] == PHYSICAL_COLOUR[ink], (ink, index)
 
 
-def test_every_arena_cell_is_the_four_way_state(screen, table):
-    expected = table.pattern((1, 1, 1, 1))
-    patterns = arena_patterns(screen)
-    wrong = [(sx, sy, p) for sy, row in enumerate(patterns) for sx, p in enumerate(row) if p != expected]
-    assert not wrong, f"{len(wrong)} cells differ, first: {wrong[:5]}"
+def test_boots_into_the_first_level(booted_game, game_build):
+    labels = game_build.labels["DITHER"]
+    peek = booted_game.memory.address.peek
+    assert peek[labels["zp_level"]] == 0
+    wall_map = bytes(peek[labels["wall_map"]:labels["wall_map"] + 128])
+    assert wall_map == wall_bitmap(load_levels()[0].wall_cells())
 
 
-def test_hud_is_untouched_by_the_arena_fill(screen):
-    # HUD byte columns 64..79 of every raster line, excluding the title rows
-    # (character rows 1 and 2), are still background (logical colour 0).
+def test_hud_is_blank_apart_from_its_text(screen):
+    # HUD byte columns 64..79 of every character row except those holding
+    # text are still background (logical colour 0).
     for char_row in range(32):
-        if char_row in (1, 2):
+        if char_row in HUD_TEXT_ROWS:
             continue
-        row = screen[char_row * 640 + 512:(char_row + 1) * 640]
+        row = screen[char_row * MODE1_ROW_BYTES + 512:(char_row + 1) * MODE1_ROW_BYTES]
         assert row == bytes(128), f"HUD not blank on character row {char_row}"
 
 
@@ -75,17 +88,20 @@ def test_ink_tables_in_memory_match_the_model(booted_game, game_build, table):
     assert sum(1 for v in lookup if v == NON_CANONICAL) == 256 - 35
 
 
-def test_displayed_arena_shows_only_cmyk_in_equal_shares(booted_game):
+def test_displayed_arena_matches_screen_memory(booted_game, screen):
+    """The frame Beebium displays shows exactly the arena in screen memory."""
     frame = booted_game.video.capture_frame()
     SCREENSHOT_DIRPATH.mkdir(parents=True, exist_ok=True)
     frame.save_png(SCREENSHOT_DIRPATH / "boot.png")
 
+    rgb_of_logical = {LOGICAL_COLOUR[ink]: rgb for ink, rgb in INK_RGB.items()}
     arena_pixels = ARENA_CELLS * 2
-    tally: dict[tuple[int, int, int], int] = {}
+    mismatches = 0
     for y in range(arena_pixels):
-        for x in range(arena_pixels):
-            offset = (y * frame.width + x) * 4
-            b, g, r = frame.pixels[offset:offset + 3]
-            tally[(r, g, b)] = tally.get((r, g, b), 0) + 1
-    quarter = arena_pixels * arena_pixels // 4
-    assert tally == {rgb: quarter for rgb in INK_RGB.values()}
+        for byte_column in range(arena_pixels // 4):
+            byte = screen[(y // 8) * MODE1_ROW_BYTES + byte_column * 8 + y % 8]
+            for p, logical in enumerate(mode1_pixels(byte)):
+                offset = (y * frame.width + byte_column * 4 + p) * 4
+                b, g, r = frame.pixels[offset:offset + 3]
+                mismatches += (r, g, b) != rgb_of_logical[logical]
+    assert mismatches == 0
