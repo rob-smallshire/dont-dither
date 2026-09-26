@@ -5,8 +5,10 @@
 \ why INCLUDE paths are relative to the root). The disc's !BOOT runs this
 \ program, saved as DITHER.
 \
-\ CURRENT STAGE: tanks driven by the keyboard, blocked by walls and each
-\ other, firing splats that paint the arena. The program
+\ CURRENT STAGE: a playable round. Tanks, driven by the keyboard and blocked
+\ by walls and each other, fire splats that paint the arena until the
+\ five-minute clock runs out; then the territory is tallied and revealed
+\ as a bar chart in the HUD. The program
 \   1. selects MODE 1, hides the cursor, programs the CMYK palette and makes
 \      the cursor keys plain keys,
 \   2. enters level 0 (see enter_level): fills the arena with the level's
@@ -29,10 +31,10 @@
 \ Memory map:
 \   &0000-&006F  zero page, former BASIC workspace (see zeropage.asm)
 \   &0070-&008F  zero page reserved for user programs
-\   &0E00-&2FFF  program code and tables, then uninitialised buffers
-\                (wall_map, player state, sprite save buffers). This
-\                reclaims the DFS workspace (&0E00-&18FF): the game never
-\                uses the disc once loaded.
+\   &0400-&07FF  uninitialised buffers (wall map, player state, sprite save
+\                buffers, tally), in BASIC's language workspace
+\   &0E00-&2FFF  program code and tables. This reclaims the DFS workspace
+\                (&0E00-&18FF): the game never uses the disc once loaded.
 \   &3000-&7FFF  MODE 1 screen memory (20 KB)
 \
 \ Loading: DFS cannot load a file into its own workspace, so the file
@@ -62,6 +64,11 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     JSR init_keyboard          \ Cursor keys and COPY as plain keys; no
                                \ Escape.
     JSR init_beam_timer        \ User VIA timer 2 as a beam clock.
+
+    LDA #LO(ROUND_TICKS)       \ Default round length (tests may change it
+    STA round_length_ticks     \ before entering a level).
+    LDA #HI(ROUND_TICKS)
+    STA round_length_ticks+1
 
     LDA #0                     \ Start with the first level.
     STA zp_level
@@ -109,6 +116,7 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     \ beneath.
     JSR place_players
     JSR show_sprites
+    JSR start_round            \ Set and show the round clock.
 
     \ Tell the harness we have finished setting up.
     LDA #BOOT_READY
@@ -127,8 +135,12 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     JSR fire_players           \ Shoot: splats paint the arena.
     JSR render_sprites         \ Redraw tanks that changed, racing the beam.
     INC tick_count             \ Count ticks (16 bits).
-    BNE tick_done
+    BNE main_loop_clock
     INC tick_count+1
+.main_loop_clock
+    JSR tick_clock             \ Count the tick off the round clock.
+    BCC tick_done
+    JMP end_of_round           \ Time up: tally and reveal. Never returns.
 .tick_done
     JMP main_loop              \ Tests stop here, between ticks.
 
@@ -194,6 +206,7 @@ INCLUDE "asm/level.asm"
 INCLUDE "asm/sprites.asm"
 INCLUDE "asm/game.asm"
 INCLUDE "asm/paint.asm"
+INCLUDE "asm/hud.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
@@ -201,12 +214,18 @@ INCLUDE "build/generated/level_data.asm"
 INCLUDE "build/generated/sprite_data.asm"
 INCLUDE "build/generated/game_data.asm"
 INCLUDE "build/generated/paint_data.asm"
+INCLUDE "build/generated/hud_font.asm"
 
 .end
 
 \ ----------------------------------------------------------------------------
-\ Uninitialised buffers: after .end, so not saved to disc or loaded.
+\ Uninitialised buffers, in BASIC's language workspace (&0400-&07FF), which
+\ is free once the game runs (it never returns to BASIC). Nothing here is
+\ saved to disc or loaded; the game initialises what it uses.
 \ ----------------------------------------------------------------------------
+
+ORG &0400
+GUARD &0800
 
 .wall_map
     SKIP 128                   \ The current level's 32x32 wall bitmap.
@@ -235,6 +254,35 @@ INCLUDE "build/generated/paint_data.asm"
                                \ under it was painted).
 .splat_blocked    SKIP SPLAT_MAX_NODES \ fire_splat: which tree nodes are
                                \ shadowed by walls.
+.round_length_ticks SKIP 2     \ Length of a round, in ticks.
+.round_ticks_left SKIP 2       \ Ticks until the round ends.
+.clock_ticks      SKIP 1       \ Ticks until the clock shows a second less.
+.clock_seconds    SKIP 1       \ The clock's display, m:ss.
+.clock_minutes    SKIP 1
+.state_histogram_lo SKIP STATE_COUNT \ count_territory: superpixels in each
+.state_histogram_hi SKIP STATE_COUNT \ ink state.
+.total_quanta     SKIP 2       \ 4 per open cell.
+.player_quanta_lo SKIP MAX_PLAYERS \ Each player's quanta at the end.
+.player_quanta_hi SKIP MAX_PLAYERS
+.player_percent   SKIP MAX_PLAYERS \ ...and share, in whole percent.
+.player_revealed  SKIP MAX_PLAYERS \ reveal_scores: bar drawn yet?
+
+\ Working variables of the round clock and tally (hud.asm). Used rarely, so
+\ kept out of zero page.
+.tally_value      SKIP 2       \ 16-bit working value (clock, quanta).
+.tally_product    SKIP 3       \ percent_of_total: quanta * 100, 24 bits.
+.tally_shift      SKIP 3       \ percent_of_total: shifted quanta, 24 bits.
+.bar_best         SKIP 1       \ reveal_scores: smallest / largest share.
+.bar_left         SKIP 1       \ grow_bar: the bar's two bytes per line.
+.bar_right        SKIP 1
+.bar_offset       SKIP 2       \ HUD byte column * 8.
+.bar_height       SKIP 1       \ grow_bar: lines still to grow.
+.bar_line         SKIP 1       \ Raster line being drawn.
+.bar_byte         SKIP 1       \ draw_bar_line: left byte.
+.label_colour     SKIP 1       \ Labels: colour byte.
+.label_column     SKIP 1       \ Labels: byte column of the next digit.
+.label_digit      SKIP 1       \ draw_digit: glyph byte offset.
+.label_units      SKIP 1       \ grow_bar: units digit (ASCII).
 
 .sprite_save_buffers
     SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.

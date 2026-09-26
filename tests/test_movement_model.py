@@ -199,3 +199,25 @@ def test_a_shot_at_a_wall_is_shadowed():
     game.tick([NO_DIRECTION | FIRE_BIT, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION])
     changed = [s for s in game.cells.values() if s != (1, 1, 1, 1)]
     assert 0 < len(changed) < 16
+
+
+def test_round_ends_after_its_ticks_and_nothing_moves_after():
+    from dontdither.levels import load_levels
+
+    game = Game.start(load_levels()[0])
+    game.round_ticks_left = 5
+    for _ in range(5):
+        game.tick([2, STILL, STILL, STILL])
+    assert game.round_over
+    position = (game.players[0].sx, game.players[0].sy)
+    game.tick([2, STILL, STILL, STILL])
+    assert (game.players[0].sx, game.players[0].sy) == position
+
+
+def test_the_grey_start_gives_every_player_a_quarter():
+    from dontdither.levels import load_levels
+
+    game = Game.start(load_levels()[0])
+    assert game.percentages() == [25, 25, 25, 25]
+    total = 4 * len(game.cells)
+    assert game.ink_quanta() == [total // 4] * 4

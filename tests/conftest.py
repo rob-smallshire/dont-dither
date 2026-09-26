@@ -132,15 +132,28 @@ def align_to_tick(bbc: Beebium, labels: dict[str, int]) -> None:
 
 
 def step_ticks(bbc: Beebium, labels: dict[str, int], count: int = 1) -> None:
-    """Run the game for `count` whole ticks, stopping between ticks.
+    """Run the game for exactly `count` ticks, stopping at tick_done.
 
-    run_to stops at once if the CPU is already at the address, so each tick
-    first steps one instruction off tick_done.
+    From tick_done (where run_to would stop at once) each tick first steps
+    one instruction off it; from anywhere else, running to tick_done
+    completes the tick in progress (or, from main_loop, the first tick).
+    """
+    for _ in range(count):
+        if bbc.cpu.pc == labels[TICK_BOUNDARY]:
+            bbc.debugger.step(1)
+        bbc.debugger.run_to(labels[TICK_BOUNDARY])
+
+
+def enter_level(bbc: Beebium, labels: dict[str, int], level_number: int) -> None:
+    """Start a level and stop just before its first tick, at main_loop.
+
+    Nothing of the level's time has passed, so a model started from the
+    level stays exactly in step.
     """
     align_to_tick(bbc, labels)
-    for _ in range(count):
-        bbc.debugger.step(1)
-        bbc.debugger.run_to(labels[TICK_BOUNDARY])
+    bbc.memory.address.bus[labels["zp_level"]] = level_number
+    bbc.cpu.pc = labels["enter_level"]
+    bbc.debugger.run_to(labels["main_loop"])
 
 
 def enter_routine(bbc: Beebium, labels: dict[str, int], routine: str, what: str) -> None:

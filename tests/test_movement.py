@@ -172,13 +172,12 @@ def test_a_tank_driven_into_a_wall_stops_short_of_it(game):
 
 @pytest.mark.parametrize("level_number", range(len(load_levels())))
 def test_random_driving_never_enters_a_wall(game, game_build, level_number):
-    from conftest import enter_routine
+    from conftest import enter_level
     from dontdither.game import footprint_wall_cells
 
     bbc, labels, _ = game
     level = load_levels()[level_number]
-    bbc.memory.address.bus[labels["zp_level"]] = level_number
-    enter_routine(bbc, labels, "enter_level", f"level {level_number}")
+    enter_level(bbc, labels, level_number)
     model = Game.start(level)
     count = len(model.players)
     set_controls(bbc, labels, [CONTROL_SCRIPTED] * count)

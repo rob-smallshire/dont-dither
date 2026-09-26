@@ -40,6 +40,13 @@ towards the player's ink, victims round-robin per player), and the cooldown
 is set to FIRE_PERIOD - 1, so holding fire shoots every FIRE_PERIOD ticks
 (FIRE_PERIOD is even, so the parity rule never delays a held fire).
 Cells under tanks are painted like any other.
+
+Rounds: a round lasts round_ticks ticks (ROUND_SECONDS at 25 Hz by
+default); after the last tick nothing moves or fires. Scoring happens only
+at the end: each player's quanta are the counts of their ink summed over
+every open (non-wall) cell, and their share is quanta * 100 DIV total, where
+the total is 4 quanta per open cell. Neutral inks (in a two-player game)
+count towards the total but belong to no one.
 """
 
 from __future__ import annotations
@@ -64,6 +71,10 @@ DIRECTION_DY = (-1, -1, 0, 1, 1, 1, 0, -1)
 
 FOOTPRINT = 6
 MAX_POSITION = 128 - FOOTPRINT      # 122
+
+TICKS_PER_SECOND = 25
+ROUND_SECONDS = 300        # five minutes
+ROUND_TICKS = ROUND_SECONDS * TICKS_PER_SECOND
 
 FIRE_PERIOD = 6            # ticks between shots while fire is held (4 per second);
                            # must be even (see the firing parity rule)
@@ -116,6 +127,7 @@ class Game:
     ticks: int = 0
     walls: WallCells = frozenset()
     cells: dict[tuple[int, int], State] = field(default_factory=dict)   # open superpixels
+    round_ticks_left: int = ROUND_TICKS
 
     @classmethod
     def start(cls, level: Level) -> Game:
@@ -124,8 +136,26 @@ class Game:
         return cls([Player(s.sx, s.sy, s.facing, ink) for s, ink in zip(level.starts(), level.player_inks())],
                    walls=walls, cells=cells)
 
+    @property
+    def round_over(self) -> bool:
+        return self.round_ticks_left == 0
+
+    def ink_quanta(self) -> list[int]:
+        """Quanta of each ink (C, M, Y, K) over the whole arena."""
+        return [sum(state[i] for state in self.cells.values()) for i in range(len(INKS))]
+
+    def percentages(self) -> list[int]:
+        """Each player's share of the arena, in whole percent (rounded down)."""
+        quanta = self.ink_quanta()
+        total = 4 * len(self.cells)
+        return [quanta[INKS.index(p.ink)] * 100 // total for p in self.players]
+
     def tick(self, inputs: list[int]) -> None:
-        """Advance one tick; inputs[p] is player p's input byte."""
+        """Advance one tick; inputs[p] is player p's input byte. Does
+        nothing once the round is over."""
+        if self.round_over:
+            return
+        self.round_ticks_left -= 1
         count = len(self.players)
         starts = [(p.sx, p.sy) for p in self.players]
         first = self.ticks % count

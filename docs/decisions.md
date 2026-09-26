@@ -161,6 +161,25 @@ Decisions taken during development that refine or depart from
 - Measured worst tick with all four players driving and firing: about
   58,600 of 80,000 cycles.
 
+## Rounds and scoring
+
+- No running scores. As in Splatoon's Turf War, the HUD shows only a
+  countdown during the round, and the result is revealed at the end. This
+  replaces the design document's running totals: the framebuffer is the
+  only record of territory, so the tally can never drift from it.
+- Rounds last five minutes (ROUND_SECONDS in game.py; tests shorten them by
+  writing round_length_ticks before entering a level).
+- At the end the tanks are removed, revealing the bare territory; every open
+  cell is decoded into a histogram of ink states (about 0.4 s); each
+  player's share is its ink's quanta * 100 DIV total quanta (4 per open
+  cell). Neutral inks count towards the total.
+- The reveal is a bar chart in the HUD: bars grow one at a time from the
+  smallest share to the largest, each labelled with its percentage in a
+  3x5 font drawn straight into screen memory, in the player's colour
+  (yellow for black); the winner's label, or all tied winners', is
+  underlined. HUD text near the bottom never goes through the MOS: printing
+  in the bottom-right cell would scroll the screen.
+
 ## Input
 
 - Keyboard only for now. Beebium does not yet emulate joysticks, and the
@@ -181,7 +200,10 @@ Decisions taken during development that refine or depart from
   copies the image to &0E00 and jumps to it. The game never uses the disc
   again, and ESCAPE is made an ordinary key (*FX229,1) so no Escape
   handling reaches the filing system.
-- Still unused and available: &0400-&07FF (BASIC's language workspace).
+- Uninitialised buffers (wall map, player state, sprite save buffers, tally
+  working storage) live at &0400-&07FF, BASIC's language workspace.
+- Zero page (&00-&6F) is full enough that rarely used variables live in
+  the &0400 buffer area instead.
 - Zero page: `zp_boot_status` in the MOS user block &70–&8F; everything else
   in &00–&6F, BASIC's workspace, free because our programs never return to
   BASIC.

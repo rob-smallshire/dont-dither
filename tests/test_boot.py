@@ -22,7 +22,7 @@ from dontdither.levels import load_levels
 from dontdither.screen import ARENA_CELLS, MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
 from dontdither.walls import wall_bitmap
 
-HUD_TEXT_ROWS = (1, 2, 4)   # title, title, level name
+HUD_TEXT_ROWS = (1, 2, 4, 6)   # title, title, level name, clock
 
 MOS_CURRENT_MODE = 0x0355
 SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
