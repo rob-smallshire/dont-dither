@@ -157,6 +157,13 @@ Decisions taken during development that refine or depart from
 - Target a stock 32K Model B with DFS: load from disc, then reclaim DFS
   workspace. Sideways RAM only if we hit the limit, and only after raising it
   with the user.
+- The game runs at &0E00-&2FFF, over the DFS workspace. The file DITHER is a
+  loader stub followed by the game image; DFS loads it at &3100 (screen
+  memory, unused until MODE 1), and the stub closes the !BOOT *EXEC file,
+  copies the image to &0E00 and jumps to it. The game never uses the disc
+  again, and ESCAPE is made an ordinary key (*FX229,1) so no Escape
+  handling reaches the filing system.
+- Still unused and available: &0400-&07FF (BASIC's language workspace).
 - Zero page: `zp_boot_status` in the MOS user block &70–&8F; everything else
   in &00–&6F, BASIC's workspace, free because our programs never return to
   BASIC.

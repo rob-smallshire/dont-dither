@@ -24,20 +24,29 @@
 \   hold_display    to scan out fields with no redraw in progress (return by
 \                   running to hold_display and setting PC to tick_done).
 \
-\ Memory map (for now):
+\ Memory map:
 \   &0000-&006F  zero page, former BASIC workspace (see zeropage.asm)
 \   &0070-&008F  zero page reserved for user programs
-\   &1900-       program code and tables (loaded and run by DFS via !BOOT),
-\                then uninitialised buffers (wall_map)
+\   &0E00-&2FFF  program code and tables, then uninitialised buffers
+\                (wall_map, player state, sprite save buffers). This
+\                reclaims the DFS workspace (&0E00-&18FF): the game never
+\                uses the disc once loaded.
 \   &3000-&7FFF  MODE 1 screen memory (20 KB)
-\ Later the program will reclaim DFS workspace below &1900 once loaded.
+\
+\ Loading: DFS cannot load a file into its own workspace, so the file
+\ DITHER is a loader stub followed by the game image. DFS loads it at
+\ LOADER_ADDRESS (in the screen area, unused until MODE 1 is selected) and
+\ runs the stub, which copies the image down to &0E00 and jumps to start.
 \ ============================================================================
 
 INCLUDE "asm/os.asm"
 INCLUDE "asm/macros.asm"
 INCLUDE "asm/zeropage.asm"
 
-ORG &1900
+GAME_ADDRESS   = &0E00         \ Where the game runs.
+LOADER_ADDRESS = &3100         \ Where DFS loads the file (see the loader).
+
+ORG GAME_ADDRESS
 GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
                                \ reach the screen.
 
@@ -48,7 +57,8 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     STA zp_boot_status
 
     JSR init_display           \ MODE 1, cursor off, CMYK palette.
-    JSR init_keyboard          \ Cursor keys and COPY as plain keys.
+    JSR init_keyboard          \ Cursor keys and COPY as plain keys; no
+                               \ Escape.
     JSR init_beam_timer        \ User VIA timer 2 as a beam clock.
 
     LDA #0                     \ Start with the first level.
@@ -217,4 +227,60 @@ INCLUDE "build/generated/game_data.asm"
 .sprite_save_buffers
     SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.
 
-SAVE "DITHER", start, end, start
+\ ============================================================================
+\ Loader
+\
+\ Assembled to run at LOADER_ADDRESS, where DFS loads the file, and
+\ followed in the file by a copy of the game image (start..end), placed
+\ there by COPYBLOCK. It:
+\   1. closes any *EXEC file: the disc's !BOOT is still open as an *EXEC
+\      file, and the filing system must not touch its buffers (in the DFS
+\      workspace we are about to overwrite) ever again;
+\   2. copies the image down to GAME_ADDRESS, whole pages at a time (the
+\      destination is below the source, so a forward copy is safe even if
+\      they overlapped; copying a partial final page in full only writes
+\      beyond the image into the buffer area, which is initialised later);
+\   3. jumps to start.
+\ It uses zero page &00-&03 (BASIC's, free once we run) as copy pointers.
+\ ============================================================================
+
+CLEAR LOADER_ADDRESS, &7C00    \ Undo the game region's guard for this part.
+ORG LOADER_ADDRESS
+GUARD &7C00                    \ The file must not reach MODE 7 screen memory,
+                               \ which is where the loading screen is.
+
+LOADER_SOURCE = &00            \ Copy pointers in zero page.
+LOADER_DEST   = &02
+GAME_IMAGE_PAGES = (end - start + 255) DIV 256
+
+.loader
+    LDA #&77                   \ OSBYTE &77: close any SPOOL and EXEC files.
+    JSR OSBYTE
+
+    LDA #LO(loader_image)      \ Source: the image following this stub.
+    STA LOADER_SOURCE
+    LDA #HI(loader_image)
+    STA LOADER_SOURCE+1
+    LDA #LO(start)             \ Destination: where it was assembled.
+    STA LOADER_DEST
+    LDA #HI(start)
+    STA LOADER_DEST+1
+
+    LDX #GAME_IMAGE_PAGES      \ X counts pages; Y indexes within a page.
+    LDY #0
+.loader_copy
+    LDA (LOADER_SOURCE),Y
+    STA (LOADER_DEST),Y
+    INY
+    BNE loader_copy
+    INC LOADER_SOURCE+1        \ Next page of both.
+    INC LOADER_DEST+1
+    DEX
+    BNE loader_copy
+
+    JMP start
+
+.loader_image
+COPYBLOCK start, end, loader_image
+
+SAVE "DITHER", loader, loader_image + (end - start), loader

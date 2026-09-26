@@ -25,13 +25,20 @@
 \
 \ By default the MOS uses the cursor keys and COPY for cursor editing, which
 \ would move a text cursor on screen. *FX4,1 makes them return plain codes.
-\ The keyboard is otherwise left to the MOS: the game reads keys directly
-\ with OSBYTE &81 and flushes the keyboard buffer every tick.
+\ *FX229,1 makes ESCAPE an ordinary key rather than raising an Escape
+\ condition, whose handling could call into the filing system (whose
+\ workspace the game now occupies). The keyboard is otherwise left to the
+\ MOS: the game reads keys directly with OSBYTE &81 and flushes the keyboard
+\ buffer every tick.
 \ ----------------------------------------------------------------------------
 
 .init_keyboard
     LDA #4                     \ OSBYTE 4: cursor editing status.
     LDX #1                     \ 1 = cursor keys and COPY give ASCII codes.
+    LDY #0
+    JSR OSBYTE
+    LDA #229                   \ OSBYTE 229: ESCAPE key status.
+    LDX #1                     \ 1 = ESCAPE is an ordinary key.
     LDY #0
     JMP OSBYTE                 \ Tail call; OSBYTE returns to our caller.
 

@@ -169,10 +169,11 @@ tests; they must stay consistent):
 
 ## Target constraints
 
-- Stock 32K Model B with DFS. The code currently loads at &1900 (`GUARD
-  &3000`), and the MODE 1 screen is &3000-&7FFF.
-- The plan is to load from disc, then reclaim DFS workspace below &1900.
-  Sideways RAM only if we hit the limit, and raise it with the user first.
+- Stock 32K Model B with DFS. The game runs at &0E00-&2FFF (`GUARD &3000`),
+  over DFS workspace, copied there by a loader stub at the end of
+  `asm/main.asm` (DFS loads the file at &3100). The MODE 1 screen is
+  &3000-&7FFF. &0400-&07FF is also free. Sideways RAM only if we hit the
+  limit, and raise it with the user first.
 - User zero page is &70-&8F.
 - 25 Hz game tick.
 - Keyboard input only for now: Beebium has no joystick/ADC emulation, and the
