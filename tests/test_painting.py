@@ -26,9 +26,11 @@ def game(launch_bbc, game_build):
     boot_game(bbc, game_build)
     labels = game_build.labels["DITHER"]
     enter_level(bbc, labels, 0)          # exactly at the level's first tick
+    model = Game.start(LEVEL)
     for p in range(4):
         bbc.memory.address.bus[labels["player_control"] + p] = CONTROL_SCRIPTED
-    return bbc, labels, Game.start(LEVEL)
+        model.players[p].ai = False
+    return bbc, labels, model
 
 
 def run(bbc, labels, model, inputs, ticks=1):

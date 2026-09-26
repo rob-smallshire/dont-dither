@@ -46,9 +46,13 @@ def model_state(model):
     return [(p.sx, p.sy, p.facing, p.accumulator) for p in model.players]
 
 
-def set_controls(bbc, labels, controls):
+def set_controls(bbc, labels, controls, model=None):
+    """Set the game's control sources; with a model, mark its players as
+    not AI-controlled to match (scripted or keyboard players)."""
     for p, control in enumerate(controls):
         bbc.memory.address.bus[labels["player_control"] + p] = control
+        if model is not None:
+            model.players[p].ai = control == 4
 
 
 def test_starting_state_matches_the_model(game):
@@ -58,7 +62,7 @@ def test_starting_state_matches_the_model(game):
 
 def test_scripted_inputs_match_the_model_every_tick(game):
     bbc, labels, model = game
-    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4, model)
     rng = random.Random(42)
     for tick in range(60):
         inputs = [rng.choice(list(range(8)) + [NO_DIRECTION] * 2) for _ in range(4)]
@@ -71,7 +75,7 @@ def test_scripted_inputs_match_the_model_every_tick(game):
 
 def test_tanks_never_overlap_under_random_driving(game):
     bbc, labels, model = game
-    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4, model)
     rng = random.Random(7)
     # Herd the tanks towards the centre, where they jostle.
     heading = [3, 5, 7, 1]
@@ -91,7 +95,7 @@ def test_tanks_never_overlap_under_random_driving(game):
 
 def test_screen_shows_the_tanks_where_the_model_puts_them(game):
     bbc, labels, model = game
-    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4, model)
     inputs = [3, 5, 7, 1]      # every tank heads for the centre
     for p, byte in enumerate(inputs):
         bbc.memory.address.bus[labels["player_input"] + p] = byte
@@ -130,9 +134,9 @@ def test_releasing_keys_stops_the_tank(game):
     step_ticks(bbc, labels, 10)
     bbc.keyboard.matrix_up(*w)
     step_ticks(bbc, labels, 1)       # the release is seen on this tick
-    before = state(bbc, labels)
+    before = state(bbc, labels)[0]
     step_ticks(bbc, labels, 10)
-    assert state(bbc, labels) == before
+    assert state(bbc, labels)[0] == before      # (AI players keep moving)
 
 
 def test_game_ticks_at_25_hz(game):
@@ -158,7 +162,7 @@ def test_game_keeps_25_hz_with_all_tanks_moving_and_firing(game):
 
 def test_a_tank_driven_into_a_wall_stops_short_of_it(game):
     bbc, labels, model = game
-    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4)
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * 4, model)
     inputs = [2, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION]     # player 0 heads east
     bbc.memory.address.bus[labels["player_input"]] = 2
     step_ticks(bbc, labels, 80)
@@ -181,7 +185,7 @@ def test_random_driving_never_enters_a_wall(game, game_build, level_number):
     enter_level(bbc, labels, level_number)
     model = Game.start(level)
     count = len(model.players)
-    set_controls(bbc, labels, [CONTROL_SCRIPTED] * count)
+    set_controls(bbc, labels, [CONTROL_SCRIPTED] * count, model)
     walls = level.wall_cells()
     rng = random.Random(level_number)
     inputs = [rng.randrange(8) for _ in range(count)]

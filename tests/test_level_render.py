@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from conftest import enter_routine
+from conftest import enter_level, show_display
 from dontdither.build import BUILD_DIRPATH
 from dontdither.levels import Level, load_levels
 from dontdither.render import arena_bytes, arena_screen, draw_players
@@ -35,8 +35,8 @@ def rendered(booted_game, game_build) -> dict[int, Rendered]:
     SCREENSHOT_DIRPATH.mkdir(parents=True, exist_ok=True)
     results = {}
     for number in range(len(LEVELS)):
-        bbc.memory.address.bus[labels["zp_level"]] = number
-        enter_routine(bbc, labels, "enter_level", f"level {number}")
+        enter_level(bbc, labels, number)       # stopped before the first tick
+        show_display(bbc, labels)
         results[number] = Rendered(
             screen=bytes(peek[MODE1_SCREEN_BASE:MODE1_SCREEN_BASE + MODE1_SCREEN_SIZE]),
             wall_map=bytes(peek[labels["wall_map"]:labels["wall_map"] + 128]),

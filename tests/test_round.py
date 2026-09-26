@@ -31,6 +31,7 @@ def start_short_round(bbc, labels, level_number, ticks):
     model.round_ticks_left = ticks
     for p in range(len(model.players)):
         bus[labels["player_control"] + p] = CONTROL_SCRIPTED
+        model.players[p].ai = False
     return model
 
 

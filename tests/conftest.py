@@ -169,13 +169,26 @@ def enter_routine(bbc: Beebium, labels: dict[str, int], routine: str, what: str)
     align_to_tick(bbc, labels)
 
 
-def boot_game(bbc: Beebium, game_build: BuildResult) -> None:
-    """Shift-Break boot the game disc and run until the game reports it is ready.
+def show_display(bbc: Beebium, labels: dict[str, int], seconds: float = SETTLE_EMULATED_SECONDS) -> None:
+    """Scan out a few fields without the game running, so screen text and
+    captured frames show the current screen memory. The game must be stopped
+    at main_loop or tick_done (instruction boundaries); it is returned there,
+    no tick having run."""
+    resume = bbc.cpu.pc
+    bbc.cpu.pc = labels["hold_display"]
+    bbc.run_for_emulated_seconds(seconds)
+    bbc.debugger.run_to(labels["hold_display"])     # back to a boundary
+    bbc.cpu.pc = resume
 
-    Leaves the machine stopped.
-    """
+
+def boot_game(bbc: Beebium, game_build: BuildResult) -> None:
+    """Shift-Break boot the game disc and stop just before level 0's first
+    tick, at main_loop, with the screen displayed. No game time has passed,
+    so a Game.start model is exactly in step."""
+    labels = game_build.labels["DITHER"]
     bbc.boot_disc(game_build.disc_filepath)
-    _run_until_ready(bbc, game_build.labels["DITHER"], "Game")
+    bbc.debugger.run_to(labels["main_loop"], timeout=60)
+    show_display(bbc, labels)
 
 
 def run_program(bbc: Beebium, game_build: BuildResult, program: str) -> None:

@@ -81,6 +81,14 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     LDA player_control,X
     CMP #CONTROL_SCRIPTED      \ Scripted input is written by someone else:
     BEQ read_inputs_next       \ leave it untouched.
+    CMP #CONTROL_AI
+    BNE read_inputs_not_ai
+    STX zp_player              \ The computer decides.
+    JSR ai_input
+    LDX zp_player
+    STA player_input,X
+    JMP read_inputs_next
+.read_inputs_not_ai
     CMP #CONTROL_NONE
     BNE read_inputs_keys
     LDA #NO_DIRECTION          \ No control: stationary, not firing.

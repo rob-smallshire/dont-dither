@@ -161,6 +161,21 @@ Decisions taken during development that refine or depart from
 - Measured worst tick with all four players driving and firing: about
   58,600 of 80,000 cycles.
 
+## Computer players
+
+- Player slots without a human are played by the AI; players 1 and 2 are on
+  the keyboard. The AI produces the same input byte as a keyboard player,
+  and the simulation cannot tell them apart.
+- The AI is deterministic (no random numbers) and simple: every 4 ticks
+  (AIs take turns) it scores each direction by sampling 4 cells ahead,
+  valuing ground it does not own and shunning walls, keeps its direction
+  unless another is better (a small persistence bonus), avoids blocked
+  steps, and fires when the target is worth it. Samples are rotated like
+  splats, so every direction and player is treated alike. Model:
+  tools/dontdither/ai.py; the 6502 matches it decision for decision.
+- With identical AIs in a symmetric arena, shares come out equal, a useful
+  check on fairness.
+
 ## Rounds and scoring
 
 - No running scores. As in Splatoon's Turf War, the HUD shows only a
@@ -200,10 +215,11 @@ Decisions taken during development that refine or depart from
   copies the image to &0E00 and jumps to it. The game never uses the disc
   again, and ESCAPE is made an ordinary key (*FX229,1) so no Escape
   handling reaches the filing system.
-- Uninitialised buffers (wall map, player state, sprite save buffers, tally
-  working storage) live at &0400-&07FF, BASIC's language workspace.
-- Zero page (&00-&6F) is full enough that rarely used variables live in
-  the &0400 buffer area instead.
+- Memory map: &0400-&07FF a low block of initialised tables (paint data),
+  copied there by the loader; &0800-&08FF left to the MOS for sound;
+  &0900-&0CFF uninitialised buffers, over MOS buffers the game does not use
+  (RS423/cassette, soft keys, user-defined characters 224-255); &0E00-&2FFF
+  the main block of code and tables. Zero page &00-&6F is nearly full.
 - Zero page: `zp_boot_status` in the MOS user block &70–&8F; everything else
   in &00–&6F, BASIC's workspace, free because our programs never return to
   BASIC.

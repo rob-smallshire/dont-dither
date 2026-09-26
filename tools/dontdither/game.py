@@ -72,6 +72,8 @@ DIRECTION_DY = (-1, -1, 0, 1, 1, 1, 0, -1)
 FOOTPRINT = 6
 MAX_POSITION = 128 - FOOTPRINT      # 122
 
+HUMAN_PLAYERS = 2          # players 1 and 2 are on the keyboard; the rest are AI
+
 TICKS_PER_SECOND = 25
 ROUND_SECONDS = 300        # five minutes
 ROUND_TICKS = ROUND_SECONDS * TICKS_PER_SECOND
@@ -105,10 +107,15 @@ class Player:
     cooldown: int = 0
     variant: int = 0
     last_victim: int = -1
+    ai: bool = False               # controlled by the AI (see ai.py)
+    ai_direction: int = -1         # the AI's current direction
+    ai_input: int = NO_DIRECTION   # the AI's last decision
 
     def __post_init__(self) -> None:
         if self.last_victim < 0:
             self.last_victim = INKS.index(self.ink)   # first victim: the next ink round
+        if self.ai_direction < 0:
+            self.ai_direction = self.facing
 
 
 def footprints_overlap(ax: int, ay: int, bx: int, by: int) -> bool:
@@ -131,10 +138,13 @@ class Game:
 
     @classmethod
     def start(cls, level: Level) -> Game:
+        """The level's starting state, with the game's default controls:
+        the first two players human, any others the AI."""
         walls = level.wall_cells()
         cells = {(x, y): level.fill for y in range(128) for x in range(128) if (x // 4, y // 4) not in walls}
-        return cls([Player(s.sx, s.sy, s.facing, ink) for s, ink in zip(level.starts(), level.player_inks())],
-                   walls=walls, cells=cells)
+        players = [Player(s.sx, s.sy, s.facing, ink, ai=index >= HUMAN_PLAYERS)
+                   for index, (s, ink) in enumerate(zip(level.starts(), level.player_inks()))]
+        return cls(players, walls=walls, cells=cells)
 
     @property
     def round_over(self) -> bool:
@@ -150,13 +160,22 @@ class Game:
         total = 4 * len(self.cells)
         return [quanta[INKS.index(p.ink)] * 100 // total for p in self.players]
 
-    def tick(self, inputs: list[int]) -> None:
-        """Advance one tick; inputs[p] is player p's input byte. Does
-        nothing once the round is over."""
+    def tick(self, inputs: list[int] | None = None) -> None:
+        """Advance one tick; inputs[p] is player p's input byte (ignored for
+        AI players, which decide for themselves). Does nothing once the round
+        is over."""
+        from dontdither.ai import AI_PERIOD, decide
+
         if self.round_over:
             return
         self.round_ticks_left -= 1
         count = len(self.players)
+        inputs = list(inputs) if inputs is not None else [NO_DIRECTION] * count
+        for index, player in enumerate(self.players):
+            if player.ai:
+                if (self.ticks + index) % AI_PERIOD == 0:
+                    player.ai_input = decide(self, index)
+                inputs[index] = player.ai_input
         starts = [(p.sx, p.sy) for p in self.players]
         first = self.ticks % count
         order = [(first + i) % count for i in range(count)]

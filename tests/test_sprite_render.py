@@ -29,10 +29,10 @@ NO_DIRECTION = 0x08
 @pytest.fixture(scope="module")
 def game(booted_game, game_build):
     bbc, labels = booted_game, game_build.labels["DITHER"]
-    align_to_tick(bbc, labels)
-    for p in range(4):
+    for p in range(4):                     # before any tick: nothing moves
         bbc.memory.address.bus[labels["player_control"] + p] = CONTROL_SCRIPTED
         bbc.memory.address.bus[labels["player_input"] + p] = NO_DIRECTION
+    align_to_tick(bbc, labels)
     return bbc, labels
 
 

@@ -238,8 +238,30 @@
 \ ----------------------------------------------------------------------------
 
 .paint_cell
-    \ Where does the cell live? Normally on screen: the top raster byte at
-    \ superpixel_row[y] + (x DIV 2) * 8, the bottom one the next address.
+    JSR read_cell              \ A = state; where it lives is noted.
+    CMP #NON_CANONICAL         \ Not an ink pattern: leave it alone.
+    BNE paint_cell_ink
+    RTS
+.paint_cell_ink
+    JMP paint_cell_state
+
+\ ----------------------------------------------------------------------------
+\ read_cell -- find and decode arena cell (zp_cell_x, zp_cell_y)
+\
+\ On exit:  A = the cell's ink state, or NON_CANONICAL if its pattern is not
+\           an ink (e.g. a wall); zp_cell_ptr, zp_cell_top_offset and
+\           zp_cell_bottom_offset locate its two raster bytes, zp_cell_top
+\           and zp_cell_bottom hold them, zp_cell_mask selects its half, and
+\           zp_cell_tank is the tank whose save buffer holds it (&FF if on
+\           screen). X, Y corrupted.
+\
+\ The arena is the screen, except under a tank, where it is the tank's save
+\ buffer (the screen there shows the tank).
+\ ----------------------------------------------------------------------------
+
+.read_cell
+    \ Normally on screen: the top raster byte at superpixel_row[y] +
+    \ (x DIV 2) * 8, the bottom one the next address.
     LDY zp_cell_y
     LDA #0
     STA zp_cell_ptr+1
@@ -257,37 +279,38 @@
     STA zp_cell_top_offset
     LDA #1
     STA zp_cell_bottom_offset
+    LDA #&FF
+    STA zp_cell_tank
 
     \ Unless it is under a tank: inside some tank's drawn footprint
     \ (saved_sx..saved_sx+5, saved_sy..saved_sy+5; unsigned differences
     \ under 6). Then it lives in that tank's save buffer.
     LDA sprites_shown
-    BEQ paint_cell_located
+    BEQ read_cell_located
     LDX #0
-.paint_cell_tank
+.read_cell_tank
     CPX player_count
-    BEQ paint_cell_located
+    BEQ read_cell_located
     LDA zp_cell_x
     SEC
     SBC saved_sx,X
     CMP #SPRITE_FOOTPRINT
-    BCS paint_cell_next_tank
+    BCS read_cell_next_tank
     LDA zp_cell_y
     SEC
     SBC saved_sy,X
     CMP #SPRITE_FOOTPRINT
-    BCC paint_cell_under_tank
-.paint_cell_next_tank
+    BCC read_cell_under_tank
+.read_cell_next_tank
     INX
-    JMP paint_cell_tank
+    JMP read_cell_tank
 
-.paint_cell_under_tank
+.read_cell_under_tank
     \ Buffer layout: 8 bytes per superpixel row r (4 top-line bytes, then 4
     \ bottom-line bytes); byte column b = x DIV 2 - saved_sx DIV 2. So the
     \ top byte is at r * 8 + b and the bottom byte 4 further on.
     STA zp_cell_row            \ A = r = y - saved_sy.
-    LDA #1                     \ The tank must be redrawn to show the change.
-    STA player_repaint,X
+    STX zp_cell_tank
     LDA saved_sx,X
     LSR A
     STA zp_cell_column
@@ -311,14 +334,14 @@
     LDA zp_sprite_tmp
     STA zp_cell_ptr+1
 
-.paint_cell_located
+.read_cell_located
     \ Which half of each byte: even x the left (&CC), odd x the right (&33).
     LDA zp_cell_x
     LSR A
     LDA #&CC
-    BCC paint_cell_mask
+    BCC read_cell_mask
     LDA #&33
-.paint_cell_mask
+.read_cell_mask
     STA zp_cell_mask
 
     \ Read the two raster bytes and form the pattern_to_state index, a byte
@@ -333,7 +356,7 @@
     STA zp_cell_bottom
     LDA zp_cell_mask
     CMP #&CC
-    BNE paint_cell_odd
+    BNE read_cell_odd
     LDA zp_cell_bottom
     AND #&CC
     LSR A
@@ -342,8 +365,8 @@
     LDA zp_cell_top
     AND #&CC
     ORA zp_cell_index
-    JMP paint_cell_state
-.paint_cell_odd
+    JMP read_cell_decode
+.read_cell_odd
     LDA zp_cell_top
     AND #&33
     ASL A
@@ -352,12 +375,13 @@
     LDA zp_cell_bottom
     AND #&33
     ORA zp_cell_index
-.paint_cell_state
+.read_cell_decode
     TAX
     LDA pattern_to_state,X
-    CMP #NON_CANONICAL         \ Not an ink pattern: leave it alone.
-    BEQ paint_cell_done
+    RTS
 
+\ The painting proper, continuing paint_cell with A = the cell's state.
+.paint_cell_state
     \ The state's ink counts are state_counts[state * 4 + ink].
     STA zp_cell_state
     ASL A
@@ -416,5 +440,12 @@
     EOR zp_cell_bottom
     LDY zp_cell_bottom_offset
     STA (zp_cell_ptr),Y
+
+    \ A cell under a tank changed in its save buffer: redraw the tank so the
+    \ change shows.
+    LDX zp_cell_tank
+    BMI paint_cell_done
+    LDA #1
+    STA player_repaint,X
 .paint_cell_done
     RTS

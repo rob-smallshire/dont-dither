@@ -153,8 +153,25 @@ GUARD &70
 .zp_cell_index      SKIP 1     \ pattern_to_state index being built.
 .zp_cell_row        SKIP 1     \ Row / byte column within a save buffer.
 .zp_cell_column     SKIP 1
+.zp_cell_tank       SKIP 1     \ read_cell: tank whose buffer holds the cell,
+                               \ or &FF for the screen.
 .zp_cell_state      SKIP 1     \ The cell's ink state before painting...
 .zp_count_base      SKIP 1     \ ...and state * 4, its state_counts offset.
+
+\ ---- AI -------------------------------------------------------------------------
+
+.zp_ai_player       SKIP 1     \ The AI deciding.
+.zp_ai_ink          SKIP 1     \ Its ink.
+.zp_ai_direction    SKIP 1     \ Direction being scored.
+.zp_ai_ruled        SKIP 1     \ Directions ruled out (a bit each).
+.zp_ai_current      SKIP 1     \ The AI's current direction.
+.zp_ai_best         SKIP 1     \ Best direction so far (&FF: none)...
+.zp_ai_best_score   SKIP 1     \ ...and its bonused score.
+.zp_ai_base         SKIP 1     \ ai_score: 0 E-based, 1 NE-based samples.
+.zp_ai_turns        SKIP 1     \ ai_score: quarter turns to apply.
+.zp_ai_sample       SKIP 1     \ ai_score: offset of the sample...
+.zp_ai_sample_end   SKIP 1     \ ...and just past the last.
+.zp_ai_total        SKIP 1     \ ai_score: running total.
 
 \ ---- Input --------------------------------------------------------------------
 

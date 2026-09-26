@@ -5,10 +5,10 @@
 \ why INCLUDE paths are relative to the root). The disc's !BOOT runs this
 \ program, saved as DITHER.
 \
-\ CURRENT STAGE: a playable round. Tanks, driven by the keyboard and blocked
-\ by walls and each other, fire splats that paint the arena until the
-\ five-minute clock runs out; then the territory is tallied and revealed
-\ as a bar chart in the HUD. The program
+\ CURRENT STAGE: a playable round. Tanks, driven by the keyboard (players 1
+\ and 2) or the computer (the rest) and blocked by walls and each other,
+\ fire splats that paint the arena until the five-minute clock runs out;
+\ then the territory is tallied and revealed as a bar chart in the HUD. The program
 \   1. selects MODE 1, hides the cursor, programs the CMYK palette and makes
 \      the cursor keys plain keys,
 \   2. enters level 0 (see enter_level): fills the arena with the level's
@@ -31,23 +31,28 @@
 \ Memory map:
 \   &0000-&006F  zero page, former BASIC workspace (see zeropage.asm)
 \   &0070-&008F  zero page reserved for user programs
-\   &0400-&07FF  uninitialised buffers (wall map, player state, sprite save
-\                buffers, tally), in BASIC's language workspace
-\   &0E00-&2FFF  program code and tables. This reclaims the DFS workspace
-\                (&0E00-&18FF): the game never uses the disc once loaded.
+\   &0400-&07FF  low block: initialised tables (paint data), in BASIC's
+\                language workspace
+\   &0800-&08FF  left to the MOS (sound workspace)
+\   &0900-&0CFF  uninitialised buffers (wall map, player state, sprite save
+\                buffers, tally), over MOS buffers the game does not use
+\   &0E00-&2FFF  main block: code and tables. This reclaims the DFS
+\                workspace (&0E00-&18FF): the game never uses the disc once
+\                loaded.
 \   &3000-&7FFF  MODE 1 screen memory (20 KB)
 \
 \ Loading: DFS cannot load a file into its own workspace, so the file
-\ DITHER is a loader stub followed by the game image. DFS loads it at
-\ LOADER_ADDRESS (in the screen area, unused until MODE 1 is selected) and
-\ runs the stub, which copies the image down to &0E00 and jumps to start.
+\ DITHER is a loader stub followed by the main and low blocks. DFS loads it
+\ at LOADER_ADDRESS (in the screen area, unused until MODE 1 is selected)
+\ and runs the stub, which copies the blocks into place and jumps to start.
 \ ============================================================================
 
 INCLUDE "asm/os.asm"
 INCLUDE "asm/macros.asm"
 INCLUDE "asm/zeropage.asm"
 
-GAME_ADDRESS   = &0E00         \ Where the game runs.
+GAME_ADDRESS   = &0E00         \ Where the game runs (main block).
+LOW_BLOCK_ADDRESS = &0400      \ Where its low block of tables goes.
 LOADER_ADDRESS = &3100         \ Where DFS loads the file (see the loader).
 
 ORG GAME_ADDRESS
@@ -207,25 +212,40 @@ INCLUDE "asm/sprites.asm"
 INCLUDE "asm/game.asm"
 INCLUDE "asm/paint.asm"
 INCLUDE "asm/hud.asm"
+INCLUDE "asm/ai.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
 INCLUDE "build/generated/level_data.asm"
 INCLUDE "build/generated/sprite_data.asm"
 INCLUDE "build/generated/game_data.asm"
-INCLUDE "build/generated/paint_data.asm"
 INCLUDE "build/generated/hud_font.asm"
 
 .end
 
 \ ----------------------------------------------------------------------------
-\ Uninitialised buffers, in BASIC's language workspace (&0400-&07FF), which
-\ is free once the game runs (it never returns to BASIC). Nothing here is
-\ saved to disc or loaded; the game initialises what it uses.
+\ Low block: initialised tables in BASIC's language workspace (&0400-&07FF),
+\ which is free once the game runs (it never returns to BASIC). The loader
+\ copies them here along with the main block.
 \ ----------------------------------------------------------------------------
 
-ORG &0400
-GUARD &0800
+ORG LOW_BLOCK_ADDRESS
+GUARD &0800                    \ &0800-&08FF is the MOS sound workspace.
+
+.low_start
+INCLUDE "build/generated/paint_data.asm"
+.low_end
+
+\ ----------------------------------------------------------------------------
+\ Uninitialised buffers at &0900-&0CFF: MOS pages normally holding the RS423
+\ and cassette buffers, extended envelopes and speech (&0900-&0AFF), soft
+\ key definitions (&0B00) and user-defined characters 224-255 (&0C00). The
+\ game uses none of those. Nothing here is saved to disc or loaded; the game
+\ initialises what it uses.
+\ ----------------------------------------------------------------------------
+
+ORG &0900
+GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 
 .wall_map
     SKIP 128                   \ The current level's 32x32 wall bitmap.
@@ -266,6 +286,9 @@ GUARD &0800
 .player_quanta_hi SKIP MAX_PLAYERS
 .player_percent   SKIP MAX_PLAYERS \ ...and share, in whole percent.
 .player_revealed  SKIP MAX_PLAYERS \ reveal_scores: bar drawn yet?
+.ai_direction     SKIP MAX_PLAYERS \ Each AI's current direction.
+.ai_last_input    SKIP MAX_PLAYERS \ Each AI's last decision.
+.ai_scores        SKIP 8       \ ai_input: score of each direction.
 
 \ Working variables of the round clock and tally (hud.asm). Used rarely, so
 \ kept out of zero page.
@@ -291,15 +314,16 @@ GUARD &0800
 \ Loader
 \
 \ Assembled to run at LOADER_ADDRESS, where DFS loads the file, and
-\ followed in the file by a copy of the game image (start..end), placed
-\ there by COPYBLOCK. It:
+\ followed in the file by copies of the main block (start..end) and the low
+\ block (low_start..low_end), placed there by COPYBLOCK. It:
 \   1. closes any *EXEC file: the disc's !BOOT is still open as an *EXEC
 \      file, and the filing system must not touch its buffers (in the DFS
 \      workspace we are about to overwrite) ever again;
-\   2. copies the image down to GAME_ADDRESS, whole pages at a time (the
-\      destination is below the source, so a forward copy is safe even if
-\      they overlapped; copying a partial final page in full only writes
-\      beyond the image into the buffer area, which is initialised later);
+\   2. copies each block to where it was assembled, whole pages at a time.
+\      Destinations are below the source, so a forward copy is safe even if
+\      they overlapped. Copying a partial final page in full only writes
+\      beyond a block into memory the game initialises before use (below
+\      the screen for the main block, below &0800 for the low block);
 \   3. jumps to start.
 \ It uses zero page &00-&03 (BASIC's, free once we run) as copy pointers.
 \ ============================================================================
@@ -311,36 +335,54 @@ GUARD &7C00                    \ The file must not reach MODE 7 screen memory,
 
 LOADER_SOURCE = &00            \ Copy pointers in zero page.
 LOADER_DEST   = &02
-GAME_IMAGE_PAGES = (end - start + 255) DIV 256
+MAIN_BLOCK_PAGES = (end - start + 255) DIV 256
+LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
 
 .loader
     LDA #&77                   \ OSBYTE &77: close any SPOOL and EXEC files.
     JSR OSBYTE
 
-    LDA #LO(loader_image)      \ Source: the image following this stub.
+    LDA #LO(loader_main_image) \ The main block to GAME_ADDRESS...
     STA LOADER_SOURCE
-    LDA #HI(loader_image)
+    LDA #HI(loader_main_image)
     STA LOADER_SOURCE+1
-    LDA #LO(start)             \ Destination: where it was assembled.
+    LDA #LO(start)
     STA LOADER_DEST
     LDA #HI(start)
     STA LOADER_DEST+1
+    LDX #MAIN_BLOCK_PAGES
+    JSR loader_copy
 
-    LDX #GAME_IMAGE_PAGES      \ X counts pages; Y indexes within a page.
-    LDY #0
-.loader_copy
-    LDA (LOADER_SOURCE),Y
-    STA (LOADER_DEST),Y
-    INY
-    BNE loader_copy
-    INC LOADER_SOURCE+1        \ Next page of both.
-    INC LOADER_DEST+1
-    DEX
-    BNE loader_copy
+    LDA #LO(loader_low_image)  \ ...and the low block to &0400.
+    STA LOADER_SOURCE
+    LDA #HI(loader_low_image)
+    STA LOADER_SOURCE+1
+    LDA #LO(low_start)
+    STA LOADER_DEST
+    LDA #HI(low_start)
+    STA LOADER_DEST+1
+    LDX #LOW_BLOCK_PAGES
+    JSR loader_copy
 
     JMP start
 
-.loader_image
-COPYBLOCK start, end, loader_image
+\ loader_copy: copy X pages from LOADER_SOURCE to LOADER_DEST.
+.loader_copy
+    LDY #0
+.loader_copy_byte
+    LDA (LOADER_SOURCE),Y
+    STA (LOADER_DEST),Y
+    INY
+    BNE loader_copy_byte
+    INC LOADER_SOURCE+1        \ Next page of both.
+    INC LOADER_DEST+1
+    DEX
+    BNE loader_copy_byte
+    RTS
 
-SAVE "DITHER", loader, loader_image + (end - start), loader
+.loader_main_image
+COPYBLOCK start, end, loader_main_image
+loader_low_image = loader_main_image + (end - start)
+COPYBLOCK low_start, low_end, loader_low_image
+
+SAVE "DITHER", loader, loader_low_image + (low_end - low_start), loader

@@ -15,6 +15,14 @@ from dontdither.game import (
 )
 
 UP, DOWN, LEFT, RIGHT, FIRE = 1, 2, 4, 8, 16
+
+
+def start_without_ai(level):
+    """A game where every player follows the given inputs (no AI players)."""
+    game = Game.start(level)
+    for player in game.players:
+        player.ai = False
+    return game
 STILL = NO_DIRECTION
 STILL_FIRE = NO_DIRECTION | FIRE_BIT
 
@@ -156,7 +164,7 @@ def test_players_fire_on_ticks_of_their_own_parity():
     (tick + player) is even."""
     from dontdither.levels import load_levels
 
-    game = Game.start(load_levels()[0])
+    game = start_without_ai(load_levels()[0])
     for p in game.players:
         p.facing = 2
     fired = []
@@ -171,7 +179,7 @@ def test_holding_fire_shoots_every_fire_period_ticks():
     from dontdither.game import FIRE_PERIOD
     from dontdither.levels import load_levels
 
-    game = Game.start(load_levels()[0])
+    game = start_without_ai(load_levels()[0])
     shots = []
     for t in range(3 * FIRE_PERIOD):
         before = dict(game.cells)
@@ -184,7 +192,7 @@ def test_holding_fire_shoots_every_fire_period_ticks():
 def test_a_shot_moves_its_cells_one_quantum_towards_the_shooter():
     from dontdither.levels import load_levels
 
-    game = Game.start(load_levels()[0])
+    game = start_without_ai(load_levels()[0])
     game.players[0].facing = 2        # east, into open space (SE hits a wall)
     game.tick([NO_DIRECTION | FIRE_BIT, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION])
     changed = [s for s in game.cells.values() if s != (1, 1, 1, 1)]
@@ -195,7 +203,7 @@ def test_a_shot_moves_its_cells_one_quantum_towards_the_shooter():
 def test_a_shot_at_a_wall_is_shadowed():
     from dontdither.levels import load_levels
 
-    game = Game.start(load_levels()[0])        # player 0 faces SE, at a wall
+    game = start_without_ai(load_levels()[0])        # player 0 faces SE, at a wall
     game.tick([NO_DIRECTION | FIRE_BIT, NO_DIRECTION, NO_DIRECTION, NO_DIRECTION])
     changed = [s for s in game.cells.values() if s != (1, 1, 1, 1)]
     assert 0 < len(changed) < 16
@@ -204,7 +212,7 @@ def test_a_shot_at_a_wall_is_shadowed():
 def test_round_ends_after_its_ticks_and_nothing_moves_after():
     from dontdither.levels import load_levels
 
-    game = Game.start(load_levels()[0])
+    game = start_without_ai(load_levels()[0])
     game.round_ticks_left = 5
     for _ in range(5):
         game.tick([2, STILL, STILL, STILL])
@@ -217,7 +225,7 @@ def test_round_ends_after_its_ticks_and_nothing_moves_after():
 def test_the_grey_start_gives_every_player_a_quarter():
     from dontdither.levels import load_levels
 
-    game = Game.start(load_levels()[0])
+    game = start_without_ai(load_levels()[0])
     assert game.percentages() == [25, 25, 25, 25]
     total = 4 * len(game.cells)
     assert game.ink_quanta() == [total // 4] * 4

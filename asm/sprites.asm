@@ -56,7 +56,7 @@ MAX_PLAYERS = 4
 \
 \ On exit:  player_count and each player's position, facing and ink set from
 \           the level's level_players record; control sources set (player 1
-\           keyboard layout A, player 2 layout B, the rest none); inputs,
+\           keyboard layout A, player 2 layout B, the rest the computer); inputs,
 \           accumulators and the tick count cleared; no sprites shown
 \           A, X, Y corrupted
 \ ----------------------------------------------------------------------------
@@ -96,6 +96,10 @@ MAX_PLAYERS = 4
     STA player_repaint,Y
     LDA player_ink,Y           \ Round-robin starts after the player's own ink.
     STA player_last_victim,Y
+    LDA player_facing,Y        \ An AI starts heading the way it faces.
+    STA ai_direction,Y
+    LDA #NO_DIRECTION
+    STA ai_last_input,Y
     INX                        \ Next four-byte slot record.
     INX
     INX
@@ -111,7 +115,7 @@ MAX_PLAYERS = 4
     RTS
 
 .default_controls
-    EQUB CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_NONE, CONTROL_NONE
+    EQUB CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_AI, CONTROL_AI
 
 \ ----------------------------------------------------------------------------
 \ show_sprites -- save the background under, then draw, each player in order

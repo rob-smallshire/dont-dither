@@ -139,6 +139,10 @@ tests; they must stay consistent):
 
 **Beebium fixtures** (`tests/conftest.py`):
 - `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
+- `boot_game` stops just before level 0's first tick, at `main_loop`, with
+  the screen displayed (`show_display` parks the CPU in `hold_display`), so
+  AI tanks have not moved. `Game.start` gives players 3 and 4 to the AI, as
+  the game does; tests scripting every player set `player.ai = False`.
 - The game runs a 25 Hz main loop. `align_to_tick` stops it at `tick_done`
   (between ticks, tanks drawn) and `step_ticks` runs whole ticks; between
   ticks tests may change player state or set a player's control to
@@ -183,11 +187,12 @@ tests; they must stay consistent):
 
 ## Target constraints
 
-- Stock 32K Model B with DFS. The game runs at &0E00-&2FFF (`GUARD &3000`),
-  over DFS workspace, copied there by a loader stub at the end of
-  `asm/main.asm` (DFS loads the file at &3100). Uninitialised buffers are at
-  &0400-&07FF. The MODE 1 screen is &3000-&7FFF. Zero page &00-&6F is
-  nearly full: put rarely used variables in the &0400 buffer area.
+- Stock 32K Model B with DFS. A loader stub at the end of `asm/main.asm`
+  (DFS loads the file at &3100) copies the main block to &0E00-&2FFF
+  (`GUARD &3000`, over DFS workspace) and the low block of tables to
+  &0400-&07FF. Uninitialised buffers are at &0900-&0CFF. &0800 is left to
+  the MOS for sound. The MODE 1 screen is &3000-&7FFF. Zero page &00-&6F
+  is nearly full: put rarely used variables in the buffer area.
   Sideways RAM only if we hit the limit, and raise it with the user first.
 - Never print through the MOS in the bottom-right text cell (row 31,
   column 39): the MOS would scroll the screen and move it in memory.

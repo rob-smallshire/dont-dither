@@ -446,6 +446,7 @@ def generate_sprite_data() -> str:
 # ---------------------------------------------------------------------------
 
 def generate_game_data() -> str:
+    from dontdither import ai
     from dontdither.controls import LAYOUT_KEYS, LAYOUTS, inkey_code
     from dontdither.game import (
         AXIAL_SPEED,
@@ -487,7 +488,20 @@ def generate_game_data() -> str:
         "CONTROL_NONE     = 0   \\ no input (stationary)",
         "CONTROL_KEYS_A   = 1   \\ keyboard layout A",
         "CONTROL_KEYS_B   = 2   \\ keyboard layout B",
-        "CONTROL_SCRIPTED = 3   \\ player_input written by someone else (tests, later AI)",
+        "CONTROL_SCRIPTED = 3   \\ player_input written by someone else (tests)",
+        "CONTROL_AI       = 4   \\ the computer (ai.asm)",
+        "",
+        "\\ AI (see tools/dontdither/ai.py).",
+        f"AI_PERIOD      = {ai.AI_PERIOD}   \\ ticks between decisions (a power of two)",
+        f"AI_PERSISTENCE = {ai.PERSISTENCE}   \\ bonus for keeping the current direction",
+        f"AI_FIRE_SCORE  = {ai.FIRE_SCORE}  \\ fire when the chosen direction scores this",
+        f"AI_WALL_VALUE  = {ai.WALL_VALUE}   \\ worth of a wall or off-arena sample",
+        f"AI_SAMPLES     = {len(ai.SAMPLES_E)}   \\ samples per direction",
+        "\\ ai_samples: sample cells (dx, dy from the footprint's top-left, two's",
+        "\\ complement) for facing E, then for NE; rotated for other facings.",
+        ".ai_samples",
+        "    EQUB " + ", ".join(f"&{v & 0xFF:02X}" for c in ai.SAMPLES_E for v in c) + "    \\ E",
+        "    EQUB " + ", ".join(f"&{v & 0xFF:02X}" for c in ai.SAMPLES_NE for v in c) + "    \\ NE",
         "",
         "\\ Step per direction, as two's complement bytes (-1 = &FF).",
         ".direction_dx",
