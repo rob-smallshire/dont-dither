@@ -29,6 +29,7 @@ GUARD MODE1_SCREEN_BASE
     LDA #0                     \ Boot in progress (see main.asm).
     STA zp_boot_status
 
+    JSR build_superpixel_rows  \ Screen address tables, before any drawing.
     JSR init_display           \ MODE 1, cursor off, CMYK palette.
     JSR draw_swatches          \ Ink first...
 
@@ -148,5 +149,9 @@ INCLUDE "build/generated/wall_tiles.asm"
 INCLUDE "build/generated/testcard_data.asm"
 
 .end
+
+\ Uninitialised, so after the saved program.
+.superpixel_row_lo SKIP SUPERPIXEL_ROWS   \ Built by build_superpixel_rows.
+.superpixel_row_hi SKIP SUPERPIXEL_ROWS
 
 SAVE "TCARD", start, end, start

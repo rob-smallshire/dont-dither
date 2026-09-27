@@ -44,12 +44,14 @@ def run(bbc, labels, model, inputs, ticks=1):
 def player_state(bbc, labels):
     peek = bbc.memory.address.peek
     fields = ("player_sx", "player_sy", "player_facing", "player_accumulator",
-              "player_cooldown", "player_variant", "player_last_victim")
+              "player_cooldown", "player_variant", "player_last_victim",
+              "player_reservoir", "player_reservoir_fraction")
     return [tuple(peek[labels[f] + p] for f in fields) for p in range(4)]
 
 
 def model_player_state(model):
-    return [(p.sx, p.sy, p.facing, p.accumulator, p.cooldown, p.variant, p.last_victim)
+    return [(p.sx, p.sy, p.facing, p.accumulator, p.cooldown, p.variant, p.last_victim,
+             p.reservoir, p.reservoir_fraction)
             for p in model.players]
 
 

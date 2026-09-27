@@ -76,7 +76,7 @@ uv run dd-preview-splats                  # build/design/splats.png
    | File | From | Contents |
    |---|---|---|
    | `ink_tables.asm` | `data/ink_patterns.json`, `inks.py` | palette VDU bytes, `state_top_bytes`/`state_bottom_bytes`, `pattern_to_state` (256, page-aligned), `STATE_*` constants |
-   | `screen_tables.asm` | `screen.py` | superpixel row addresses, `bit_masks` |
+   | `screen_tables.asm` | — | `bit_masks` (the superpixel row tables are built at start-up) |
    | `wall_tiles.asm` | `walls.py` | 16 rim-mask tiles, corner patches, `WALL_INK_*` |
    | `sprite_data.asm` | `sprites/tank.spr` | 16 frames (8 facings × 2 alignments) as mask and select planes, footprint masks, ink bytes |
    | `game_data.asm` | `game.py`, `controls.py`, `ai.py` | speeds, direction tables, key layouts, AI constants and samples, round lengths |
@@ -164,19 +164,20 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &70–&8F | MOS user zero page: `zp_boot_status` only (polled by tests from boot) |
 | &0400–&07FF | **low block**: initialised tables (paint data, about 830 bytes), copied by the loader |
 | &0800–&08FF | left to the MOS (sound workspace) |
-| &0900–&0CFF | **buffers** (uninitialised): wall map, player state, sprite save buffers, tally and session variables. `SPLASH` runs here before the game |
+| &0900–&0CFF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables. `SPLASH` runs here before the game |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
-| &0E00–&2C67 | **main block**: code and tables |
-| &2D00–&2FFF | **level area** (768 bytes): the loaded level set |
+| &0E00–&2CEA | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
+| &2D00–&2FFF | **level area**: the loaded level set; it starts at the first page boundary after the main block, so it grows or shrinks a page at a time |
 | &3000–&7FFF | MODE 1 screen (the loader and level set pass through here while loading) |
 
-At the last build: 1 KB free between the main block and screen, of which
-the level area takes 768 bytes, so about 150 bytes are unused before it;
-about 190 bytes free in the low block; about 460 in the buffers. A level
-costs about 40–55 bytes plus its title. Sixteen levels per set are
-allowed, but 15 will not fit in 768 bytes without freeing space. Candidates:
-store sprite frames at one alignment and shift at draw time (saves about 768
-bytes), or trim code.
+At the last build (with the ink reservoir): the level area is 768 bytes,
+with 21 bytes unused before it; about 190 bytes free in the low block;
+about 190 in the buffers. Building the superpixel row tables at start-up
+freed 256 bytes of the main block, which the reservoir then used. A level
+costs about 40–55 bytes plus its title, and a set's header 66 bytes, so
+768 bytes hold about 14 levels. Candidates for more room: store sprite
+frames at one alignment and shift at draw time (saves about 768 bytes),
+move code into the low block, or trim code.
 
 ---
 
@@ -292,8 +293,8 @@ bytes), or trim code.
 
 ```
 check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
-  ─ update_players ─ fire_players ─ render_sprites ─ tick_count++ ─ tick_clock
-  ─ (round over? end_of_round) ─ tick_done
+  ─ update_players ─ fire_players ─ render_sprites ─ update_gauges
+  ─ tick_count++ ─ tick_clock ─ (round over? end_of_round) ─ tick_done
 ```
 
 - **Timing:** `wait_for_tick` waits for vertical syncs until 1.5 fields have
@@ -307,9 +308,17 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   - Keys are read with OSBYTE &81 (negative INKEY codes).
   - `*FX4,1` stops the cursor keys and Copy doing cursor editing.
   - The keyboard buffer is flushed every tick.
-- **Movement:** a direction sets the facing at once. An 8-bit accumulator
-  adds 200 per tick (axial) or 141 (diagonal, 200/√2); a carry means one
-  superpixel step.
+- **Ground and refill:** with fire released, `ground_level` sums the
+  tank's own ink quanta over the four centre superpixels of its footprint
+  (through `read_cell`, so from its save buffer) and divides by 4, giving
+  0–4. The reservoir (whole splats plus 1/256ths) refills by
+  `ground_refill` for that level, up to 32 splats. With fire held the
+  ground counts as 1 and there is no refill. See §10a.
+- **Movement:** a direction sets the facing at once. The speed for the
+  ground and direction (`ground_speed_lo` and `ground_speed_whole`; normal
+  is 200 axial, 141 diagonal = 200/√2, in 1/256 superpixel per tick) is
+  added to an 8-bit accumulator. The carry plus the whole part is the
+  number of superpixel steps this tick, 0–2, each tried with `try_step`.
 - **Blocking:** a step is blocked if it would leave the arena, cover any
   part of a wall cell, or overlap another tank where it is now or was drawn
   at the start of the tick.
@@ -341,12 +350,41 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   wall, outside the arena, or its parent is blocked. Unblocked splat cells
   are painted.
 - **Firing:** holding fire shoots every 6 ticks, after all movement, in the
-  same rotating order. Players shoot only on ticks where tick + player is
+  same rotating order, while the reservoir holds a splat; each shot uses
+  one. Players shoot only on ticks where tick + player is
   even, which caps each tick at two shots. A shot costs about 13,000
   cycles.
 - **Painting under tanks:** `read_cell` finds a cell on screen, or in a
   tank's save buffer if the cell is inside that tank's drawn footprint.
   Painting there marks the tank for redraw.
+
+---
+
+## 10a. The ink reservoir
+
+Splatoon's ink tank and squid form for tanks: paint, run dry, seek your
+colour, dash and refill, emerge and paint again. The rules are in
+`game.py` (`Game._move`, `Game._fire`, `Game.ground`) and `decisions.md`.
+
+| Ground (own quanta, centre four DIV 4) | Speed, fire released (axial / diagonal) | Refill, 1/256 splat per tick |
+|---|---|---|
+| 0 | 100 / 71 | 0 |
+| 1 | 200 / 141 | 16 |
+| 2 | 200 / 141 | 64 |
+| 3 | 250 / 177 | 104 |
+| 4 | 300 / 212 | 192 |
+
+- **Buffers:** `player_reservoir`, `player_reservoir_fraction`,
+  `gauge_drawn`, `ai_refilling`, and the working bytes `move_ground`,
+  `move_steps`, `ground_total` and `ground_index`.
+- **Gauges** (`hud.asm`): `update_gauges` runs each tick after the tanks
+  are drawn and moves every gauge one splat (two raster lines) towards its
+  reservoir. The gauges share the tally bars' columns and base line and
+  their drawing (`bar_bytes`, `bar_column`, `draw_bar_line`).
+  `clear_gauges` empties them at the end of a round.
+- **Cost:** a tank with fire released reads four cells instead of
+  shooting, far cheaper than a shot. A test checks the game keeps 25 Hz
+  with two tanks firing and two refilling.
 
 ---
 
@@ -364,6 +402,10 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   direction out, and the AI chooses again; if every direction is ruled out,
   it stays put.
 - **Firing:** it fires when the chosen direction's score is at least 22.
+- **Refilling:** an AI that decides with an empty reservoir switches to
+  refilling (`ai_refilling`) until it has 28 splats. While refilling it
+  holds fire, and a sample cell is worth 4 plus its own ink count, so it
+  heads for its own ink.
 - **Properties:** it's deterministic and produces the ordinary input byte.
   Identical AIs on symmetric four-player levels end with equal shares.
 
@@ -371,11 +413,11 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
 
 ## 12. Rounds, HUD and scoring
 
-- **During play,** the HUD shows only the logo, "LEVEL n" and an m:ss
-  countdown: 5-minute rounds, or 1 minute in the demo. There are no running
-  scores.
+- **During play,** the HUD shows only the logo, "LEVEL n", an m:ss
+  countdown (5-minute rounds, or 1 minute in the demo) and the ink gauges.
+  There are no running scores.
 - **At the end of a round:**
-  - `hide_sprites` removes the tanks;
+  - `hide_sprites` removes the tanks, and `clear_gauges` the ink gauges;
   - `count_territory` builds a histogram of the 35 ink states over every
     open character cell;
   - `compute_scores` works out each ink's quanta and each player's

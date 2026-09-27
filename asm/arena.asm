@@ -12,6 +12,11 @@
 \ The left half (mask &CC, pixels 0 and 1) belongs to even sx, the right half
 \ (mask &33, pixels 2 and 3) to odd sx.
 \
+\ superpixel_row_lo/hi are built at start-up by build_superpixel_rows, into
+\ 256 bytes of uninitialised memory each program declares (SUPERPIXEL_ROWS
+\ bytes for each), rather than being loaded: that saves 256 bytes of the
+\ file and of initialised memory.
+\
 \ Requires: os.asm, zeropage.asm, and the generated ink_tables.asm and
 \ screen_tables.asm.
 \ ============================================================================
@@ -21,6 +26,53 @@ ARENA_BYTE_COLUMNS = 64        \ 256 pixels / 4 pixels per MODE 1 byte.
                                \ Byte columns 64..79 (64 pixels) are the HUD.
 HUD_TEXT_COLUMN    = 32        \ First text column of the HUD (pixel 256 is
                                \ text column 256 / 8 = 32 in MODE 1).
+SUPERPIXEL_ROWS    = 128       \ Entries in superpixel_row_lo and _hi.
+
+\ ----------------------------------------------------------------------------
+\ build_superpixel_rows -- fill superpixel_row_lo/hi
+\
+\ Entry sy is the address of the top raster byte of superpixel (0, sy):
+\     &3000 + (sy DIV 4) * 640 + (sy AND 3) * 2
+\ Superpixel (sx, sy) is at that address + (sx DIV 2) * 8; the bottom raster
+\ byte is the next address. For a character row cy, entry 4*cy is the
+\ address of the row's first character cell.
+\
+\ zp_screen_ptr holds the current character row's address. Rows are 640
+\ (&280) bytes apart from &3000, so its low byte is always &00 or &80, and
+\ adding (sy AND 3) * 2 (at most 6) is an ORA, with no carry.
+\
+\ On exit:  A, X corrupted; zp_screen_ptr corrupted
+\ ----------------------------------------------------------------------------
+
+.build_superpixel_rows
+    LDA #LO(MODE1_SCREEN_BASE)
+    STA zp_screen_ptr
+    LDA #HI(MODE1_SCREEN_BASE)
+    STA zp_screen_ptr+1
+    LDX #0                     \ X = sy.
+.build_superpixel_rows_loop
+    TXA                        \ Low byte: row address + (sy AND 3) * 2.
+    AND #3
+    ASL A
+    ORA zp_screen_ptr
+    STA superpixel_row_lo,X
+    LDA zp_screen_ptr+1        \ High byte: the row's.
+    STA superpixel_row_hi,X
+    TXA                        \ After the row's fourth superpixel row, on
+    AND #3                     \ to the next character row.
+    CMP #3
+    BNE build_superpixel_rows_next
+    LDA zp_screen_ptr
+    CLC
+    ADC #LO(MODE1_ROW_BYTES)
+    STA zp_screen_ptr
+    LDA zp_screen_ptr+1
+    ADC #HI(MODE1_ROW_BYTES)
+    STA zp_screen_ptr+1
+.build_superpixel_rows_next
+    INX
+    BPL build_superpixel_rows_loop   \ Until sy = 128.
+    RTS
 
 \ ----------------------------------------------------------------------------
 \ set_superpixel_state -- draw one superpixel in an ink state's pattern

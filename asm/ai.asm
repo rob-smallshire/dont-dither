@@ -20,6 +20,12 @@
 \ out the AI stays put. It fires if the chosen direction's own score is at
 \ least AI_FIRE_SCORE.
 \
+\ Refilling: an AI whose reservoir is empty when it decides switches to
+\ refilling (ai_refilling), until it has at least AI_REFILLED splats again.
+\ While refilling it never fires, and a sample cell is worth AI_REFILL_BASE
+\ plus its own ink count instead, so it heads for its own ink, where it
+\ moves fastest and refills soonest.
+\
 \ Requires: zeropage.asm, game.asm (position_clear), paint.asm (read_cell),
 \ walls.asm (is_wall), and the generated game_data.asm and paint_data.asm.
 \ ============================================================================
@@ -42,6 +48,21 @@
     RTS
 
 .ai_think
+    \ Painting or refilling? The AI refills while its reservoir is below a
+    \ threshold: 1 (i.e. empty) to start refilling, AI_REFILLED to stop.
+    LDA #1
+    LDY ai_refilling,X
+    BEQ ai_think_threshold
+    LDA #AI_REFILLED
+.ai_think_threshold
+    STA zp_ai_total            \ (borrowed: ai_score resets it)
+    LDA player_reservoir,X
+    CMP zp_ai_total            \ Carry clear if below the threshold...
+    LDA #0
+    ADC #0
+    EOR #1                     \ ...then refilling (1).
+    STA ai_refilling,X
+
     \ Score every direction.
     LDA player_ink,X
     STA zp_ai_ink
@@ -123,11 +144,16 @@
     LDA zp_ai_best
     STA ai_direction,X
     TAY
+    LDA ai_refilling,X         \ Refilling: hold fire.
+    BNE ai_go_hold_fire
     LDA ai_scores,Y            \ Fire at a worthwhile target.
     CMP #AI_FIRE_SCORE
+    BCC ai_go_hold_fire
     TYA
-    BCC ai_decided
     ORA #FIRE_BIT
+    BNE ai_decided             \ (Always.)
+.ai_go_hold_fire
+    TYA
 .ai_decided
     LDX zp_ai_player
     STA ai_last_input,X
@@ -211,9 +237,17 @@
     CLC
     ADC zp_ai_ink
     TAX
+    LDY zp_ai_player
+    LDA ai_refilling,Y
+    BEQ ai_score_painting
+    LDA state_counts,X         \ Refilling: worth AI_REFILL_BASE + own count.
+    CLC
+    ADC #AI_REFILL_BASE
+    JMP ai_score_add
+.ai_score_painting
     LDA #8
     SEC
-    SBC state_counts,X         \ Worth 8 - own count.
+    SBC state_counts,X         \ Painting: worth 8 - own count.
     JMP ai_score_add
 .ai_score_wall
     LDA #AI_WALL_VALUE

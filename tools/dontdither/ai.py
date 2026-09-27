@@ -20,6 +20,11 @@ strictly highest (bonused) score is chosen. If a step that way is blocked
 (by a wall, the arena edge or a tank), that direction is ruled out and the
 choice is made again; if every direction is ruled out the AI stays put. The
 AI fires if the chosen direction's unbonused score is at least FIRE_SCORE.
+
+Refilling: an AI whose reservoir is empty when it decides switches to
+refilling, until it has at least REFILLED splats again. While refilling it
+never fires, and a sample cell is worth 4 plus its own ink count, so it
+heads for its own ink, where it moves fastest and refills soonest.
 """
 
 from __future__ import annotations
@@ -30,6 +35,8 @@ AI_PERIOD = 4
 PERSISTENCE = 2
 FIRE_SCORE = 22            # 4 samples: more than 4 * 5.5, i.e. mostly unowned ground
 WALL_VALUE = 1
+REFILL_BASE = 4            # while refilling, a cell is worth this + own count
+REFILLED = 28              # splats at which a refilling AI paints again
 FOOTPRINT = 6
 
 # Sample cells relative to the footprint's top-left superpixel, for facing E
@@ -63,7 +70,12 @@ def direction_scores(game, index: int) -> list[int]:
         total = 0
         for dx, dy in samples(direction):
             state = game.cells.get((player.sx + dx, player.sy + dy))
-            total += WALL_VALUE if state is None else 8 - state[own]
+            if state is None:
+                total += WALL_VALUE
+            elif player.ai_refilling:
+                total += REFILL_BASE + state[own]
+            else:
+                total += 8 - state[own]
         scores.append(total)
     return scores
 
@@ -73,6 +85,10 @@ def decide(game, index: int) -> int:
     from dontdither.game import DIRECTION_DX, DIRECTION_DY, FIRE_BIT, NO_DIRECTION
 
     player = game.players[index]
+    if player.ai_refilling:
+        player.ai_refilling = player.reservoir < REFILLED
+    else:
+        player.ai_refilling = player.reservoir == 0
     scores = direction_scores(game, index)
     current = player.ai_direction
     starts = [(p.sx, p.sy) for p in game.players]
@@ -90,6 +106,7 @@ def decide(game, index: int) -> int:
         y = player.sy + DIRECTION_DY[best]
         if game._clear(index, x, y, starts):
             player.ai_direction = best
-            return best | (FIRE_BIT if scores[best] >= FIRE_SCORE else 0)
+            fire = not player.ai_refilling and scores[best] >= FIRE_SCORE
+            return best | (FIRE_BIT if fire else 0)
         ruled_out.add(best)
     return NO_DIRECTION

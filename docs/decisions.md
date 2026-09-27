@@ -159,7 +159,9 @@ Decisions taken during development that refine or depart from
 - Restores are masked to the tank's footprint, so tanks side by side that
   share a screen byte column never disturb each other.
 - Measured worst tick with all four players driving and firing: about
-  58,600 of 80,000 cycles.
+  58,600 of 80,000 cycles. (A tank with fire released reads its ground
+  instead, four read_cells, far cheaper than a shot; a test checks the
+  game keeps 25 Hz with two tanks firing and two refilling.)
 
 ## Level titles
 
@@ -187,6 +189,49 @@ Decisions taken during development that refine or depart from
   | Two's Company | Between the Lines | Four All |
   | Tug of War | Ink Different | All Four One |
   | Duelling Colours | Colouring In | Four Way Street |
+
+## The ink reservoir
+
+Splatoon's ink tank and squid form, for tanks: painting costs ink, and your
+own ink is where you get it back. The loop is paint, run dry, seek your
+colour, dash and refill, then emerge and paint again. It gives the dithered
+ownership levels an immediate use: a (3,1,0,0) region is not just worth more
+to C than (2,1,1,0), it is a better road and filling station.
+
+- Each tank carries a reservoir of RESERVOIR_SPLATS (32) splats, full at the
+  start of a level. Each shot uses one; with none left, holding fire does
+  nothing. A full reservoir lasts about 7.7 seconds of continuous fire.
+- While fire is held the tank moves at normal speed and does not refill,
+  wherever it is (as in Splatoon: you cannot paint while dashing).
+- While fire is released, the ground sets the speed and refill rate. A
+  tank's ground level is its own ink quanta summed over the four centre
+  superpixels of its footprint, DIV 4: 0 (hostile) to 4 (solid own ink).
+  The centre four are the only cells every player's rotation treats alike,
+  so the rule stays fair. Cells under the tank are read from its save buffer.
+
+  | Ground | Speed (fire released) | Refill |
+  |---|---|---|
+  | 0 | 0.5x | none |
+  | 1 | 1x | trickle, about 20 s to fill |
+  | 2 | 1x | about 5 s to fill |
+  | 3 | 1.25x | about 3 s to fill |
+  | 4 | 1.5x | about 1.7 s to fill |
+
+  The trickle on ground 1 means a tank on the grey start arena is never
+  stranded. The values are GROUND_AXIAL_SPEED, GROUND_DIAGONAL_SPEED and
+  GROUND_REFILL in game.py.
+- The reservoir is kept in whole splats plus 1/256ths. Speeds above 256
+  (1/256 superpixel per tick) take a second step on some ticks; each step is
+  tried and slides as before.
+- The HUD shows each reservoir as an ink gauge, like an inkjet printer's ink
+  levels: a bar in the player's ink, two raster lines per splat, in the
+  columns where the tally bars grow. The gauges fill from empty as a level
+  starts, follow the reservoirs a splat a tick, and are cleared when the
+  round ends, before the tally bars rise in their place.
+- A computer player that decides with an empty reservoir switches to
+  refilling: it holds fire and heads for its own ink (a sample cell is
+  worth 4 + its own count instead of 8 - its own count) until it has 28
+  splats, then paints again.
 
 ## Computer players
 
@@ -289,6 +334,9 @@ Decisions taken during development that refine or depart from
   &0900-&0CFF uninitialised buffers, over MOS buffers the game does not use
   (RS423/cassette, soft keys, user-defined characters 224-255); &0E00-&2FFF
   the main block of code and tables. Zero page &00-&6F is nearly full.
+- The main block starts with the ink tables, whose page-aligned
+  pattern_to_state then needs no padding. The superpixel row address tables
+  (256 bytes) are built at start-up into the buffers rather than loaded.
 - Zero page: `zp_boot_status` in the MOS user block &70–&8F; everything else
   in &00–&6F, BASIC's workspace, free because our programs never return to
   BASIC.

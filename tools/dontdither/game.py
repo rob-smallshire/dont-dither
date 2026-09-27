@@ -69,7 +69,7 @@ NO_DIRECTION = 0x08
 DIRECTION_MASK = 0x0F
 FIRE_BIT = 0x10
 
-AXIAL_SPEED = 200          # 1/256 superpixel per tick: 200/256 at 25 Hz = 19.5 cells/s
+AXIAL_SPEED = 200          # normal speed, 1/256 superpixel per tick: 19.5 cells/s
 DIAGONAL_SPEED = 141       # AXIAL_SPEED / sqrt(2), per axis
 
 DIRECTION_DX = (0, 1, 1, 1, 0, -1, -1, -1)
@@ -99,6 +99,23 @@ def round_points(percentages: list[int]) -> list[int]:
 FIRE_PERIOD = 6            # ticks between shots while fire is held (4 per second);
                            # must be even (see the firing parity rule)
 
+# The ink reservoir (like Splatoon's ink tank and squid form). Each shot
+# uses a splat of ink; with none left, holding fire does nothing. While fire
+# is released, the ground under the tank sets its speed and refill rate:
+# its GROUND level is the tank's own ink quanta summed over the four centre
+# superpixels of its footprint, DIV 4, so 0 (hostile) to 4 (solid own ink).
+# The centre four are the only cells every player's rotation treats alike.
+# While fire is held the tank moves at normal speed and does not refill.
+RESERVOIR_SPLATS = 32      # a full reservoir, in splats
+GROUND_LEVELS = 5
+FIRING_GROUND = 1          # the ground level whose speed applies while firing
+# By ground level: speed in 1/256 superpixel per tick (axial, then diagonal
+# = axial / sqrt 2; more than 256 takes two steps on some ticks) and refill
+# in 1/256 splat per tick.
+GROUND_AXIAL_SPEED = (100, 200, 200, 250, 300)
+GROUND_DIAGONAL_SPEED = (71, 141, 141, 177, 212)
+GROUND_REFILL = (0, 16, 64, 104, 192)
+
 
 def direction_of_keys(mask: int) -> int:
     """Direction from a 4-bit key mask (up, down, left, right); opposite keys
@@ -125,7 +142,10 @@ class Player:
     cooldown: int = 0
     variant: int = 0
     last_victim: int = -1
+    reservoir: int = RESERVOIR_SPLATS   # whole splats of ink
+    reservoir_fraction: int = 0         # and 1/256ths of a splat
     ai: bool = False               # controlled by the AI (see ai.py)
+    ai_refilling: bool = False     # the AI is seeking its own ink to refill
     ai_direction: int = -1         # the AI's current direction
     ai_input: int = NO_DIRECTION   # the AI's last decision
 
@@ -154,6 +174,13 @@ class Game:
     cells: dict[tuple[int, int], State] = field(default_factory=dict)   # open superpixels
     round_ticks_left: int = ROUND_TICKS
 
+    def __post_init__(self) -> None:
+        # A game made without an arena gets a grey one, (1, 1, 1, 1) in every
+        # open cell as on a four-player level: ground level 1, normal speed.
+        if not self.cells:
+            self.cells = {(x, y): (1, 1, 1, 1) for y in range(128) for x in range(128)
+                          if (x // 4, y // 4) not in self.walls}
+
     @classmethod
     def start(cls, level: Level) -> Game:
         """The level's starting state, with the game's default controls:
@@ -177,6 +204,14 @@ class Game:
         quanta = self.ink_quanta()
         total = 4 * len(self.cells)
         return [quanta[INKS.index(p.ink)] * 100 // total for p in self.players]
+
+    def ground(self, index: int) -> int:
+        """Player index's ground level: its own ink quanta in the four
+        centre superpixels of its footprint, DIV 4 (0..4)."""
+        player = self.players[index]
+        own = INKS.index(player.ink)
+        return sum(self.cells[(player.sx + dx, player.sy + dy)][own]
+                   for dy in (2, 3) for dx in (2, 3)) // 4
 
     def tick(self, inputs: list[int] | None = None) -> None:
         """Advance one tick; inputs[p] is player p's input byte (ignored for
@@ -208,8 +243,9 @@ class Game:
         if player.cooldown:
             player.cooldown -= 1
             return
-        if not byte & FIRE_BIT or (tick + index) % 2:
+        if not byte & FIRE_BIT or (tick + index) % 2 or not player.reservoir:
             return
+        player.reservoir -= 1
         trees = _trees()[FACINGS_[player.facing]]
         painter = Painter(INKS.index(player.ink), player.last_victim)
         apply_splat(self.cells, painter, trees[player.variant], origin=(player.sx, player.sy))
@@ -233,14 +269,28 @@ class Game:
 
     def _move(self, index: int, byte: int, starts) -> None:
         player = self.players[index]
+        if byte & FIRE_BIT:
+            ground = FIRING_GROUND
+        else:
+            ground = self.ground(index)
+            fraction = player.reservoir_fraction + GROUND_REFILL[ground]
+            player.reservoir += fraction >> 8
+            player.reservoir_fraction = fraction & 0xFF
+            if player.reservoir >= RESERVOIR_SPLATS:
+                player.reservoir, player.reservoir_fraction = RESERVOIR_SPLATS, 0
         direction = byte & DIRECTION_MASK
         if direction == NO_DIRECTION:
             return
         player.facing = direction
-        player.accumulator += DIAGONAL_SPEED if direction % 2 else AXIAL_SPEED
-        if player.accumulator < 256:
-            return
-        player.accumulator -= 256
+        speeds = GROUND_DIAGONAL_SPEED if direction % 2 else GROUND_AXIAL_SPEED
+        player.accumulator += speeds[ground]
+        steps, player.accumulator = player.accumulator >> 8, player.accumulator & 0xFF
+        for _ in range(steps):
+            self._step(index, direction, starts)
+
+    def _step(self, index: int, direction: int, starts) -> None:
+        """One superpixel step, sliding along an obstacle if diagonal."""
+        player = self.players[index]
         dx, dy = DIRECTION_DX[direction], DIRECTION_DY[direction]
         x, y = player.sx, player.sy
         if self._clear(index, x + dx, y + dy, starts):

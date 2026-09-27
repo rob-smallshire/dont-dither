@@ -183,6 +183,7 @@ BAR_FRAMES_PER_STEP = 1        \ Vertical syncs per two lines of growth.
 
 .end_of_round
     JSR hide_sprites           \ The bare, final territory.
+    JSR clear_gauges           \ Room for the tally bars.
     JSR count_territory
     JSR compute_scores
     JSR reveal_scores
@@ -562,8 +563,25 @@ BAR_FRAMES_PER_STEP = 1        \ Vertical syncs per two lines of growth.
 \ ----------------------------------------------------------------------------
 
 .grow_bar
-    \ Body bytes: [contrast, ink, ink, ink] [ink, ink, ink, contrast];
-    \ pixel 0 of a byte is mask &88, pixel 3 mask &11.
+    JSR bar_bytes
+    JSR bar_column
+
+    \ Height = percent * 1.5.
+    LDX zp_player
+    LDA player_percent,X
+    LSR A
+    CLC
+    ADC player_percent,X
+    STA bar_height
+
+    LDA #BAR_BASE_LINE
+    STA bar_line
+    JMP grow_bar_loop
+
+\ bar_bytes: bar_left and bar_right = the two bytes of a line of player
+\ zp_player's bar: [contrast, ink, ink, ink] [ink, ink, ink, contrast];
+\ pixel 0 of a byte is mask &88, pixel 3 mask &11.
+.bar_bytes
     LDX zp_player
     LDY player_ink,X
     LDA ink_bytes,Y
@@ -583,26 +601,19 @@ BAR_FRAMES_PER_STEP = 1        \ Vertical syncs per two lines of growth.
     AND #&EE
     ORA bar_right
     STA bar_right
+    RTS
 
-    \ Byte column of the bar: HUD column 64 + 4 * slot + 1; as an offset
-    \ from a raster line's start, times 8 (at most 632: 16 bits).
+\ bar_column: bar_offset = the byte column of player zp_player's bar: HUD
+\ column 64 + 4 * slot + 1, as an offset from a raster line's start, times
+\ 8 (at most 632: 16 bits).
+.bar_column
     JSR bar_slot
     ASL A
     ASL A
     CLC
     ADC #64 + 1
-    JSR set_hud_column
+    JMP set_hud_column         \ Tail call.
 
-    \ Height = percent * 1.5.
-    LDX zp_player
-    LDA player_percent,X
-    LSR A
-    CLC
-    ADC player_percent,X
-    STA bar_height
-
-    LDA #BAR_BASE_LINE
-    STA bar_line
 .grow_bar_loop
     LDA bar_height
     BEQ grow_bar_label
@@ -673,6 +684,85 @@ BAR_FRAMES_PER_STEP = 1        \ Vertical syncs per two lines of growth.
     LDA contrast_ink_bytes,Y
 .set_label_colour_done
     STA label_colour
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ Ink gauges -- each player's reservoir, shown during play like an inkjet
+\ printer's ink levels
+\
+\ A gauge is a bar in the player's ink, in the same byte columns as its
+\ tally bar and rising from the same BAR_BASE_LINE, GAUGE_LINES_PER_SPLAT
+\ raster lines per splat (64 lines when full). gauge_drawn holds how many
+\ splats each gauge shows. Each tick update_gauges moves every gauge one
+\ splat towards its reservoir -- a reservoir changes by at most a splat a
+\ tick, so gauges keep up, and a new level's gauges fill from empty over
+\ its first RESERVOIR_SPLATS ticks. clear_gauges empties them all at the
+\ end of a round, before the tally bars grow in their place.
+\ ----------------------------------------------------------------------------
+
+GAUGE_LINES_PER_SPLAT = 2
+
+.update_gauges
+    LDX player_count
+    DEX
+.update_gauges_loop
+    STX zp_player
+    LDA player_reservoir,X
+    JSR gauge_step
+    LDX zp_player
+    DEX
+    BPL update_gauges_loop
+    RTS
+
+.clear_gauges
+    LDX player_count
+    DEX
+.clear_gauges_loop
+    STX zp_player
+    LDA #0
+    JSR gauge_step
+    LDX zp_player
+    LDA gauge_drawn,X
+    BNE clear_gauges_loop      \ Until this gauge is empty.
+    DEX
+    BPL clear_gauges_loop
+    RTS
+
+\ gauge_step: move player zp_player's gauge one splat towards A splats.
+\ Splat d of a gauge is drawn on lines BAR_BASE_LINE - 2d and the one above.
+.gauge_step
+    LDX zp_player
+    CMP gauge_drawn,X
+    BEQ gauge_step_done
+    BCC gauge_step_lower
+    JSR bar_bytes              \ Higher: draw the next splat in the ink.
+    LDX zp_player
+    LDA gauge_drawn,X
+    INC gauge_drawn,X
+    JMP gauge_step_draw
+.gauge_step_lower
+    DEC gauge_drawn,X          \ Lower: erase the top splat.
+    LDA #0
+    STA bar_left
+    STA bar_right
+    LDA gauge_drawn,X
+.gauge_step_draw
+    ASL A                      \ Its lines: BAR_BASE_LINE - 2d and above.
+    ASSERT GAUGE_LINES_PER_SPLAT = 2
+    STA bar_height             \ (borrowed)
+    JSR bar_column
+    LDA #BAR_BASE_LINE
+    SEC
+    SBC bar_height
+    STA bar_line
+    LDA bar_left
+    LDX bar_right
+    JSR draw_bar_line
+    DEC bar_line
+    LDA bar_left
+    LDX bar_right
+    JMP draw_bar_line          \ Tail call.
+.gauge_step_done
     RTS
 
 \ ----------------------------------------------------------------------------

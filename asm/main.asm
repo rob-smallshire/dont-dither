@@ -68,11 +68,18 @@ ORG GAME_ADDRESS
 GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
                                \ reach the screen.
 
+\ The ink tables first: they begin with the page-aligned pattern_to_state,
+\ and GAME_ADDRESS is a page boundary, so it needs no padding here.
+.main_start
+INCLUDE "build/generated/ink_tables.asm"
+
 .start
     \ Mark boot as in progress. RAM contents at power-on are not guaranteed,
     \ so the harness must never see a stale BOOT_READY.
     LDA #0
     STA zp_boot_status
+
+    JSR build_superpixel_rows  \ Screen address tables, before any drawing.
 
     \ The screen. Booted from SPLASH we are already in MODE 1 with the cursor
     \ hidden and every colour black, and the loader has put the HUD logo in
@@ -208,6 +215,7 @@ HUD_BELOW_LOGO = HUD_LOGO_ADDRESS + HUD_LOGO_ROWS * MODE1_ROW_BYTES
     JSR update_players         \ Move and turn the tanks.
     JSR fire_players           \ Shoot: splats paint the arena.
     JSR render_sprites         \ Redraw tanks that changed, racing the beam.
+    JSR update_gauges          \ Ink levels in the HUD.
     INC tick_count             \ Count ticks (16 bits).
     BNE main_loop_clock
     INC tick_count+1
@@ -279,7 +287,6 @@ INCLUDE "asm/paint.asm"
 INCLUDE "asm/hud.asm"
 INCLUDE "asm/ai.asm"
 INCLUDE "asm/flow.asm"
-INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
 INCLUDE "build/generated/sprite_data.asm"
@@ -327,6 +334,8 @@ INCLUDE "build/generated/paint_data.asm"
 ORG &0900
 GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 
+.superpixel_row_lo SKIP SUPERPIXEL_ROWS   \ Built by build_superpixel_rows.
+.superpixel_row_hi SKIP SUPERPIXEL_ROWS
 .wall_map
     SKIP 128                   \ The current level's 32x32 wall bitmap.
 
@@ -352,6 +361,13 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .player_last_victim SKIP MAX_PLAYERS \ Round-robin: last ink painted over.
 .player_repaint   SKIP MAX_PLAYERS \ Non-zero: redraw the tank (the arena
                                \ under it was painted).
+.player_reservoir SKIP MAX_PLAYERS \ Ink: whole splats (0..RESERVOIR_SPLATS)...
+.player_reservoir_fraction SKIP MAX_PLAYERS \ ...and 1/256ths of a splat.
+.gauge_drawn      SKIP MAX_PLAYERS \ Splats each HUD ink gauge shows.
+.move_ground      SKIP 1       \ update_players: the mover's ground level,
+.move_steps       SKIP 1       \ and its steps still to take this tick.
+.ground_total     SKIP 1       \ ground_level: own quanta so far,
+.ground_index     SKIP 1       \ and the centre cell (3..0).
 .splat_blocked    SKIP SPLAT_MAX_NODES \ fire_splat: which tree nodes are
                                \ shadowed by walls.
 .round_length_ticks SKIP 2     \ Length of a round, in ticks.
@@ -368,6 +384,7 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .player_revealed  SKIP MAX_PLAYERS \ reveal_scores: bar drawn yet?
 .ai_direction     SKIP MAX_PLAYERS \ Each AI's current direction.
 .ai_last_input    SKIP MAX_PLAYERS \ Each AI's last decision.
+.ai_refilling     SKIP MAX_PLAYERS \ Non-zero: the AI is seeking ink.
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
 .session_humans   SKIP 1       \ Bit per player slot: played by a human.
 .session_joined   SKIP 1       \ select_players: who has pressed fire.
@@ -403,7 +420,7 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 \ for two or four players, loads that level set to LEVEL_TEMP and runs this
 \ file. This loader is assembled to run at LOADER_ADDRESS, where DFS loads
 \ the file, and followed in the file by copies of the main block
-\ (start..end) and the low block (low_start..low_end), placed there by
+\ (main_start..end) and the low block (low_start..low_end), placed there by
 \ COPYBLOCK. It:
 \   1. closes any *EXEC file, so the filing system never touches its
 \      buffers (in the DFS workspace we are about to overwrite) again;
@@ -428,7 +445,7 @@ GUARD LEVEL_TEMP               \ The file must stay clear of the level set
 
 LOADER_SOURCE = &00            \ Copy pointers in zero page.
 LOADER_DEST   = &02
-MAIN_BLOCK_PAGES = (end - start + 255) DIV 256
+MAIN_BLOCK_PAGES = (end - main_start + 255) DIV 256
 LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
 
 .loader
@@ -439,9 +456,9 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
     STA LOADER_SOURCE
     LDA #HI(loader_main_image)
     STA LOADER_SOURCE+1
-    LDA #LO(start)
+    LDA #LO(main_start)
     STA LOADER_DEST
-    LDA #HI(start)
+    LDA #HI(main_start)
     STA LOADER_DEST+1
     LDX #MAIN_BLOCK_PAGES
     JSR loader_copy
@@ -521,8 +538,8 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
     RTS
 
 .loader_main_image
-COPYBLOCK start, end, loader_main_image
-loader_low_image = loader_main_image + (end - start)
+COPYBLOCK main_start, end, loader_main_image
+loader_low_image = loader_main_image + (end - main_start)
 COPYBLOCK low_start, low_end, loader_low_image
 ORG loader_low_image + (low_end - low_start)
 .loader_logo_image

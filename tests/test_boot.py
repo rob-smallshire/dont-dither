@@ -24,6 +24,7 @@ from dontdither.screen import ARENA_CELLS, MODE1_ROW_BYTES, MODE1_SCREEN_BASE, M
 from dontdither.walls import wall_bitmap
 
 HUD_TEXT_ROWS = (4, 6)   # level number, clock
+HUD_GAUGE_ROWS = range(22, 30)   # the ink gauges: raster lines 176..239
 
 MOS_CURRENT_MODE = 0x0355
 SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
@@ -62,11 +63,12 @@ def test_boots_into_the_first_level(booted_game, game_build):
     assert wall_map == wall_bitmap(load_levels()[0].wall_cells())
 
 
-def test_hud_is_blank_apart_from_its_text(screen):
+def test_hud_is_blank_apart_from_its_text_and_gauges(screen):
     # HUD byte columns 64..79 of every character row below the logo, except
-    # those holding text, are still background (logical colour 0).
+    # those holding text or the ink gauges (see test_reservoir.py), are still
+    # background (logical colour 0).
     for char_row in range(HUD_LOGO_ROWS, 32):
-        if char_row in HUD_TEXT_ROWS:
+        if char_row in HUD_TEXT_ROWS or char_row in HUD_GAUGE_ROWS:
             continue
         row = screen[char_row * MODE1_ROW_BYTES + 512:(char_row + 1) * MODE1_ROW_BYTES]
         assert row == bytes(128), f"HUD not blank on character row {char_row}"
@@ -127,3 +129,13 @@ def test_displayed_arena_matches_screen_memory(booted_game, game_build, screen):
                 b, g, r = frame.pixels[offset:offset + 3]
                 mismatches += (r, g, b) != rgb_of_logical[logical]
     assert mismatches == 0
+
+
+def test_superpixel_row_tables_are_built_at_start_up(booted_game, game_build):
+    from dontdither.screen import superpixel_address
+
+    labels = game_build.labels["DITHER"]
+    peek = booted_game.memory.address.peek
+    lo = bytes(peek[labels["superpixel_row_lo"]:labels["superpixel_row_lo"] + 128])
+    hi = bytes(peek[labels["superpixel_row_hi"]:labels["superpixel_row_hi"] + 128])
+    assert [l | h << 8 for l, h in zip(lo, hi)] == [superpixel_address(0, sy) for sy in range(128)]

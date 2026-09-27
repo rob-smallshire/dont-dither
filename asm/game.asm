@@ -6,7 +6,7 @@
 \   wait_for_tick    wait for two vertical syncs, then start the beam clock
 \   read_inputs      fill player_input for every player from its control
 \                    source (keyboard, scripted, or none)
-\   update_players   move and turn the players (the world update)
+\   update_players   refill, move and turn the players (the world update)
 \   render_sprites   redraw the tanks that changed, racing the beam
 \
 \ The simulation depends only on the level and the ordered per-tick inputs,
@@ -169,15 +169,23 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     RTS
 
 \ ----------------------------------------------------------------------------
-\ update_players -- move and turn every player according to its input
+\ update_players -- refill, move and turn every player according to its input
 \
 \ On exit:  A, X, Y corrupted
 \
 \ Players move one after another; the first to move rotates with the tick
-\ count (player_count is 2 or 4, so AND with player_count - 1 is MOD). For a
-\ player with a direction: face that way; add the direction's speed to the
-\ player's accumulator; if that carries, try to step (see try_step). With
-\ no direction nothing changes.
+\ count (player_count is 2 or 4, so AND with player_count - 1 is MOD). For
+\ each player:
+\   1. The ground. With fire held it is FIRING_GROUND (normal speed, no
+\      refill). With fire released it is the player's ground level (see
+\      ground_level), and the reservoir refills by ground_refill for it, up
+\      to RESERVOIR_SPLATS. A player's centre cells are under its own tank,
+\      which has not moved yet, so reading them now is the same as reading
+\      them before anyone moves.
+\   2. With a direction: face that way, and add the speed for the ground and
+\      direction (ground_speed_lo/whole) to the player's accumulator. The
+\      carry plus the whole part is the number of steps, 0..2, each tried
+\      with try_step. With no direction nothing moves.
 \ ----------------------------------------------------------------------------
 
 .update_players
@@ -193,19 +201,61 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
 
 .update_players_loop
     LDX zp_update_index
+    LDA player_input,X         \ Fire held: move normally, no refill.
+    AND #FIRE_BIT
+    BEQ update_players_ground
+    LDA #FIRING_GROUND
+    STA move_ground
+    ASSERT FIRING_GROUND <> 0
+    BNE update_players_move    \ (Always.)
+
+.update_players_ground
+    JSR ground_level           \ A = ground level 0..4.
+    STA move_ground
+    TAY
+    LDX zp_update_index
+    LDA player_reservoir_fraction,X   \ Refill by the ground: a 16-bit add
+    CLC                               \ of 1/256ths of a splat.
+    ADC ground_refill,Y
+    STA player_reservoir_fraction,X
+    LDA player_reservoir,X
+    ADC #0
+    CMP #RESERVOIR_SPLATS      \ Full: exactly full.
+    BCC update_players_refilled
+    LDA #0
+    STA player_reservoir_fraction,X
+    LDA #RESERVOIR_SPLATS
+.update_players_refilled
+    STA player_reservoir,X
+
+.update_players_move
+    LDX zp_update_index
     LDA player_input,X
     AND #DIRECTION_MASK
     CMP #NO_DIRECTION
     BEQ update_players_next
     STA player_facing,X
-    TAY                        \ Y = direction.
+    AND #1                     \ Speed index: ground * 2 + (direction AND 1).
+    STA move_steps             \ (borrowed)
+    LDA move_ground
+    ASL A
+    ORA move_steps
+    TAY
 
-    LDA player_accumulator,X   \ Add the speed; carry means a step is due.
+    LDA player_accumulator,X   \ Add the speed: steps = carry + whole part.
     CLC
-    ADC direction_speed,Y
+    ADC ground_speed_lo,Y
     STA player_accumulator,X
-    BCC update_players_next
+    LDA ground_speed_whole,Y
+    ADC #0
+    BEQ update_players_next
+    STA move_steps
+.update_players_step
+    LDX zp_update_index
+    LDY player_facing,X        \ Y = direction.
     JSR try_step
+    DEC move_steps
+    BNE update_players_step
 
 .update_players_next
     LDA zp_update_index        \ Next player, wrapping round.
@@ -215,6 +265,54 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     STA zp_update_index
     DEC zp_update_remaining
     BNE update_players_loop
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ ground_level -- player zp_update_index's ground level
+\
+\ On exit:  A = the player's own ink quanta over the four centre superpixels
+\           of its footprint, (sx + 2..3, sy + 2..3), DIV 4: 0..4; X, Y and
+\           read_cell's zero page corrupted
+\
+\ Cells under the tank are read from its save buffer by read_cell. The four
+\ centre cells are the only ones every player's rotation treats alike.
+\ ground_index counts 3..0: bit 0 selects dx = 2 or 3, bit 1 dy = 2 or 3.
+\ ----------------------------------------------------------------------------
+
+.ground_level
+    LDA #0
+    STA ground_total
+    LDA #3
+    STA ground_index
+.ground_level_cell
+    LDX zp_update_index
+    LDA ground_index           \ sx + 2 + (index AND 1).
+    AND #1
+    CLC
+    ADC #2
+    ADC player_sx,X
+    STA zp_cell_x
+    LDA ground_index           \ sy + 2 + (index DIV 2).
+    LSR A
+    CLC
+    ADC #2
+    ADC player_sy,X
+    STA zp_cell_y
+    JSR read_cell              \ A = the cell's state.
+    ASL A                      \ Own quanta = state_counts[state * 4 + ink]
+    ASL A                      \ (state * 4 < 256, low bits clear: ORA adds).
+    LDX zp_update_index
+    ORA player_ink,X
+    TAX
+    LDA state_counts,X
+    CLC
+    ADC ground_total
+    STA ground_total
+    DEC ground_index
+    BPL ground_level_cell
+    LDA ground_total           \ 0..16 DIV 4.
+    LSR A
+    LSR A
     RTS
 
 \ ----------------------------------------------------------------------------

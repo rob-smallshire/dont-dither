@@ -30,8 +30,9 @@
 \ On exit:  A, X, Y corrupted
 \
 \ A player whose cooldown is non-zero counts it down. Otherwise, if fire is
-\ held and it is the player's turn, it shoots and its cooldown becomes
-\ FIRE_PERIOD - 1, so holding fire shoots every FIRE_PERIOD ticks. A player's
+\ held, it is the player's turn and its reservoir holds a splat of ink, it
+\ shoots, using that splat, and its cooldown becomes FIRE_PERIOD - 1, so
+\ holding fire shoots every FIRE_PERIOD ticks until the ink runs out. A player's
 \ turn is a tick where tick_count + player is even: at most half the players
 \ shoot in any one tick, which keeps a tick's painting within budget, and as
 \ FIRE_PERIOD is even the rule never delays a held fire.
@@ -63,6 +64,9 @@
     ADC tick_count
     AND #1
     BNE fire_players_next
+    LDA player_reservoir,X     \ Any ink left? A shot uses a splat of it.
+    BEQ fire_players_next
+    DEC player_reservoir,X
     JSR fire_splat
     LDX zp_update_index
     LDA #FIRE_PERIOD - 1

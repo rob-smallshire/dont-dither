@@ -119,6 +119,11 @@ MAX_PLAYERS = 4
     STA player_cooldown,X
     STA player_variant,X
     STA player_repaint,X
+    STA player_reservoir_fraction,X
+    STA ai_refilling,X
+    STA gauge_drawn,X          \ (clear_hud has erased the gauges)
+    LDA #RESERVOIR_SPLATS      \ A full reservoir of ink.
+    STA player_reservoir,X
 
     LDY zp_symmetry_step       \ The next player's start: rotate by the
 .place_players_turn            \ symmetry step.

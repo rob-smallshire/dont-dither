@@ -91,13 +91,20 @@ flagged for redraw. `tools/dontdither/game.py` models all of it; tests
 compare every arena byte with `render.arena_screen(level, model.cells)`
 plus tanks.
 
+**Ink reservoir** (`game.py`, `game.asm`, `hud.asm`): each shot uses a
+splat from a 32-splat reservoir. With fire released, the tank's ground level
+(own quanta over its footprint's centre four superpixels, DIV 4) sets its
+speed (up to two steps a tick) and refill rate; with fire held it moves at
+normal speed and does not refill. HUD gauges show the reservoirs. An AI
+that runs dry refills on its own ink until it has 28 splats.
+
 **Data flow from one source of truth:**
 
 ```
 data/ink_patterns.json            canonical pattern per state (written by solve_patterns.py)
   -> tools/dontdither/inks.py     model: states, patterns, colour mapping, MODE 1 encoding
   -> tools/dontdither/gen_tables.py  -> build/generated/*.asm
-       ink_tables (patterns, palette, STATE_*), screen_tables (row addresses),
+       ink_tables (patterns, palette, STATE_*), screen_tables (bit_masks),
        wall_tiles (16 tiles, corner patches), testcard_data (from testcard.py),
        level_data (from levels/*.lvl), sprite_data (from sprites/tank.spr),
        game_data (controls, speeds), paint_data (state arithmetic, splat trees)
@@ -199,6 +206,9 @@ tests; they must stay consistent):
 
 ## Target constraints
 
+- The main block starts with the ink tables, so the page-aligned
+  `pattern_to_state` needs no padding. `superpixel_row_lo/hi` are built at
+  start-up (`build_superpixel_rows`) into the buffers, not loaded.
 - Stock 32K Model B with DFS. A loader stub at the end of `asm/main.asm`
   (DFS loads the file at &3100) copies the main block to &0E00-&2FFF
   (`GUARD &3000`, over DFS workspace) and the low block of tables to

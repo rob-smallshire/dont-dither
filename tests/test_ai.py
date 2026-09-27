@@ -38,14 +38,18 @@ def test_ai_players_keep_moving_and_paint(level):
     game = all_ai(level)
     last = [(p.sx, p.sy) for p in game.players]
     steps = [0] * len(game.players)
+    refilling = [0] * len(game.players)
     for _ in range(25 * 60):
         game.tick()
         for i, p in enumerate(game.players):
             steps[i] += (p.sx, p.sy) != last[i]
             last[i] = (p.sx, p.sy)
+            refilling[i] += p.ai_refilling
     grey = sum(1 for s in game.cells.values() if s == (1, 1, 1, 1)) / len(game.cells)
     assert min(steps) > 600, steps           # of about 1,170 possible in a minute
-    assert grey < 0.7
+    # Ink is limited: AIs paint, run dry and refill, in about equal measure.
+    assert all(0.2 < r / (25 * 60) < 0.8 for r in refilling), refilling
+    assert grey < 0.8
 
 
 def test_ai_think_in_turns():
@@ -75,14 +79,18 @@ def test_6502_ai_matches_the_model(launch_bbc, game_build, players, level_number
     level = level_set(players)[level_number]
     model = all_ai(level)
     peek = bbc.memory.address.peek
-    for p in range(len(model.players)):
+    for p, player in enumerate(model.players):
         bbc.memory.address.bus[labels["player_control"] + p] = CONTROL_AI
-    fields = ("player_sx", "player_sy", "player_facing", "player_input", "player_cooldown")
-    for tick in range(200):
+        # Little ink, so the AIs run dry, refill and paint again.
+        bbc.memory.address.bus[labels["player_reservoir"] + p] = player.reservoir = 2 + p
+    fields = ("player_sx", "player_sy", "player_facing", "player_input", "player_cooldown",
+              "player_reservoir", "player_reservoir_fraction", "ai_refilling")
+    for tick in range(300):
         step_ticks(bbc, labels)
         model.tick()
         actual = [tuple(peek[labels[f] + p] for f in fields) for p in range(len(model.players))]
-        expected = [(p.sx, p.sy, p.facing, p.ai_input, p.cooldown) for p in model.players]
+        expected = [(p.sx, p.sy, p.facing, p.ai_input, p.cooldown,
+                     p.reservoir, p.reservoir_fraction, int(p.ai_refilling)) for p in model.players]
         assert actual == expected, f"tick {tick}"
     screen = bytes(peek[MODE1_SCREEN_BASE:MODE1_SCREEN_BASE + MODE1_SCREEN_SIZE])
     expected_screen = arena_screen(level, model.cells)
