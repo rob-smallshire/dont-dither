@@ -205,10 +205,13 @@ Decisions taken during development that refine or depart from
 
 ## Two- or four-player games and level sets
 
-- The game is two-player or four-player, chosen once in the loader by
-  pressing 2 or 4 (the loader will show the splash screen). The loader
-  then loads that level set, LEVELS2 or LEVELS4, from disc -- the last
-  disc access, while DFS still has its workspace -- and copies it into the
+- The game is two-player or four-player, chosen once on the title screen
+  by pressing 2 or 4. The title screen (SPLASH, run by !BOOT at &0900)
+  shows the logo -- art/splash.png, resampled to 300 pixels wide and
+  quantised to CMYK by the build, saved as screen bytes in LOGO -- with the
+  prompt beneath it. It then blacks out the palette, loads that level set,
+  LEVELS2 or LEVELS4, to &6000 -- the last disc access, while DFS still has
+  its workspace -- and runs DITHER, whose loader copies the set into the
   game's level area. To switch mode, press Break and reload.
 - A level set holds only levels of its player count (ROT2 or ROT4); the
   build generates both from levels/*.lvl. A set has a fixed header

@@ -181,3 +181,18 @@ def test_play_starts_as_soon_as_everyone_has_joined(bbc, game_build):
     peek = bbc.memory.address.peek
     assert peek[labels["session_seconds"]] > 5            # well before time ran out
     assert peek[labels["session_joined"]] == 0b11
+
+
+def test_the_title_screen_shows_the_logo_and_asks_for_players(bbc, game_build):
+    from dontdither.screen import MODE1_ROW_BYTES
+    from dontdither.splash import LOGO_TOP_ROW, logo_band
+
+    splash = game_build.labels["SPLASH"]
+    bbc.boot_disc(game_build.disc_filepath)
+    bbc.debugger.run_to(splash["splash_key"], timeout=60)
+    bbc.run_for_emulated_seconds(0.1)
+    rows, band = logo_band()
+    start = 0x3000 + LOGO_TOP_ROW * MODE1_ROW_BYTES
+    assert bytes(bbc.memory.address.peek[start:start + len(band)]) == band
+    text = bbc.video.screen_text().text
+    assert "for two players" in text and "for four players" in text

@@ -43,10 +43,12 @@
 \                loaded.
 \   &3000-&7FFF  MODE 1 screen memory (20 KB)
 \
-\ Loading: DFS cannot load a file into its own workspace, so the file
-\ DITHER is a loader stub followed by the main and low blocks. DFS loads it
-\ at LOADER_ADDRESS (in the screen area, unused until MODE 1 is selected)
-\ and runs the stub, which copies the blocks into place and jumps to start.
+\ Loading: the disc boots SPLASH, which shows the title screen, takes the
+\ choice of two or four players, loads that level set and runs DITHER. DFS
+\ cannot load a file into its own workspace, so DITHER is a loader stub
+\ followed by the main and low blocks. DFS loads it at LOADER_ADDRESS (in
+\ screen memory, blacked out by SPLASH) and runs the stub, which copies the
+\ blocks and the level set into place and jumps to start.
 \ ============================================================================
 
 INCLUDE "asm/os.asm"
@@ -382,29 +384,28 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 \ ============================================================================
 \ Loader
 \
-\ Assembled to run at LOADER_ADDRESS, where DFS loads the file, and
-\ followed in the file by copies of the main block (start..end) and the low
-\ block (low_start..low_end), placed there by COPYBLOCK. It:
-\   1. closes any *EXEC file: the disc's !BOOT is still open as an *EXEC
-\      file, and the filing system must not touch its buffers (in the DFS
-\      workspace we are about to overwrite) ever again;
-\   2. asks for a two- or four-player game (pressing 2 or 4) and loads that
-\      level set, LEVELS2 or LEVELS4, to LEVEL_TEMP -- the last disc access,
-\      made while DFS still has its workspace;
-\   3. copies each block, and the level set, to where it was assembled,
-\      whole pages at a time. Destinations are below the sources, so a
-\      forward copy is safe even if they overlapped. Copying a partial final
-\      page in full only writes beyond a block into memory the game
+\ The disc boots SPLASH (asm/splash.asm), which shows the title screen, asks
+\ for two or four players, loads that level set to LEVEL_TEMP and runs this
+\ file. This loader is assembled to run at LOADER_ADDRESS, where DFS loads
+\ the file, and followed in the file by copies of the main block
+\ (start..end) and the low block (low_start..low_end), placed there by
+\ COPYBLOCK. It:
+\   1. closes any *EXEC file, so the filing system never touches its
+\      buffers (in the DFS workspace we are about to overwrite) again;
+\   2. copies each block, and the level set from LEVEL_TEMP, to where they
+\      belong, whole pages at a time. Destinations are below the sources, so
+\      a forward copy is safe even if they overlapped. Copying a partial
+\      final page in full only writes beyond a block into memory the game
 \      initialises before use, or that the next copy fills;
-\   4. jumps to start.
+\   3. jumps to start.
 \ It uses zero page &00-&03 (BASIC's, free once we run) as copy pointers,
 \ and only its own code: the game's routines are not in place yet.
 \ ============================================================================
 
 CLEAR LOADER_ADDRESS, &7C00    \ Undo the game region's guard for this part.
 ORG LOADER_ADDRESS
-GUARD LEVEL_TEMP               \ The file must stay clear of where the level
-                               \ set is loaded.
+GUARD LEVEL_TEMP               \ The file must stay clear of the level set
+                               \ SPLASH has loaded.
 
 LOADER_SOURCE = &00            \ Copy pointers in zero page.
 LOADER_DEST   = &02
@@ -414,33 +415,6 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
 .loader
     LDA #&77                   \ OSBYTE &77: close any SPOOL and EXEC files.
     JSR OSBYTE
-
-    \ Ask for two or four players.
-    LDX #0
-.loader_menu
-    LDA loader_menu_text,X
-    JSR OSWRCH
-    INX
-    CPX #loader_menu_text_end - loader_menu_text
-    BNE loader_menu
-.loader_key
-    JSR OSRDCH                 \ A = the key pressed; carry set on Escape.
-    BCC loader_key_read
-    LDA #&7E                   \ Acknowledge the Escape and ask again.
-    JSR OSBYTE
-    JMP loader_key
-.loader_key_read
-    LDX #LO(loader_load_two)
-    LDY #HI(loader_load_two)
-    CMP #'2'
-    BEQ loader_load
-    LDX #LO(loader_load_four)
-    LDY #HI(loader_load_four)
-    CMP #'4'
-    BNE loader_key
-.loader_load
-    JSR OSCLI                  \ *LOAD LEVELSn: to LEVEL_TEMP, its load
-                               \ address.
 
     LDA #LO(loader_main_image) \ The main block to GAME_ADDRESS...
     STA LOADER_SOURCE
@@ -476,23 +450,6 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
     JSR loader_copy
 
     JMP start
-
-.loader_load_two
-    EQUS "LOAD LEVELS2", 13
-.loader_load_four
-    EQUS "LOAD LEVELS4", 13
-
-\ The menu, in MODE 7 (the mode at boot): teletext control codes 131
-\ (yellow) and 134 (cyan) set the colour of the rest of each line.
-.loader_menu_text
-    EQUB 12                    \ Clear the screen.
-    EQUB 31, 12, 8, 131
-    EQUS "DON'T DITHER!"
-    EQUB 31, 6, 12, 134
-    EQUS "Press 2 for two players"
-    EQUB 31, 6, 14, 134
-    EQUS "   or 4 for four players"
-.loader_menu_text_end
 
 \ loader_copy: copy X pages from LOADER_SOURCE to LOADER_DEST.
 .loader_copy

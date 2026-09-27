@@ -189,12 +189,12 @@ def show_display(bbc: Beebium, labels: dict[str, int], seconds: float = SETTLE_E
 
 
 def load_game(bbc: Beebium, game_build: BuildResult, players: int = 4) -> dict[str, int]:
-    """Shift-Break boot the game disc, answer the loader's menu with the
-    number of players (2 or 4, choosing that level set), and stop at the
-    start of player selection. Returns the game's labels."""
+    """Shift-Break boot the game disc, answer the title screen (SPLASH) with
+    the number of players (2 or 4, choosing that level set), and stop at the
+    start of the game's player selection. Returns the game's labels."""
     labels = game_build.labels["DITHER"]
     bbc.boot_disc(game_build.disc_filepath)
-    bbc.debugger.run_to(labels["loader_key"], timeout=60)
+    bbc.debugger.run_to(game_build.labels["SPLASH"]["splash_key"], timeout=60)
     bbc.keyboard.type(str(players))
     bbc.debugger.run_to(labels["select_players"], timeout=60)
     return labels

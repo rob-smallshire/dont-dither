@@ -36,8 +36,12 @@ pattern. There is no separate ownership array. The HUD is byte columns 64-79.
 
 **Programs.** One DFS disc holds several programs, each a beebasm source
 that SAVEs a file of the same name (`PROGRAMS` in `tools/dontdither/build.py`):
-`DITHER` (`asm/main.asm`, run by `!BOOT`) and `TCARD` (`asm/testcard.asm`, the
-texture and wall test card, started with `*RUN TCARD`). Each program INCLUDEs
+`SPLASH` (`asm/splash.asm`, run by `!BOOT`: the title screen, which loads a
+level set and runs the game), `DITHER` (`asm/main.asm`, the game) and `TCARD`
+(`asm/testcard.asm`, the texture and wall test card, started with
+`*RUN TCARD`). `LOGO` (screen bytes from `art/splash.png`, via
+`tools/dontdither/splash.py`) and the level sets `LEVELS2`/`LEVELS4` are data
+files. The full picture is in `docs/architecture.md`. Each program INCLUDEs
 the shared modules it needs:
 - `os.asm`, then `macros.asm` first (beebasm needs macros defined before use),
   then `zeropage.asm`;
@@ -139,9 +143,9 @@ tests; they must stay consistent):
 
 **Beebium fixtures** (`tests/conftest.py`):
 - `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
-- The loader asks "2 or 4" players and loads that level set (LEVELS2 or
-  LEVELS4) into the game's `level_area`; `load_game(bbc, build, players)`
-  answers it. Levels are addressed within a set: tests covering every level
+- The title screen (SPLASH) asks "2 or 4" players and loads that level set
+  (LEVELS2 or LEVELS4); DITHER's loader copies it into `level_area`.
+  `load_game(bbc, build, players)` answers at the `splash_key` label. Levels are addressed within a set: tests covering every level
   parametrise over `SET_LEVELS` (players, index) and boot in that mode.
 - The game boots into `select_players` (asm/flow.asm). `boot_game` stops
   there and enters level 0 directly (default session: players 1 and 2

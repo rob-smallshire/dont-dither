@@ -1,8 +1,9 @@
 """Build the Don't Dither! disc image.
 
 Generates the table sources into build/generated/, then assembles each
-program in PROGRAMS with beebasm onto one DFS disc image. The disc's !BOOT
-runs the game; other programs (e.g. the test card) are started with *RUN.
+file in PROGRAMS with beebasm onto one DFS disc image. The disc's !BOOT runs
+SPLASH (title screen and choice of players), which runs the game; the test
+card is started with *RUN TCARD.
 Then the level sets LEVELS2 and LEVELS4, which the game's loader loads (one
 of them, as the player chooses), are generated for the game's level area and
 added. Each file's labels are written to build/labels/<NAME>.txt.
@@ -32,13 +33,16 @@ ASM_DIRPATH = PROJECT_DIRPATH / "asm"
 
 DISC_TITLE = "DONT DITHER"
 
-# DFS program name -> source. The first is the game, run by !BOOT; each
-# source must SAVE a file of the same name.
+# DFS file name -> source. The first is run by !BOOT; each source must SAVE
+# a file of the same name.
 PROGRAMS = {
+    "SPLASH": ASM_DIRPATH / "splash.asm",
     "DITHER": ASM_DIRPATH / "main.asm",
     "TCARD": ASM_DIRPATH / "testcard.asm",
+    "LOGO": GENERATED_DIRPATH / "logo.asm",
 }
-BOOT_PROGRAM = "DITHER"
+BOOT_PROGRAM = "SPLASH"
+GAME_PROGRAM = "DITHER"
 
 
 @dataclass(frozen=True)
@@ -100,7 +104,7 @@ def build() -> BuildResult:
 
     # Level sets: assembled at the game's level area (known only now), and
     # saved to load at LEVEL_TEMP, from where the game's loader copies them.
-    game = labels[BOOT_PROGRAM]
+    game = labels[GAME_PROGRAM]
     table = InkTable.load()
     for players in PLAYER_COUNTS:
         source_filepath = GENERATED_DIRPATH / f"levels{players}.asm"
