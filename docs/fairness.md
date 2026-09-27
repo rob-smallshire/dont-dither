@@ -109,14 +109,34 @@ sides was the victim rule:
 | cyclic (the game's rule today) | +910 quanta (about 1.6% of the arena) | 11 of 16 levels (up to 38% against 32%) |
 | mirrored for the second player | −123 quanta | 7 of 16; 6 levels end exactly level |
 
-So with the cyclic rotation, cyan has a small systematic edge in
-two-player games. The mirrored rotation removes it. The remaining swings
-on a few levels come from the rest of the game: once tanks meet, small
-differences, such as the alternating first mover, play out differently.
+That experiment isolates the rule, but real games aren't that symmetric:
+each computer player starts facing a random direction (and humans play
+however they play). The same comparison was repeated with random facings:
+128 two-minute games, 8 seeds on each of the 16 levels:
 
-**The fix:** in two-player games, the second player goes round the
-rotation the other way. Four-player games keep the cyclic rule, which is
-already exactly symmetric for them.
+| Victim rotation | Cyan − magenta, mean | Cyan ahead in |
+|---|---|---|
+| cyclic (today's rule) | +0.12% of the arena (standard error 0.14) | 68 of 128 games |
+| mirrored for the second player | −0.04% (standard error 0.13) | 46 of 128 games |
+
+So:
+- **The rule is asymmetric in two-player games.** A perfectly symmetric
+  start exposes it clearly, as the same favourable phase repeats every
+  time.
+- **In play, the effect is lost in the noise.** It's well under half a
+  percent of the arena, if it's there at all, against a game-to-game
+  standard deviation of about 1.5%.
+
+The remaining swings in the symmetric experiment come from the rest of
+the game: once tanks meet, small differences, such as the alternating
+first mover, play out differently.
+
+**A possible fix, not adopted:** in two-player games, the second player
+would go round the rotation the other way. That's the true mirror image
+under the two-player symmetry. Four-player games would keep the cyclic
+rule, which is already exactly symmetric for them. It would be cheap, but
+its practical effect is below what can be measured, so for now this note
+records the asymmetry rather than changing the game.
 
 ## 2. The game's other fairness measures
 
@@ -148,7 +168,8 @@ already exactly symmetric for them.
     Yellow and black win more of the diverging levels (5 and 3 of 10),
     but that's within what 16 levels can tell apart.
 
-  In two-player arenas the victim rule itself gives cyan an edge: see
-  section 1;
+  In two-player arenas, the victim rule itself gives cyan an edge from a
+  perfectly symmetric start, though too small to detect in games with
+  random facings: see section 1;
 - the 6502 must match the model tick for tick, so what the model proves
   fair, the machine plays fair.

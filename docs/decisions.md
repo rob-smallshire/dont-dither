@@ -79,9 +79,12 @@ Decisions taken during development that refine or depart from
 
 - docs/fairness.md explains the fairness measures, the round-robin victim
   rule in particular, and records their measured effect. In two-player
-  games, the cyclic victim rotation gives cyan a small systematic edge
-  (+1.6% of the arena on average across the 16 two-player levels). A
-  rotation mirrored for the second player removes it.
+  games the cyclic victim rotation isn't symmetric under the two-player
+  symmetry (C swapped with M, Y with K). From a perfectly symmetric start
+  it gives cyan +1.6% of the arena on average. But with the AIs' random
+  facings its effect is below measurement (+0.12% ± 0.14 over 128
+  games), so the rule is unchanged; a rotation mirrored for the second
+  player would remove it.
 
 ## Players and modes
 
