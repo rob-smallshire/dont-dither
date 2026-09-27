@@ -3,6 +3,8 @@ name = "dont-dither"
 version = "0.1.0"
 description = "Don't Dither! -- a territory game for the BBC Micro Model B"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "numpy>=2.5.3",
     "Pillow>=10",

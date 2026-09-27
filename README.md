@@ -111,3 +111,7 @@ translation): see `tools/dontdither/solve_patterns.py`.
 
 This supersedes the table in `docs/dont_dither_35_minimal_churn_patterns.md`,
 which is the unconstrained churn optimum.
+
+## Licence
+
+MIT: see [LICENSE](LICENSE).
