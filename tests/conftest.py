@@ -23,6 +23,13 @@ from beebium.client.installation import ServerInstallation
 
 from dontdither.build import BuildResult, build
 
+from dontdither.levels import PLAYER_COUNTS, level_set
+
+# Every level, as (players, index within that level set), for tests that
+# cover both sets; the game must be loaded with that many players.
+SET_LEVELS = [(players, index) for players in (4, 2) for index in range(len(level_set(players)))]
+SET_LEVEL_IDS = [f"{players}p-{level_set(players)[index].name}" for players, index in SET_LEVELS]
+
 DEFAULT_PRESET = "model-b-disc"   # Model B, Acorn 1770 FDC, DFS 2.26 in slot 14
 BOOT_TIMEOUT_EMULATED_SECONDS = 20.0
 SETTLE_EMULATED_SECONDS = 0.04     # two frames
@@ -181,18 +188,28 @@ def show_display(bbc: Beebium, labels: dict[str, int], seconds: float = SETTLE_E
     bbc.cpu.pc = resume
 
 
-def boot_game(bbc: Beebium, game_build: BuildResult) -> None:
-    """Shift-Break boot the game disc, skip player selection, and stop just
-    before level 0's first tick, at main_loop, with the screen displayed.
-
-    The game boots into select_players; this stops there and enters level 0
-    directly, with the default session (players 1 and 2 human, the rest the
-    computer) and the default round length. No game time has passed, so a
-    Game.start model is exactly in step."""
+def load_game(bbc: Beebium, game_build: BuildResult, players: int = 4) -> dict[str, int]:
+    """Shift-Break boot the game disc, answer the loader's menu with the
+    number of players (2 or 4, choosing that level set), and stop at the
+    start of player selection. Returns the game's labels."""
     labels = game_build.labels["DITHER"]
     bbc.boot_disc(game_build.disc_filepath)
+    bbc.debugger.run_to(labels["loader_key"], timeout=60)
+    bbc.keyboard.type(str(players))
     bbc.debugger.run_to(labels["select_players"], timeout=60)
-    bbc.cpu.pc = labels["enter_level"]          # zp_level is 0 at boot
+    return labels
+
+
+def boot_game(bbc: Beebium, game_build: BuildResult, players: int = 4) -> None:
+    """Load the game with a level set, skip player selection, and stop just
+    before the set's first level's first tick, at main_loop, with the screen
+    displayed.
+
+    This enters level 0 directly, with the default session (players 1 and 2
+    human, the rest the computer) and the default round length. No game time
+    has passed, so a Game.start model is exactly in step."""
+    labels = load_game(bbc, game_build, players)
+    bbc.cpu.pc = labels["enter_level"]
     bbc.memory.address.bus[labels["zp_level"]] = 0
     bbc.debugger.run_to(labels["main_loop"])
     show_display(bbc, labels)

@@ -230,6 +230,14 @@ def parse_level(text: str, source: str = "<level>") -> Level:
     return Level(name, symmetry, colouring, fill, start, tuple(commands))  # type: ignore[arg-type]
 
 
+PLAYER_COUNTS = (2, 4)
+
+
+def level_set(players: int, dirpath: Path = LEVELS_DIRPATH) -> list[Level]:
+    """The levels for a two- or four-player game, in filename order."""
+    return [lv for lv in load_levels(dirpath) if lv.symmetry.copies == players]
+
+
 def level_filepaths(dirpath: Path = LEVELS_DIRPATH) -> list[Path]:
     return sorted(dirpath.glob("*.lvl"))
 

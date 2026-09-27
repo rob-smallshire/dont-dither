@@ -78,7 +78,7 @@ GUARD &70
 
 \ ---- Levels ------------------------------------------------------------------
 
-.zp_level         SKIP 1       \ Level number to enter (0..LEVEL_COUNT-1).
+.zp_level         SKIP 1       \ Level number to enter (0..level_set_count-1).
 .zp_level_ptr     SKIP 2       \ Pointer to the current level's bytecode.
 .zp_level_offset  SKIP 1       \ run_level_commands: offset of the next
                                \ bytecode byte, saved across calls.

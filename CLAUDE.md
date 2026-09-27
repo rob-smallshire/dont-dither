@@ -139,6 +139,10 @@ tests; they must stay consistent):
 
 **Beebium fixtures** (`tests/conftest.py`):
 - `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
+- The loader asks "2 or 4" players and loads that level set (LEVELS2 or
+  LEVELS4) into the game's `level_area`; `load_game(bbc, build, players)`
+  answers it. Levels are addressed within a set: tests covering every level
+  parametrise over `SET_LEVELS` (players, index) and boot in that mode.
 - The game boots into `select_players` (asm/flow.asm). `boot_game` stops
   there and enters level 0 directly (default session: players 1 and 2
   human), stopping just before its first tick, at `main_loop`, with the

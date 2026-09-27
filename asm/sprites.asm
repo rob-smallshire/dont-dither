@@ -45,76 +45,102 @@
 \ a byte is  contrast EOR ((contrast EOR ink) AND select),  merged into the
 \ screen with  screen EOR ((screen EOR colour) AND mask).
 \
-\ Requires: zeropage.asm, screen_tables.asm, sprite_data.asm, level_data.asm,
+\ Requires: zeropage.asm, screen_tables.asm, sprite_data.asm, level_format.asm,
 \ and the player state and sprite_save_buffers defined by the program.
 \ ============================================================================
 
 MAX_PLAYERS = 4
 
 \ ----------------------------------------------------------------------------
-\ place_players -- set up the players for level zp_level
+\ place_players -- set up the players for the current level
 \
-\ On exit:  player_count and each player's position, facing and ink set from
-\           the level's level_players record; control sources set (player 1
-\           keyboard layout A, player 2 layout B, for humans in the session
-\           (session_humans); the computer otherwise); inputs,
-\           accumulators and the tick count cleared; no sprites shown
-\           A, X, Y corrupted
+\ On entry:  zp_level_ptr = the level's bytecode (select_level)
+\ On exit:   player_count and each player's position, facing and ink set;
+\            control sources set (for each human in the session, its
+\            keyboard layout; the computer otherwise); inputs, accumulators
+\            and the tick count cleared; no sprites shown
+\            A, X, Y corrupted
+\
+\ The level stores player 1's start (its START command). Each further player
+\ starts where the previous one would be after the level's symmetry step --
+\ one quarter turn (ROT4) or two (ROT2) about the arena centre:
+\     (sx, sy) -> (MAX_POSITION - sy, sx), facing + 2 (per quarter turn)
+\ so the starts share the level's symmetry. Player k plays in ink k.
 \ ----------------------------------------------------------------------------
 
 .place_players
-    \ X = zp_level * LEVEL_PLAYERS_RECORD (17 = 16 + 1).
-    LDA zp_level
-    ASL A
-    ASL A
-    ASL A
-    ASL A
-    CLC
-    ADC zp_level
-    TAX
+    LDY #LEVEL_HEADER_SYMMETRY
+    LDA (zp_level_ptr),Y
+    STA zp_symmetry_step       \ 1 (ROT4, four players) or 2 (ROT2, two).
+    LDX #4
+    CMP #1
+    BEQ place_players_count
+    LDX #2
+.place_players_count
+    STX player_count
 
-    LDA level_players,X        \ Number of players (2 or 4).
-    STA player_count
+    LDY #LEVEL_START_SX        \ Player 1's start.
+    LDA (zp_level_ptr),Y
+    STA zp_try_x               \ (borrowed: the start being placed)
+    LDY #LEVEL_START_SY
+    LDA (zp_level_ptr),Y
+    STA zp_try_y
+    LDY #LEVEL_START_FACING
+    LDA (zp_level_ptr),Y
+    STA zp_other_x
 
-    LDY #0                     \ Y = player slot; X walks the record.
+    LDX #0                     \ X = player slot.
 .place_players_loop
-    LDA level_players+1,X
-    STA player_sx,Y
-    LDA level_players+2,X
-    STA player_sy,Y
-    LDA level_players+3,X
-    STA player_facing,Y
-    LDA level_players+4,X
-    STA player_ink,Y
-    LDA player_bits,Y          \ A human in this session, or the computer?
+    LDA zp_try_x
+    STA player_sx,X
+    LDA zp_try_y
+    STA player_sy,X
+    LDA zp_other_x
+    STA player_facing,X
+    STA ai_direction,X         \ An AI starts heading the way it faces.
+    TXA
+    STA player_ink,X           \ Player k plays in ink k...
+    STA player_last_victim,X   \ ...and its round-robin starts after it.
+
+    LDA player_bits,X          \ A human in this session, or the computer?
     AND session_humans
     BEQ place_players_ai
-    LDA human_controls,Y       \ The player's keyboard layout.
+    LDA human_controls,X       \ The player's keyboard layout.
     JMP place_players_control
 .place_players_ai
     LDA #CONTROL_AI
 .place_players_control
-    STA player_control,Y
+    STA player_control,X
     LDA #NO_DIRECTION
-    STA player_input,Y
+    STA player_input,X
+    STA ai_last_input,X
     LDA #0
-    STA player_accumulator,Y
-    STA player_cooldown,Y
-    STA player_variant,Y
-    STA player_repaint,Y
-    LDA player_ink,Y           \ Round-robin starts after the player's own ink.
-    STA player_last_victim,Y
-    LDA player_facing,Y        \ An AI starts heading the way it faces.
-    STA ai_direction,Y
-    LDA #NO_DIRECTION
-    STA ai_last_input,Y
-    INX                        \ Next four-byte slot record.
+    STA player_accumulator,X
+    STA player_cooldown,X
+    STA player_variant,X
+    STA player_repaint,X
+
+    LDY zp_symmetry_step       \ The next player's start: rotate by the
+.place_players_turn            \ symmetry step.
+    LDA #MAX_POSITION
+    SEC
+    SBC zp_try_y               \ New sx = MAX_POSITION - sy...
+    PHA
+    LDA zp_try_x               \ ...new sy = sx.
+    STA zp_try_y
+    PLA
+    STA zp_try_x
+    LDA zp_other_x
+    CLC
+    ADC #2
+    AND #7
+    STA zp_other_x
+    DEY
+    BNE place_players_turn
+
     INX
-    INX
-    INX
-    INY
-    CPY #MAX_PLAYERS
-    BNE place_players_loop
+    CPX #MAX_PLAYERS           \ (All four slots are set; only player_count
+    BNE place_players_loop     \ of them play.)
 
     LDA #0                     \ Nothing is on screen to restore yet.
     STA sprites_shown

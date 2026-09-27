@@ -203,6 +203,22 @@ Decisions taken during development that refine or depart from
 - With identical AIs in a symmetric arena, shares come out equal, a useful
   check on fairness.
 
+## Two- or four-player games and level sets
+
+- The game is two-player or four-player, chosen once in the loader by
+  pressing 2 or 4 (the loader will show the splash screen). The loader
+  then loads that level set, LEVELS2 or LEVELS4, from disc -- the last
+  disc access, while DFS still has its workspace -- and copies it into the
+  game's level area. To switch mode, press Break and reload.
+- A level set holds only levels of its player count (ROT2 or ROT4); the
+  build generates both from levels/*.lvl. A set has a fixed header
+  (players, count, tables of bytecode and title addresses, up to 16 levels)
+  then the levels. Only player 1's start is stored; the 6502 rotates it for
+  the other players, as the model does.
+- Joining works the same in both modes: play starts when every player who
+  can join (both keyboard players) has, or when the 10 seconds run out.
+  Everyone else is the computer; computer against computer is the demo.
+
 ## Player selection, sessions and demo
 
 - At boot, and after every session, players join by pressing fire within a

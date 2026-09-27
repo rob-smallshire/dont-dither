@@ -3,9 +3,13 @@
 \
 \ select_players  Level 1 is drawn as a backdrop and the HUD invites players
 \                 to press fire within SELECT_SECONDS: SHIFT joins player 1
-\                 (keyboard layout A), COPY player 2 (layout B). Every slot
-\                 nobody joins is played by the computer. Then a session
-\                 starts.
+\                 (keyboard layout A), COPY player 2 (layout B). Play starts
+\                 when the time runs out, or as soon as every player who
+\                 can join (both keyboard players) has. Every slot nobody
+\                 joins is played by the computer.
+\
+\ The game plays only the level set the loader loaded: all two-player or
+\ all four-player levels.
 \
 \ A session plays every level in turn (play_session_level). After each
 \ round's reveal, after_round awards points by rank -- 3, 2, 1, 0 for first
@@ -29,6 +33,7 @@ SELECT_COUNT_ROW = 10          \ The seconds left to join.
 SELECT_SLOT_ROW  = 12          \ One row per player: "C CPU" or "C YOU".
 POINTS_ROW       = 6           \ "POINTS"/"FINAL", then a row per player.
 FIELDS_PER_SECOND = 50
+JOINABLE_PLAYERS = %11         \ Players who can join: the two keyboard layouts.
 
 \ ----------------------------------------------------------------------------
 \ select_players -- let players join, then start a session. Never returns.
@@ -44,13 +49,13 @@ FIELDS_PER_SECOND = 50
     JSR draw_level
     SEND_VDU select_vdu_bytes, select_vdu_bytes_end
 
-    LDX #0                     \ Everyone starts as the computer.
-.select_slots
+    LDX #0                     \ Everyone starts as the computer: a line for
+.select_slots                  \ each of the set's players.
     STX zp_player
     JSR print_slot_status
     LDX zp_player
     INX
-    CPX #MAX_PLAYERS
+    CPX level_set_players
     BNE select_slots
 
     LDA #SELECT_SECONDS
@@ -71,11 +76,15 @@ FIELDS_PER_SECOND = 50
     LDA #21                    \ Discard the characters the keys typed.
     LDX #0
     JSR OSBYTE
+    LDA session_joined         \ Everyone who can join has: start now.
+    CMP #JOINABLE_PLAYERS
+    BEQ select_start
     DEC session_fields
     BNE select_field
     DEC session_seconds
     BPL select_second          \ Down to and including 0.
 
+.select_start
     \ Start the session. Nobody joined: demo mode, in shorter rounds.
     LDA session_joined
     STA session_humans
@@ -139,9 +148,9 @@ ARENA_TEXT_COLUMNS = 32
     LDA #3
     JSR OSWRCH
     LDX zp_level
-    LDA level_name_lo,X
+    LDA level_title_lo,X
     STA zp_screen_ptr
-    LDA level_name_hi,X
+    LDA level_title_hi,X
     STA zp_screen_ptr+1
     LDY #0
     LDA (zp_screen_ptr),Y      \ Its length.
@@ -279,7 +288,7 @@ ARENA_TEXT_COLUMNS = 32
     \ The next level, or the end of the session.
     INC session_level
     LDA session_level
-    CMP #LEVEL_COUNT
+    CMP level_set_count
     BCC after_round_show
     LDA session_humans         \ Demo mode cycles the levels for ever.
     BNE after_round_final

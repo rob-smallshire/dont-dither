@@ -50,6 +50,7 @@
 \ ============================================================================
 
 INCLUDE "asm/os.asm"
+INCLUDE "build/generated/level_format.asm"
 INCLUDE "asm/macros.asm"
 INCLUDE "asm/zeropage.asm"
 
@@ -85,7 +86,7 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
 \ ----------------------------------------------------------------------------
 \ enter_level -- draw level zp_level and start playing it
 \
-\ On entry:  zp_level = level number (0..LEVEL_COUNT-1); session_humans and
+\ On entry:  zp_level = level number (0..level_set_count-1); session_humans and
 \            round_length_ticks set; display initialised
 \ Never returns: sets zp_boot_status to BOOT_READY and runs the main loop.
 \ ----------------------------------------------------------------------------
@@ -264,12 +265,26 @@ INCLUDE "asm/flow.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
-INCLUDE "build/generated/level_data.asm"
 INCLUDE "build/generated/sprite_data.asm"
 INCLUDE "build/generated/game_data.asm"
 INCLUDE "build/generated/hud_font.asm"
 
 .end
+
+\ ----------------------------------------------------------------------------
+\ The level area: the loader copies the chosen level set (LEVELS2 or
+\ LEVELS4) here. Its layout is in level_format.asm.
+\ ----------------------------------------------------------------------------
+
+ALIGN &100
+.level_area
+level_set_players = level_area + LEVEL_SET_PLAYERS
+level_set_count   = level_area + LEVEL_SET_COUNT
+level_code_lo     = level_area + LEVEL_SET_CODE_LO
+level_code_hi     = level_area + LEVEL_SET_CODE_HI
+level_title_lo    = level_area + LEVEL_SET_NAME_LO
+level_title_hi    = level_area + LEVEL_SET_NAME_HI
+LEVEL_AREA_PAGES  = (MODE1_SCREEN_BASE - level_area) DIV 256
 
 \ ----------------------------------------------------------------------------
 \ Low block: initialised tables in BASIC's language workspace (&0400-&07FF),
@@ -373,19 +388,23 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 \   1. closes any *EXEC file: the disc's !BOOT is still open as an *EXEC
 \      file, and the filing system must not touch its buffers (in the DFS
 \      workspace we are about to overwrite) ever again;
-\   2. copies each block to where it was assembled, whole pages at a time.
-\      Destinations are below the source, so a forward copy is safe even if
-\      they overlapped. Copying a partial final page in full only writes
-\      beyond a block into memory the game initialises before use (below
-\      the screen for the main block, below &0800 for the low block);
-\   3. jumps to start.
-\ It uses zero page &00-&03 (BASIC's, free once we run) as copy pointers.
+\   2. asks for a two- or four-player game (pressing 2 or 4) and loads that
+\      level set, LEVELS2 or LEVELS4, to LEVEL_TEMP -- the last disc access,
+\      made while DFS still has its workspace;
+\   3. copies each block, and the level set, to where it was assembled,
+\      whole pages at a time. Destinations are below the sources, so a
+\      forward copy is safe even if they overlapped. Copying a partial final
+\      page in full only writes beyond a block into memory the game
+\      initialises before use, or that the next copy fills;
+\   4. jumps to start.
+\ It uses zero page &00-&03 (BASIC's, free once we run) as copy pointers,
+\ and only its own code: the game's routines are not in place yet.
 \ ============================================================================
 
 CLEAR LOADER_ADDRESS, &7C00    \ Undo the game region's guard for this part.
 ORG LOADER_ADDRESS
-GUARD &7C00                    \ The file must not reach MODE 7 screen memory,
-                               \ which is where the loading screen is.
+GUARD LEVEL_TEMP               \ The file must stay clear of where the level
+                               \ set is loaded.
 
 LOADER_SOURCE = &00            \ Copy pointers in zero page.
 LOADER_DEST   = &02
@@ -395,6 +414,33 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
 .loader
     LDA #&77                   \ OSBYTE &77: close any SPOOL and EXEC files.
     JSR OSBYTE
+
+    \ Ask for two or four players.
+    LDX #0
+.loader_menu
+    LDA loader_menu_text,X
+    JSR OSWRCH
+    INX
+    CPX #loader_menu_text_end - loader_menu_text
+    BNE loader_menu
+.loader_key
+    JSR OSRDCH                 \ A = the key pressed; carry set on Escape.
+    BCC loader_key_read
+    LDA #&7E                   \ Acknowledge the Escape and ask again.
+    JSR OSBYTE
+    JMP loader_key
+.loader_key_read
+    LDX #LO(loader_load_two)
+    LDY #HI(loader_load_two)
+    CMP #'2'
+    BEQ loader_load
+    LDX #LO(loader_load_four)
+    LDY #HI(loader_load_four)
+    CMP #'4'
+    BNE loader_key
+.loader_load
+    JSR OSCLI                  \ *LOAD LEVELSn: to LEVEL_TEMP, its load
+                               \ address.
 
     LDA #LO(loader_main_image) \ The main block to GAME_ADDRESS...
     STA LOADER_SOURCE
@@ -407,7 +453,7 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
     LDX #MAIN_BLOCK_PAGES
     JSR loader_copy
 
-    LDA #LO(loader_low_image)  \ ...and the low block to &0400.
+    LDA #LO(loader_low_image)  \ ...the low block to &0400...
     STA LOADER_SOURCE
     LDA #HI(loader_low_image)
     STA LOADER_SOURCE+1
@@ -418,7 +464,35 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
     LDX #LOW_BLOCK_PAGES
     JSR loader_copy
 
+    LDA #LO(LEVEL_TEMP)        \ ...and the level set to the level area.
+    STA LOADER_SOURCE
+    LDA #HI(LEVEL_TEMP)
+    STA LOADER_SOURCE+1
+    LDA #LO(level_area)
+    STA LOADER_DEST
+    LDA #HI(level_area)
+    STA LOADER_DEST+1
+    LDX #LEVEL_AREA_PAGES
+    JSR loader_copy
+
     JMP start
+
+.loader_load_two
+    EQUS "LOAD LEVELS2", 13
+.loader_load_four
+    EQUS "LOAD LEVELS4", 13
+
+\ The menu, in MODE 7 (the mode at boot): teletext control codes 131
+\ (yellow) and 134 (cyan) set the colour of the rest of each line.
+.loader_menu_text
+    EQUB 12                    \ Clear the screen.
+    EQUB 31, 12, 8, 131
+    EQUS "DON'T DITHER!"
+    EQUB 31, 6, 12, 134
+    EQUS "Press 2 for two players"
+    EQUB 31, 6, 14, 134
+    EQUS "   or 4 for four players"
+.loader_menu_text_end
 
 \ loader_copy: copy X pages from LOADER_SOURCE to LOADER_DEST.
 .loader_copy

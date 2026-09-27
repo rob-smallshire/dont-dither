@@ -7,10 +7,10 @@ check the AI plays sensibly: it keeps moving, avoids walls and paints.
 
 import pytest
 
-from conftest import boot_game, enter_level, step_ticks
+from conftest import SET_LEVEL_IDS, SET_LEVELS, boot_game, enter_level, step_ticks
 from dontdither.ai import AI_PERIOD, samples
 from dontdither.game import FIRE_BIT, NO_DIRECTION, Game
-from dontdither.levels import load_levels
+from dontdither.levels import level_set, load_levels
 from dontdither.render import arena_bytes, arena_screen, draw_players
 from dontdither.screen import MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
 
@@ -66,11 +66,13 @@ def game(launch_bbc, game_build):
     return bbc, game_build.labels["DITHER"]
 
 
-@pytest.mark.parametrize("level_number", [0, 1, 2])
-def test_6502_ai_matches_the_model(game, level_number):
-    bbc, labels = game
+@pytest.mark.parametrize("players, level_number", SET_LEVELS, ids=SET_LEVEL_IDS)
+def test_6502_ai_matches_the_model(launch_bbc, game_build, players, level_number):
+    bbc = launch_bbc()
+    boot_game(bbc, game_build, players)
+    labels = game_build.labels["DITHER"]
     enter_level(bbc, labels, level_number)
-    level = load_levels()[level_number]
+    level = level_set(players)[level_number]
     model = all_ai(level)
     peek = bbc.memory.address.peek
     for p in range(len(model.players)):

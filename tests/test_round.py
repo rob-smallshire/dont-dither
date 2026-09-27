@@ -9,11 +9,11 @@ import random
 
 import pytest
 
-from conftest import align_to_tick, boot_game, enter_level, step_ticks
+from conftest import SET_LEVEL_IDS, SET_LEVELS, align_to_tick, boot_game, enter_level, step_ticks
 from dontdither.game import FIRE_BIT, NO_DIRECTION, Game
 from dontdither.hud_font import DIGITS, glyph_bytes
 from dontdither.walls import full_byte
-from dontdither.levels import load_levels
+from dontdither.levels import level_set
 from dontdither.screen import MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
 
 CONTROL_SCRIPTED = 3
@@ -21,12 +21,12 @@ BAR_BASE_LINE = 239
 LABEL_LINE = 242
 
 
-def start_short_round(bbc, labels, level_number, ticks):
+def start_short_round(bbc, labels, level_number, ticks, players=4):
     bus = bbc.memory.address.bus
     bus[labels["round_length_ticks"]] = ticks & 0xFF
     bus[labels["round_length_ticks"] + 1] = ticks >> 8
     enter_level(bbc, labels, level_number)
-    level = load_levels()[level_number]
+    level = level_set(players)[level_number]
     model = Game.start(level)
     model.round_ticks_left = ticks
     for p in range(len(model.players)):
@@ -86,11 +86,13 @@ def test_default_round_is_five_minutes(game):
     assert "5:00" in bbc.video.screen_text().text
 
 
-@pytest.mark.parametrize("level_number", [0, 2])       # four players, two players
-def test_the_tally_matches_the_model(game, level_number):
-    bbc, labels = game
+@pytest.mark.parametrize("players, level_number", SET_LEVELS, ids=SET_LEVEL_IDS)
+def test_the_tally_matches_the_model(launch_bbc, game_build, players, level_number):
+    bbc = launch_bbc()
+    boot_game(bbc, game_build, players)
+    labels = game_build.labels["DITHER"]
     ticks = 150
-    model = start_short_round(bbc, labels, level_number, ticks)
+    model = start_short_round(bbc, labels, level_number, ticks, players)
     play(bbc, labels, model, ticks, seed=level_number)
     assert model.round_over
     bbc.debugger.step(1)

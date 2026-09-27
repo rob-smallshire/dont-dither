@@ -9,7 +9,8 @@
 \ so the arena's symmetry, and hence its fairness, is structural rather than
 \ hand-copied.
 \
-\ Bytecode layout (generated from levels/*.lvl into level_data.asm):
+\ Bytecode layout (generated from levels/*.lvl into the level-set files; see
+\ level_format.asm):
 \   header   LEVEL_HEADER_SIZE bytes: symmetry step (1 = ROT4, 2 = ROT2),
 \            wall core ink byte, wall rim ink byte, fill ink state
 \   commands LEVEL_START sx, sy, facing   (player 0's start; skipped here)
@@ -18,7 +19,8 @@
 \            LEVEL_END
 \ A level's bytecode is under 256 bytes, so Y can index all of it.
 \
-\ Requires: zeropage.asm, screen_tables.asm (bit_masks), level_data.asm, and
+\ Requires: zeropage.asm, screen_tables.asm (bit_masks), level_format.asm, the
+\ loaded level set (level_area), and
 \ a 128-byte wall_map buffer defined by the program.
 \ ============================================================================
 
@@ -31,9 +33,9 @@
 
 .select_level
     LDX zp_level
-    LDA level_table_lo,X
+    LDA level_code_lo,X
     STA zp_level_ptr
-    LDA level_table_hi,X
+    LDA level_code_hi,X
     STA zp_level_ptr+1
     RTS
 

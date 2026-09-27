@@ -3,7 +3,9 @@
 Generates the table sources into build/generated/, then assembles each
 program in PROGRAMS with beebasm onto one DFS disc image. The disc's !BOOT
 runs the game; other programs (e.g. the test card) are started with *RUN.
-Each program's labels are written to build/labels/<NAME>.txt.
+Then the level sets LEVELS2 and LEVELS4, which the game's loader loads (one
+of them, as the player chooses), are generated for the game's level area and
+added. Each file's labels are written to build/labels/<NAME>.txt.
 
     uv run dd-build
 """
@@ -18,8 +20,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from dontdither.gen_tables import generate_all
-from dontdither.inks import PROJECT_DIRPATH
+from dontdither.gen_tables import LEVEL_TEMP, generate_all, generate_level_set
+from dontdither.inks import PROJECT_DIRPATH, InkTable
+from dontdither.levels import PLAYER_COUNTS
 
 BUILD_DIRPATH = PROJECT_DIRPATH / "build"
 GENERATED_DIRPATH = BUILD_DIRPATH / "generated"
@@ -94,6 +97,22 @@ def build() -> BuildResult:
             _assemble(source_filepath, labels_filepath, ["-di", disc, "-do", staging])
             (PROJECT_DIRPATH / staging).replace(DISC_FILEPATH)
         labels[name] = parse_labels(labels_filepath.read_text())
+
+    # Level sets: assembled at the game's level area (known only now), and
+    # saved to load at LEVEL_TEMP, from where the game's loader copies them.
+    game = labels[BOOT_PROGRAM]
+    table = InkTable.load()
+    for players in PLAYER_COUNTS:
+        source_filepath = GENERATED_DIRPATH / f"levels{players}.asm"
+        source_filepath.write_text(generate_level_set(table, players, game["level_area"]))
+        name = f"LEVELS{players}"
+        labels_filepath = LABELS_DIRPATH / f"{name}.txt"
+        _assemble(source_filepath, labels_filepath, ["-di", disc, "-do", staging])
+        (PROJECT_DIRPATH / staging).replace(DISC_FILEPATH)
+        labels[name] = parse_labels(labels_filepath.read_text())
+        size = labels[name]["level_set_end"] - labels[name]["level_set_start"]
+        if LEVEL_TEMP + size > 0x7C00:
+            raise RuntimeError(f"{name} ({size} bytes) would reach MODE 7 screen memory when loaded")
     return BuildResult(DISC_FILEPATH, labels)
 
 

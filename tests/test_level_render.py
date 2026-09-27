@@ -9,15 +9,14 @@ from dataclasses import dataclass
 
 import pytest
 
-from conftest import enter_level, show_display
+from conftest import SET_LEVEL_IDS, SET_LEVELS, boot_game, enter_level, show_display
 from dontdither.build import BUILD_DIRPATH
-from dontdither.levels import Level, load_levels
+from dontdither.levels import Level, level_set
 from dontdither.render import arena_bytes, arena_screen, draw_players
 from dontdither.screen import MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
 from dontdither.walls import render_wall_cell, wall_bitmap
 
 SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
-LEVELS = load_levels()
 
 
 @dataclass(frozen=True)
@@ -28,26 +27,29 @@ class Rendered:
 
 
 @pytest.fixture(scope="module")
-def rendered(booted_game, game_build) -> dict[int, Rendered]:
-    bbc = booted_game
+def rendered(module_launch_bbc, game_build) -> dict[tuple[int, int], Rendered]:
     labels = game_build.labels["DITHER"]
-    peek = bbc.memory.address.peek
     SCREENSHOT_DIRPATH.mkdir(parents=True, exist_ok=True)
     results = {}
-    for number in range(len(LEVELS)):
-        enter_level(bbc, labels, number)       # stopped before the first tick
-        show_display(bbc, labels)
-        results[number] = Rendered(
-            screen=bytes(peek[MODE1_SCREEN_BASE:MODE1_SCREEN_BASE + MODE1_SCREEN_SIZE]),
-            wall_map=bytes(peek[labels["wall_map"]:labels["wall_map"] + 128]),
-            text=bbc.video.screen_text().text,
-        )
-        bbc.video.capture_frame().save_png(SCREENSHOT_DIRPATH / f"level_{number:02d}.png")
+    for players in (4, 2):
+        bbc = module_launch_bbc()
+        boot_game(bbc, game_build, players)
+        peek = bbc.memory.address.peek
+        for index in range(len(level_set(players))):
+            enter_level(bbc, labels, index)    # stopped before the first tick
+            show_display(bbc, labels)
+            results[players, index] = Rendered(
+                screen=bytes(peek[MODE1_SCREEN_BASE:MODE1_SCREEN_BASE + MODE1_SCREEN_SIZE]),
+                wall_map=bytes(peek[labels["wall_map"]:labels["wall_map"] + 128]),
+                text=bbc.video.screen_text().text,
+            )
+            bbc.video.capture_frame().save_png(SCREENSHOT_DIRPATH / f"level_{players}p_{index + 1:02d}.png")
     return results
 
 
 def level_params():
-    return [pytest.param(n, lv, id=lv.name) for n, lv in enumerate(LEVELS)]
+    return [pytest.param((players, index), level_set(players)[index], id=name)
+            for (players, index), name in zip(SET_LEVELS, SET_LEVEL_IDS)]
 
 
 @pytest.mark.parametrize("number, level", level_params())
@@ -79,4 +81,4 @@ def test_arena_matches_the_model_with_tanks_at_their_starts(rendered, number, le
 
 @pytest.mark.parametrize("number, level", level_params())
 def test_hud_shows_level_number(rendered, number, level: Level):
-    assert f"LEVEL {number + 1}" in rendered[number].text
+    assert f"LEVEL {number[1] + 1}" in rendered[number].text

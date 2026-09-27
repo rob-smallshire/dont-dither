@@ -10,10 +10,14 @@
 \ MOS entry points (AUG chapter 7, "Operating System calls")
 \ ----------------------------------------------------------------------------
 
+OSRDCH = &FFE0          \ Read a character from the input stream into A;
+                        \ carry set on Escape.
 OSWRCH = &FFEE          \ Write the character in A to the VDU stream.
                         \ Preserves A, X and Y.
 OSBYTE = &FFF4          \ Miscellaneous OS call selected by A, arguments
                         \ in X and Y.
+OSCLI  = &FFF7          \ Execute the * command at X (low), Y (high),
+                        \ terminated by a carriage return.
 
 \ ----------------------------------------------------------------------------
 \ VDU control codes (AUG appendix D)
