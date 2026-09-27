@@ -1,7 +1,7 @@
-# Pinwheel: four long arms sweeping around the centre, dividing the arena
+# Dithering Fights: four long arms sweeping around the centre, dividing the arena
 # into pockets reached through gaps. Cyan-core walls with black rims.
 
-NAME PINWHEEL
+NAME Dithering Fights
 SYMMETRY ROT4
 WALLS C K
 START 10 10 SE

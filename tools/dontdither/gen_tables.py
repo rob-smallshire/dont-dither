@@ -310,7 +310,6 @@ def generate_level_data(table: InkTable) -> str:
         "LEVEL_HEADER_SIZE     = 4",
         "",
         f"LEVEL_COUNT = {len(levels)}",
-        f"LEVEL_NAME_LENGTH = {NAME_LENGTH}",
         "",
         "\\ Address of each level's bytecode, split into low and high bytes.",
         ".level_table_lo",
@@ -334,9 +333,14 @@ def generate_level_data(table: InkTable) -> str:
             for lv in levels
         ),
         "",
-        "\\ level_names: LEVEL_NAME_LENGTH characters per level, space padded.",
-        ".level_names",
-        *(f'    EQUS "{lv.name:<{NAME_LENGTH}}"' for lv in levels),
+        "\\ Level titles: each a length byte then that many characters, found",
+        "\\ through level_name_lo/hi.",
+        ".level_name_lo",
+        *(f"    EQUB LO(level_name_{i})" for i in range(len(levels))),
+        ".level_name_hi",
+        *(f"    EQUB HI(level_name_{i})" for i in range(len(levels))),
+        *(line for i, lv in enumerate(levels)
+          for line in (f".level_name_{i}", f'    EQUB {len(lv.name)}', f'    EQUS "{lv.name}"')),
     ]
     for i, (lv, filepath) in enumerate(zip(levels, filepaths)):
         code = lv.bytecode(table)

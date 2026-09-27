@@ -1,7 +1,7 @@
-# Face-off: a two-player arena with twofold (180 degree) symmetry. The top
+# Mixed Emotions: a two-player arena with twofold (180 degree) symmetry. The top
 # half is written; SYMMETRY ROT2 repeats it rotated to form the bottom half.
 
-NAME FACE-OFF
+NAME Mixed Emotions
 SYMMETRY ROT2
 WALLS K M
 START 61 8 S

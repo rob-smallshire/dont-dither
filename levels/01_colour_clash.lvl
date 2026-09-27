@@ -1,10 +1,10 @@
-# Fourfold: an introductory four-player arena.
+# Colour Clash: an introductory four-player arena.
 #
 # Only the top-left quadrant's walls are written here; SYMMETRY ROT4 repeats
 # them under quarter turns about the arena centre. Wall coordinates are
 # character cells 0..31; START is in superpixels 0..127.
 
-NAME FOURFOLD
+NAME Colour Clash
 SYMMETRY ROT4
 WALLS K Y
 START 13 13 SE

@@ -202,31 +202,36 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     JMP hold_display
 
 \ ----------------------------------------------------------------------------
-\ print_level_name -- print level zp_level's name in the HUD
+\ print_level_name -- show "LEVEL n" for level zp_level in the HUD
 \
 \ On exit:  A, X, Y corrupted
 \
-\ Names are LEVEL_NAME_LENGTH (8) characters, space padded, which exactly
-\ fills the HUD's eight text columns.
+\ Level titles are longer than the HUD's eight columns; they are shown on a
+\ title card before the level (show_title_card, flow.asm).
 \ ----------------------------------------------------------------------------
 
 .print_level_name
     SEND_VDU level_name_tab_vdu_bytes, level_name_tab_vdu_bytes_end
+    JMP print_level_number     \ Tail call.
 
-    \ X = zp_level * 8, the offset of this level's name in level_names.
+\ print_level_number: "LEVEL n" at the text cursor (n = zp_level + 1, no
+\ leading zero).
+.print_level_number
+    SEND_VDU level_word, level_word_end
     LDA zp_level
-    ASL A
-    ASL A
-    ASL A
-    TAX
-    LDY #LEVEL_NAME_LENGTH     \ Y counts characters remaining.
-.print_level_name_loop
-    LDA level_names,X
-    JSR OSWRCH                 \ OSWRCH preserves X and Y.
-    INX
-    DEY
-    BNE print_level_name_loop
-    RTS
+    CLC
+    ADC #1
+    JSR two_digits             \ Tens in A, units in X (ASCII).
+    CMP #'0'
+    BEQ print_level_units
+    JSR OSWRCH
+.print_level_units
+    TXA
+    JMP OSWRCH
+
+.level_word
+    EQUS "LEVEL "
+.level_word_end
 
 .title_vdu_bytes
     \ Two lines of title text in the HUD, in text colour 3 (Y), centred in

@@ -161,6 +161,33 @@ Decisions taken during development that refine or depart from
 - Measured worst tick with all four players driving and firing: about
   58,600 of 80,000 cycles.
 
+## Level titles
+
+- Levels have titles of up to 24 characters in mixed case (the NAME line).
+  They do not fit the 8-column HUD, which shows "LEVEL n"; instead each
+  session level opens with a title card: the arena goes black, and
+  "LEVEL n" and the title appear centred across it for 3 seconds.
+- Titles are drawn from three categories (the current three levels use
+  "either" titles):
+
+  | Two-player | Either | Four-player |
+  |---|---|---|
+  | Double Trouble | Dithering Fights | Four Colour Problem |
+  | Two Tone | Colour Clash | Four Corners |
+  | Opposites Attract | Paint the Town | Four Play |
+  | Split Decision | A Brush with Danger | Four Warned |
+  | Divided We Fall | No Grey Area | Four Gone Conclusion |
+  | Head to Head | True Colours | Four the Win |
+  | Face Off | Mixed Emotions | Quarter Past |
+  | Either Or | Splitting Pixels | Quartered |
+  | Tit for Tat | Colour Blind | Four Square |
+  | Give and Take | Off Colour | CMYK.O. |
+  | This or That | Wall to Wall | Fourmidable |
+  | Binary Opposition | Paint by Numbers | Four Better or Worse |
+  | Two's Company | Between the Lines | Four All |
+  | Tug of War | Ink Different | All Four One |
+  | Duelling Colours | Colouring In | Four Way Street |
+
 ## Computer players
 
 - Player slots without a human are played by the AI; players 1 and 2 are on

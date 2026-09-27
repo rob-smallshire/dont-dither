@@ -145,3 +145,12 @@ def test_a_session_moves_to_the_next_level_then_back_to_player_select(bbc, game_
     bbc.run_for_emulated_seconds(0.1)
     assert "FINAL" in bbc.video.screen_text().text
     bbc.debugger.run_to(labels["select_players"], timeout=60)
+
+
+def test_each_session_level_opens_with_its_title_card(bbc, game_build):
+    labels = to_player_select(bbc, game_build)
+    shorten_window(bbc, labels)
+    bbc.debugger.run_to(labels["title_card_shown"], timeout=60)
+    bbc.run_for_emulated_seconds(0.1)
+    text = bbc.video.screen_text().text
+    assert "LEVEL 1" in text and load_levels()[0].name in text

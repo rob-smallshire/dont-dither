@@ -104,7 +104,66 @@ FIELDS_PER_SECOND = 50
 .play_session_level
     LDA session_level
     STA zp_level
+    JSR show_title_card
     JMP enter_level
+
+\ ----------------------------------------------------------------------------
+\ show_title_card -- announce level zp_level before it is played
+\
+\ The arena goes black (every cell solid K) and "LEVEL n" and the level's
+\ title appear centred across it. After a pause the level is drawn over it.
+\ ----------------------------------------------------------------------------
+
+TITLE_CARD_ROW = 13            \ "LEVEL n"; the title two rows below.
+ARENA_TEXT_COLUMNS = 32
+
+.show_title_card
+    JSR clear_hud
+    LDX #STATE_ALL_K           \ A black arena.
+    JSR fill_arena_with_state
+
+    LDA #VDU_TEXT_COLOUR       \ "LEVEL n" in cyan, centred: "LEVEL " is 6
+    JSR OSWRCH                 \ characters and n one or two, so start at
+    LDA #1                     \ column 12 for 8 characters.
+    JSR OSWRCH
+    LDA #VDU_TAB
+    JSR OSWRCH
+    LDA #(ARENA_TEXT_COLUMNS - 8) DIV 2
+    JSR OSWRCH
+    LDA #TITLE_CARD_ROW
+    JSR OSWRCH
+    JSR print_level_number
+
+    LDA #VDU_TEXT_COLOUR       \ The title in yellow, centred.
+    JSR OSWRCH
+    LDA #3
+    JSR OSWRCH
+    LDX zp_level
+    LDA level_name_lo,X
+    STA zp_screen_ptr
+    LDA level_name_hi,X
+    STA zp_screen_ptr+1
+    LDY #0
+    LDA (zp_screen_ptr),Y      \ Its length.
+    STA session_fields         \ (borrowed)
+    LDA #VDU_TAB
+    JSR OSWRCH
+    LDA #ARENA_TEXT_COLUMNS    \ Column (32 - length) DIV 2.
+    SEC
+    SBC session_fields
+    LSR A
+    JSR OSWRCH
+    LDA #TITLE_CARD_ROW + 2
+    JSR OSWRCH
+.show_title_card_char
+    INY
+    LDA (zp_screen_ptr),Y
+    JSR OSWRCH
+    CPY session_fields
+    BNE show_title_card_char
+.title_card_shown              \ Tests stop here.
+    LDA #3
+    JMP pause_seconds          \ Tail call; in demo mode a key may leave.
 
 \ select_try_join: if keyboard layout A (at offset A in key_layouts) has fire
 \ held, player X joins (if not already joined) and shows it.

@@ -78,5 +78,5 @@ def test_arena_matches_the_model_with_tanks_at_their_starts(rendered, number, le
 
 
 @pytest.mark.parametrize("number, level", level_params())
-def test_hud_shows_level_name(rendered, number, level: Level):
-    assert level.name in rendered[number].text
+def test_hud_shows_level_number(rendered, number, level: Level):
+    assert f"LEVEL {number + 1}" in rendered[number].text

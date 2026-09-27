@@ -1,6 +1,6 @@
 """Shots paint the arena exactly as the model says.
 
-A freshly booted game (FOURFOLD) is driven by scripted input. After each
+A freshly booted game (level 1, Colour Clash) is driven by scripted input. After each
 check, every arena byte of screen memory must equal the model's: the arena
 cells in their painted ink states, walls, and the tanks on top.
 """

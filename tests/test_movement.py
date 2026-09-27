@@ -169,7 +169,7 @@ def test_a_tank_driven_into_a_wall_stops_short_of_it(game):
     for _ in range(80):
         model.tick(inputs)
     sx = state(bbc, labels)[0][0]
-    # FOURFOLD's spur at wall column 15 (superpixels 60..63) blocks a tank
+    # Colour Clash's spur at wall column 15 (superpixels 60..63) blocks a tank
     # whose footprint (sx..sx+5) would reach superpixel 60.
     assert sx == 54
     assert state(bbc, labels) == model_state(model)

@@ -3,7 +3,8 @@
 A level is a text file in levels/, compiled in filename order. Blank lines and
 text after '#' are ignored. Directives:
 
-    NAME <text>                 display name (at most 8 characters, for the HUD)
+    NAME <text>                 title, mixed case, at most 24 characters (shown on
+                                a title card before the level is played)
     SYMMETRY ROT4 | ROT2        fourfold (four players) or twofold symmetry
     WALLS <core> <rim>          wall colouring, two different inks of C M Y K
     FILL <c> <m> <y> <k>        initial ink state of open cells (default 1 1 1 1)
@@ -38,7 +39,7 @@ LEVELS_DIRPATH = PROJECT_DIRPATH / "levels"
 
 ARENA_SUPERPIXELS = 128
 PLAYER_FOOTPRINT = 6          # superpixels per side of a player's sprite
-NAME_LENGTH = 8               # HUD width in characters
+NAME_LENGTH = 24              # shown centred on a title card across the arena (32 columns)
 
 FACINGS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")   # clockwise from north
 
