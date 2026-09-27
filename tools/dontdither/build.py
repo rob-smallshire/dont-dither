@@ -40,6 +40,7 @@ PROGRAMS = {
     "DITHER": ASM_DIRPATH / "main.asm",
     "TCARD": ASM_DIRPATH / "testcard.asm",
     "LOGO": GENERATED_DIRPATH / "logo.asm",
+    "TUNE": ASM_DIRPATH / "tune.asm",
 }
 BOOT_PROGRAM = "SPLASH"
 GAME_PROGRAM = "DITHER"

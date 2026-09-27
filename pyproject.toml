@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Don't Dither! -- a territory game for the BBC Micro Model B"
 requires-python = ">=3.12"
 dependencies = [
+    "numpy>=2.5.3",
     "Pillow>=10",
 ]
 
@@ -12,6 +13,7 @@ dd-build = "dontdither.build:main"
 dd-solve-patterns = "dontdither.solve_patterns:main"
 dd-preview-sprites = "dontdither.preview_sprites:main"
 dd-preview-splats = "dontdither.preview_splats:main"
+dd-render-music = "dontdither.splash_theme:main"
 
 [dependency-groups]
 test = [

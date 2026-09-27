@@ -831,3 +831,6 @@ def generate_all(dirpath) -> None:
     (dirpath / "paint_data.asm").write_text(generate_paint_data(table))
     (dirpath / "hud_font.asm").write_text(generate_hud_font())
     generate_splash(dirpath)
+    from dontdither import splash_theme
+    from dontdither.music import song_assembly
+    (dirpath / "splash_theme.asm").write_text(song_assembly(splash_theme.song(), "splash_theme"))
