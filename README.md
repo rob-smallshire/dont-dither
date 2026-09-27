@@ -10,6 +10,14 @@ magenta, yellow and black. See [the design](docs/dont_dither_game_design.md),
 [the decisions since](docs/decisions.md) and
 [the architecture and implementation](docs/architecture.md).
 
+<p align="center">
+  <img src="docs/images/title_screen.png" width="48%"
+       alt="The title screen: the Don't Dither! logo, the question of two or four players, each player's keys, and how ink works">
+  <img src="docs/images/four_player_game.png" width="48%"
+       alt="A four-player game on Four Corners, three minutes in: the arena painted in dithered cyan, magenta, yellow and black, with the ink gauges and the clock in the HUD">
+</p>
+<p align="center"><em>The title screen, and four computer players three minutes into a round on Four Corners.</em></p>
+
 ## Playing
 
 Boot the disc (Shift-Break) on a Model B with DFS.
