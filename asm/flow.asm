@@ -157,10 +157,10 @@ ARENA_TEXT_COLUMNS = 32
     JSR OSWRCH
     LDA #3
     JSR OSWRCH
-    LDX zp_level
-    LDA level_title_lo,X
+    JSR select_level           \ level_title: the level's title.
+    LDA level_title
     STA zp_screen_ptr
-    LDA level_title_hi,X
+    LDA level_title+1
     STA zp_screen_ptr+1
     LDY #0
     LDA (zp_screen_ptr),Y      \ Its length.

@@ -9,34 +9,78 @@
 \ so the arena's symmetry, and hence its fairness, is structural rather than
 \ hand-copied.
 \
+\ Every level also has a border, the outermost ring of wall cells, which
+\ build_wall_map draws itself: levels do not store it.
+\
 \ Bytecode layout (generated from levels/*.lvl into the level-set files; see
-\ level_format.asm):
+\ level_format.asm), compact so that as many levels as possible fit:
 \   header   LEVEL_HEADER_SIZE bytes: symmetry step (1 = ROT4, 2 = ROT2),
-\            wall core ink byte, wall rim ink byte, fill ink state
-\   commands LEVEL_START sx, sy, facing   (player 0's start; skipped here)
-\            LEVEL_MOVE  cx, cy            (move the pen)
-\            LEVEL_DRAW  cx, cy            (wall cells from pen to here)
-\            LEVEL_END
-\ A level's bytecode is under 256 bytes, so Y can index all of it.
+\            wall core ink byte, wall rim ink byte, fill ink state, and
+\            player 0's start sx, sy, facing (placed by place_players)
+\   commands two bytes each: cx (with LEVEL_DRAW_BIT set: draw wall cells
+\            from the pen to here; clear: just move the pen), then cy
+\   LEVEL_END
+\ A level's bytecode is under 256 bytes, so Y can index all of it. In the
+\ level set, each level's bytecode follows its title (a length byte and the
+\ characters), level after level; select_level walks to the one wanted.
 \
 \ Requires: zeropage.asm, screen_tables.asm (bit_masks), level_format.asm, the
-\ loaded level set (level_area), and
-\ a 128-byte wall_map buffer defined by the program.
+\ loaded level set (level_area), and a 128-byte wall_map buffer and a
+\ 2-byte level_title defined by the program.
 \ ============================================================================
 
 \ ----------------------------------------------------------------------------
-\ select_level -- point zp_level_ptr at level zp_level's bytecode
+\ select_level -- find level zp_level: its title and its bytecode
 \
-\ On entry:  zp_level = level number
-\ On exit:   A, X corrupted
+\ On entry:  zp_level = level number (0..level_set_count-1)
+\ On exit:   level_title = the address of its title (a length byte then the
+\            characters); zp_level_ptr = its bytecode; A, X, Y corrupted
+\
+\ Levels lie one after another from level_area + LEVEL_SET_LEVELS, each a
+\ title then bytecode ending with LEVEL_END, so the walk skips zp_level of
+\ them. (Coordinates are 0..31 even with LEVEL_DRAW_BIT set, so no command
+\ byte is LEVEL_END; commands come in pairs, so testing every other byte
+\ from the header's end finds it.)
 \ ----------------------------------------------------------------------------
 
 .select_level
-    LDX zp_level
-    LDA level_code_lo,X
+    LDA #LO(level_area + LEVEL_SET_LEVELS)
     STA zp_level_ptr
-    LDA level_code_hi,X
+    LDA #HI(level_area + LEVEL_SET_LEVELS)
     STA zp_level_ptr+1
+    LDX zp_level
+.select_level_title
+    LDA zp_level_ptr           \ Here is a level's title...
+    STA level_title
+    LDA zp_level_ptr+1
+    STA level_title+1
+    LDY #0                     \ ...and its bytecode follows: zp_level_ptr +=
+    LDA (zp_level_ptr),Y       \ length + 1.
+    SEC
+    ADC zp_level_ptr
+    STA zp_level_ptr
+    BCC select_level_code
+    INC zp_level_ptr+1
+.select_level_code
+    DEX                        \ The level wanted?
+    BMI select_level_done
+    LDY #LEVEL_HEADER_SIZE     \ No: past its commands to LEVEL_END...
+.select_level_command
+    LDA (zp_level_ptr),Y
+    CMP #LEVEL_END
+    BEQ select_level_end
+    INY
+    INY
+    BNE select_level_command   \ (Always: bytecode is under 256 bytes.)
+.select_level_end
+    TYA                        \ ...and past that: zp_level_ptr += Y + 1.
+    SEC
+    ADC zp_level_ptr
+    STA zp_level_ptr
+    BCC select_level_title
+    INC zp_level_ptr+1
+    JMP select_level_title
+.select_level_done
     RTS
 
 \ ----------------------------------------------------------------------------
@@ -56,6 +100,29 @@
     STA wall_map,Y
     DEY
     BPL build_wall_map_clear
+
+    \ The border. The map is 4 bytes a row, MSB leftmost: the top and bottom
+    \ rows are all set, and every row has its first and last cells set.
+    LDA #&FF
+    LDY #3
+.build_wall_map_edges
+    STA wall_map,Y             \ Row 0...
+    STA wall_map + 124,Y       \ ...and row 31.
+    DEY
+    BPL build_wall_map_edges
+    LDY #124
+.build_wall_map_sides
+    LDA wall_map,Y             \ Column 0: bit 7 of the row's first byte.
+    ORA #&80
+    STA wall_map,Y
+    LDA wall_map + 3,Y         \ Column 31: bit 0 of its last.
+    ORA #&01
+    STA wall_map + 3,Y
+    DEY
+    DEY
+    DEY
+    DEY
+    BPL build_wall_map_sides
 
     LDY #LEVEL_HEADER_SYMMETRY
     LDA (zp_level_ptr),Y
@@ -85,43 +152,31 @@
 .run_level_commands
     LDY #LEVEL_HEADER_SIZE     \ First command follows the header.
 .run_level_next
-    LDA (zp_level_ptr),Y       \ Fetch the opcode and step past it.
-    INY
+    LDA (zp_level_ptr),Y       \ The command's cx, or the end.
     CMP #LEVEL_END
     BEQ run_level_done
-    CMP #LEVEL_MOVE
-    BEQ run_level_move
-    CMP #LEVEL_START
-    BEQ run_level_skip_start
-
-    \ LEVEL_DRAW cx, cy: plot from the pen to (cx, cy), which becomes the
-    \ new pen position.
-    LDA (zp_level_ptr),Y
-    STA zp_target_x
     INY
+    ASSERT LEVEL_DRAW_BIT = &80
+    ASL A                      \ Draw or move? (LEVEL_DRAW_BIT into carry.)
+    BCS run_level_draw
+    LSR A                      \ Move: cx back, and cy: just move the pen.
+    STA zp_pen_x
+    LDA (zp_level_ptr),Y
+    STA zp_pen_y
+    INY
+    JMP run_level_next
+
+.run_level_draw
+    \ Draw: plot from the pen to (cx, cy), which becomes the new pen
+    \ position.
+    LSR A                      \ cx back, without the draw bit.
+    STA zp_target_x
     LDA (zp_level_ptr),Y
     STA zp_target_y
     INY
     STY zp_level_offset        \ draw_line uses X and Y.
     JSR draw_line
     LDY zp_level_offset
-    JMP run_level_next
-
-.run_level_move
-    \ LEVEL_MOVE cx, cy: just move the pen.
-    LDA (zp_level_ptr),Y
-    STA zp_pen_x
-    INY
-    LDA (zp_level_ptr),Y
-    STA zp_pen_y
-    INY
-    JMP run_level_next
-
-.run_level_skip_start
-    \ LEVEL_START sx, sy, facing: not needed to build walls.
-    INY
-    INY
-    INY
     JMP run_level_next
 
 .run_level_done

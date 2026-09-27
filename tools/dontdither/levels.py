@@ -15,14 +15,20 @@ text after '#' are ignored. Directives:
     DRAW <cx> <cy>              draw wall cells from the pen to here inclusive,
                                 horizontally or vertically, and move the pen
 
-Only the stored geometry is written; the renderer repeats it under the
-symmetry: ROT4 applies 0, 1, 2 and 3 clockwise quarter turns about the arena
-centre, ROT2 applies 0 and 2. A quarter turn maps wall cell (x, y) to
-(31 - y, x).
+Every level has a border: the outermost ring of wall cells, which the game
+draws itself (it is not stored). Only the stored geometry is written; the
+renderer repeats it under the symmetry: ROT4 applies 0, 1, 2 and 3 clockwise
+quarter turns about the arena centre, ROT2 applies 0 and 2. A quarter turn
+maps wall cell (x, y) to (31 - y, x).
 
-Bytecode (see LevelOp): a header of symmetry step (quarter turns between
-copies: 1 for ROT4, 2 for ROT2), core ink byte, rim ink byte and fill state,
-then commands, each an opcode byte followed by its operands, ending with END.
+Bytecode, made compact so that as many levels as possible fit the game's
+level area:
+    header   symmetry step (quarter turns between copies: 1 ROT4, 2 ROT2),
+             core ink byte, rim ink byte, fill state, and player 0's start
+             sx, sy and facing (HEADER_SIZE bytes)
+    commands two bytes each: cx, with bit 7 set for DRAW (clear for MOVE),
+             then cy
+    END      a single byte
 """
 
 from __future__ import annotations
@@ -45,10 +51,20 @@ FACINGS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")   # clockwise from north
 
 
 class LevelOp(enum.IntEnum):
-    END = 0
-    MOVE = 1
-    DRAW = 2
-    START = 3
+    MOVE = 0
+    DRAW = 1
+
+
+DRAW_BIT = 0x80                # in a command's first byte (cx)
+END = 0xFF                     # the byte ending a level's commands
+HEADER_SIZE = 7
+
+
+def border_cells() -> set[tuple[int, int]]:
+    """The outermost ring of wall cells, which every level has."""
+    last = WALL_GRID_CELLS - 1
+    return {(x, y) for x in range(WALL_GRID_CELLS) for y in range(WALL_GRID_CELLS)
+            if x in (0, last) or y in (0, last)}
 
 
 class Symmetry(enum.IntEnum):
@@ -98,8 +114,8 @@ class Level:
         return cells
 
     def wall_cells(self) -> WallCells:
-        """All wall cells after applying the symmetry."""
-        cells = set()
+        """All wall cells after applying the symmetry, and the border."""
+        cells = border_cells()
         for copy in range(self.symmetry.copies):
             turns = copy * self.symmetry.value
             cells.update(rotate_cell(c, turns) for c in self.stored_cells())
@@ -123,11 +139,12 @@ class Level:
             full_byte(self.colouring.core),
             full_byte(self.colouring.rim),
             table.states.index(self.fill),
-            LevelOp.START, self.start.sx, self.start.sy, self.start.facing,
+            self.start.sx, self.start.sy, self.start.facing,
         ]
+        assert len(data) == HEADER_SIZE
         for op, x, y in self.commands:
-            data += [op, x, y]
-        data.append(LevelOp.END)
+            data += [x | (DRAW_BIT if op is LevelOp.DRAW else 0), y]
+        data.append(END)
         return bytes(data)
 
 

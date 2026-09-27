@@ -6,10 +6,6 @@ SYMMETRY ROT4
 WALLS C K
 START 10 10 SE
 
-# Border: the top edge, completed by rotation.
-MOVE 0 0
-DRAW 31 0
-
 # An arm from the top edge down towards the centre, then bending east.
 MOVE 12 4
 DRAW 12 12

@@ -9,10 +9,6 @@ SYMMETRY ROT4
 WALLS K Y
 START 13 13 SE
 
-# The top edge of the arena; its rotations complete the border.
-MOVE 0 0
-DRAW 31 0
-
 # A bracket sheltering each player's corner.
 MOVE 9 5
 DRAW 5 5

@@ -5,8 +5,11 @@ import pytest
 from dontdither.inks import InkTable
 from dontdither.levels import (
     FACINGS,
+    DRAW_BIT,
+    END,
+    HEADER_SIZE,
     LevelError,
-    LevelOp,
+    border_cells,
     Start,
     Symmetry,
     level_filepaths,
@@ -22,8 +25,8 @@ NAME TEST
 SYMMETRY ROT4
 WALLS K Y
 START 10 10 SE
-MOVE 0 0
-DRAW 3 0
+MOVE 2 3
+DRAW 5 3
 """
 
 
@@ -52,7 +55,7 @@ def test_starts_are_symmetric_and_open(level):
 def test_bytecode_fits_and_ends(level):
     code = level.bytecode(InkTable.load())
     assert len(code) <= 255
-    assert code[-1] == LevelOp.END
+    assert code[-1] == END and END not in code[HEADER_SIZE:-1]
 
 
 def test_minimal_level_parses():
@@ -60,18 +63,32 @@ def test_minimal_level_parses():
     assert level.name == "TEST"
     assert level.symmetry is Symmetry.ROT4
     assert level.start == Start(10, 10, FACINGS.index("SE"))
-    assert level.stored_cells() == [(0, 0), (1, 0), (2, 0), (3, 0)]
+    assert level.stored_cells() == [(2, 3), (3, 3), (4, 3), (5, 3)]
+
+
+def inside(cells):
+    return cells - border_cells()
+
+
+def test_every_level_has_a_border():
+    assert border_cells() <= parse_level(MINIMAL).wall_cells()
+    assert len(border_cells()) == 4 * 31
 
 
 def test_rot4_repeats_four_times():
-    cells = parse_level(MINIMAL).wall_cells()
-    assert {(0, 0), (31, 0), (31, 31), (0, 31)} <= cells   # the corner cell, rotated
+    cells = inside(parse_level(MINIMAL).wall_cells())
+    assert {(2, 3), (28, 2), (29, 28), (3, 29)} <= cells   # the first cell, rotated
     assert len(cells) == 16
 
 
 def test_rot2_repeats_twice():
-    cells = parse_level(MINIMAL.replace("ROT4", "ROT2")).wall_cells()
-    assert cells == {(0, 0), (1, 0), (2, 0), (3, 0), (31, 31), (30, 31), (29, 31), (28, 31)}
+    cells = inside(parse_level(MINIMAL.replace("ROT4", "ROT2")).wall_cells())
+    assert cells == {(2, 3), (3, 3), (4, 3), (5, 3), (29, 28), (28, 28), (27, 28), (26, 28)}
+
+
+def test_commands_take_two_bytes_with_the_draw_bit_in_cx():
+    code = parse_level(MINIMAL).bytecode(InkTable.load())
+    assert code[HEADER_SIZE:] == bytes([2, 3, 5 | DRAW_BIT, 3, END])
 
 
 def test_quarter_turn_is_clockwise_about_the_centre():
@@ -100,7 +117,7 @@ def test_line_cells_run_both_ways():
     ("BOGUS 1", "Unknown directive"),
 ])
 def test_invalid_levels_are_rejected(bad, message):
-    text = MINIMAL.replace("MOVE 0 0\nDRAW 3 0", "") + bad
+    text = MINIMAL.replace("MOVE 2 3\nDRAW 5 3", "") + bad
     with pytest.raises(LevelError, match=message):
         parse_level(text)
 

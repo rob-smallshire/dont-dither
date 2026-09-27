@@ -315,10 +315,6 @@ INCLUDE "build/generated/sprite_data.asm"
 .level_area
 level_set_players = level_area + LEVEL_SET_PLAYERS
 level_set_count   = level_area + LEVEL_SET_COUNT
-level_code_lo     = level_area + LEVEL_SET_CODE_LO
-level_code_hi     = level_area + LEVEL_SET_CODE_HI
-level_title_lo    = level_area + LEVEL_SET_NAME_LO
-level_title_hi    = level_area + LEVEL_SET_NAME_HI
 \ The loader copies whole pages, rounding up: the last few bytes go on into
 \ screen memory, which start clears (see the loader's ASSERT).
 LEVEL_AREA_PAGES  = (MODE1_SCREEN_BASE - level_area + 255) DIV 256
@@ -381,6 +377,7 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .player_reservoir_fraction SKIP MAX_PLAYERS \ ...and 1/256ths of a splat.
 .gauge_drawn      SKIP MAX_PLAYERS \ Splats each HUD ink gauge shows.
 .frame_colour     SKIP 1       \ gauge_frame: its colour byte.
+.level_title      SKIP 2       \ select_level: the level's title.
 .move_ground      SKIP 1       \ update_players: the mover's ground level,
 .move_steps       SKIP 1       \ and its steps still to take this tick.
 .ground_total     SKIP 1       \ ground_level: own quanta so far,
