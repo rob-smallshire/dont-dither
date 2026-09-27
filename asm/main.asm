@@ -80,6 +80,8 @@ INCLUDE "build/generated/ink_tables.asm"
     STA zp_boot_status
 
     JSR build_superpixel_rows  \ Screen address tables, before any drawing.
+    LDA SYSTEM_VIA_T1C_L       \ Seed the random generator from a timer.
+    STA random_state
 
     \ The screen. Booted from SPLASH we are already in MODE 1 with the cursor
     \ hidden and every colour black, and the loader has put the HUD logo in
@@ -298,10 +300,12 @@ INCLUDE "build/generated/sprite_data.asm"
 
 \ ----------------------------------------------------------------------------
 \ The level area: the loader copies the chosen level set (LEVELS2 or
-\ LEVELS4) here. Its layout is in level_format.asm.
+\ LEVELS4) here. Its layout is in level_format.asm. It is everything from
+\ the end of the main block to the screen -- not page-aligned, so no byte
+\ is lost to padding. (A level set that does not fit fails to assemble: its
+\ source has GUARD &3000.)
 \ ----------------------------------------------------------------------------
 
-ALIGN &100
 .level_area
 level_set_players = level_area + LEVEL_SET_PLAYERS
 level_set_count   = level_area + LEVEL_SET_COUNT
@@ -309,7 +313,9 @@ level_code_lo     = level_area + LEVEL_SET_CODE_LO
 level_code_hi     = level_area + LEVEL_SET_CODE_HI
 level_title_lo    = level_area + LEVEL_SET_NAME_LO
 level_title_hi    = level_area + LEVEL_SET_NAME_HI
-LEVEL_AREA_PAGES  = (MODE1_SCREEN_BASE - level_area) DIV 256
+\ The loader copies whole pages, rounding up: the last few bytes go on into
+\ screen memory, which start clears (see the loader's ASSERT).
+LEVEL_AREA_PAGES  = (MODE1_SCREEN_BASE - level_area + 255) DIV 256
 
 \ ----------------------------------------------------------------------------
 \ Low block: initialised tables in BASIC's language workspace (&0400-&07FF)
@@ -390,6 +396,7 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .ai_direction     SKIP MAX_PLAYERS \ Each AI's current direction.
 .ai_last_input    SKIP MAX_PLAYERS \ Each AI's last decision.
 .ai_refilling     SKIP MAX_PLAYERS \ Non-zero: the AI is seeking ink.
+.random_state     SKIP 1       \ The pseudo-random generator (next_random).
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
 .session_humans   SKIP 1       \ Bit per player slot: played by a human.
 .session_joined   SKIP 1       \ select_players: who has pressed fire.
@@ -554,6 +561,9 @@ INCBIN "build/generated/hud_logo.bin"
 \ The loader's own code must lie clear of the logo it writes, and the logo's
 \ image clear of every destination (so it is intact when copied).
 ASSERT loader_main_image <= HUD_LOGO_ADDRESS
+\ The level set's copy, rounded up to whole pages, runs past the level area
+\ into screen memory, but must stop short of the loader's own code.
+ASSERT level_area + LEVEL_AREA_PAGES * 256 <= LOADER_ADDRESS
 ASSERT loader_logo_image >= HUD_LOGO_ADDRESS + (HUD_LOGO_ROWS - 1) * MODE1_ROW_BYTES + HUD_LOGO_ROW_BYTES
 
 SAVE "DITHER", loader, loader_end, loader

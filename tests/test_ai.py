@@ -9,7 +9,16 @@ import pytest
 
 from conftest import SET_LEVEL_IDS, SET_LEVELS, boot_game, enter_level, step_ticks
 from dontdither.ai import AI_PERIOD, samples
-from dontdither.game import FIRE_BIT, NO_DIRECTION, Game
+from dontdither.game import (
+    DEFAULT_RANDOM_STATE,
+    FIRE_BIT,
+    HUMAN_PLAYERS,
+
+    NO_DIRECTION,
+    Game,
+    next_random,
+    random_direction,
+)
 from dontdither.levels import level_set, load_levels
 from dontdither.render import arena_bytes, arena_screen, draw_players
 from dontdither.screen import MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
@@ -96,3 +105,83 @@ def test_6502_ai_matches_the_model(launch_bbc, game_build, players, level_number
     expected_screen = arena_screen(level, model.cells)
     draw_players(expected_screen, [(p.sx, p.sy, p.facing, p.ink) for p in model.players])
     assert arena_bytes(screen) == arena_bytes(expected_screen)
+
+
+# ---- Random starting directions ----------------------------------------------
+
+def test_the_random_generator_has_a_full_period():
+    state, seen = 0, set()
+    for _ in range(256):
+        state = next_random(state)
+        seen.add(state)
+    assert len(seen) == 256
+
+
+@pytest.mark.parametrize("level", load_levels(), ids=lambda lv: lv.name)
+def test_ai_players_start_facing_random_directions(level):
+    game = Game.start(level)
+    state = DEFAULT_RANDOM_STATE
+    for index, (player, start) in enumerate(zip(game.players, level.starts())):
+        if index < HUMAN_PLAYERS:
+            assert player.facing == start.facing            # humans face the level's way
+        else:
+            direction, state = random_direction(state)
+            assert player.facing == player.ai_direction == direction
+    assert game.random_state == state
+
+
+def test_different_seeds_start_ais_differently():
+    level = load_levels()[0]
+    facings = {tuple(p.facing for p in Game.start(level, seed, humans=0).players) for seed in range(256)}
+    assert len(facings) > 32
+
+
+def rotated_positions(game, level):
+    """Each player's position turned back to player 0's quarter of the
+    arena, by (x, y) -> (y, 122 - x) per symmetry step."""
+    turned = []
+    for index, p in enumerate(game.players):
+        x, y = p.sx, p.sy
+        for _ in range(index * level.symmetry.value):
+            x, y = y, 122 - x
+        turned.append((x, y))
+    return turned
+
+
+def shared_path(game, level, ticks=150) -> float:
+    """How much of the AIs' paths, each turned back to player 0's quarter,
+    they all share: 1.0 if they dance in step (each a tick or so behind the
+    last, as AIs think on staggered ticks), near 0 if each goes its own way."""
+    paths = [set() for _ in game.players]
+    for _ in range(ticks):
+        game.tick()
+        for path, position in zip(paths, rotated_positions(game, level)):
+            path.add(position)
+    return len(set.intersection(*paths)) / len(set.union(*paths))
+
+
+@pytest.mark.parametrize("level", [lv for lv in load_levels() if lv.symmetry.copies == 4],
+                         ids=lambda lv: lv.name)
+def test_ai_players_no_longer_dance_in_step(level):
+    """With the level's facings, four identical AIs trace the same path under
+    rotation, like country dancers; with random facings they do not."""
+    dancers = Game.start(level, humans=4)          # the level's facings...
+    for player in dancers.players:
+        player.ai = True                                      # ...all played by the AI
+    assert shared_path(dancers, level) > 0.9
+    assert shared_path(Game.start(level, humans=0), level) < 0.2
+
+
+@pytest.mark.parametrize("players, level_number", SET_LEVELS, ids=SET_LEVEL_IDS)
+def test_6502_ais_start_facing_as_the_model_says(launch_bbc, game_build, players, level_number):
+    bbc = launch_bbc()
+    boot_game(bbc, game_build, players)
+    labels = game_build.labels["DITHER"]
+    bbc.memory.address.bus[labels["session_humans"]] = 0     # demo mode: all AI
+    enter_level(bbc, labels, level_number)
+    model = Game.start(level_set(players)[level_number], humans=0)
+    peek = bbc.memory.address.peek
+    count = len(model.players)
+    assert [peek[labels["player_facing"] + p] for p in range(count)] == [p.facing for p in model.players]
+    assert [peek[labels["ai_direction"] + p] for p in range(count)] == [p.ai_direction for p in model.players]
+    assert peek[labels["random_state"]] == model.random_state

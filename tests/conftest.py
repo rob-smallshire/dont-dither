@@ -22,6 +22,7 @@ from beebium.client.exceptions import ServerNotFoundError
 from beebium.client.installation import ServerInstallation
 
 from dontdither.build import BuildResult, build
+from dontdither.game import DEFAULT_RANDOM_STATE
 
 from dontdither.levels import PLAYER_COUNTS, level_set
 
@@ -155,10 +156,12 @@ def enter_level(bbc: Beebium, labels: dict[str, int], level_number: int) -> None
     """Start a level and stop just before its first tick, at main_loop.
 
     Nothing of the level's time has passed, so a model started from the
-    level stays exactly in step.
+    level stays exactly in step. The random generator is set to
+    DEFAULT_RANDOM_STATE, as Game.start assumes (AI players' facings).
     """
     align_to_tick(bbc, labels)
     bbc.memory.address.bus[labels["zp_level"]] = level_number
+    bbc.memory.address.bus[labels["random_state"]] = DEFAULT_RANDOM_STATE
     bbc.cpu.pc = labels["enter_level"]
     bbc.debugger.run_to(labels["main_loop"])
 
@@ -207,10 +210,12 @@ def boot_game(bbc: Beebium, game_build: BuildResult, players: int = 4) -> None:
 
     This enters level 0 directly, with the default session (players 1 and 2
     human, the rest the computer) and the default round length. No game time
-    has passed, so a Game.start model is exactly in step."""
+    has passed, so a Game.start model is exactly in step (the random
+    generator is set to DEFAULT_RANDOM_STATE, as Game.start assumes)."""
     labels = load_game(bbc, game_build, players)
     bbc.cpu.pc = labels["enter_level"]
     bbc.memory.address.bus[labels["zp_level"]] = 0
+    bbc.memory.address.bus[labels["random_state"]] = DEFAULT_RANDOM_STATE
     bbc.debugger.run_to(labels["main_loop"])
     show_display(bbc, labels)
 

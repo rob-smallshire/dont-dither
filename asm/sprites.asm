@@ -108,6 +108,12 @@ MAX_PLAYERS = 4
     LDA human_controls,X       \ The player's keyboard layout.
     JMP place_players_control
 .place_players_ai
+    CPX player_count           \ A playing AI (not an unused slot) faces and
+    BCS place_players_ai_control   \ heads a random way, so identical AIs do
+    JSR random_direction       \ not move in step. (X preserved.)
+    STA player_facing,X
+    STA ai_direction,X
+.place_players_ai_control
     LDA #CONTROL_AI
 .place_players_control
     STA player_control,X

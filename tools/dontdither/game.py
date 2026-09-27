@@ -89,6 +89,23 @@ DEMO_ROUND_TICKS = DEMO_ROUND_SECONDS * TICKS_PER_SECOND
 
 POINTS_BY_RANK = {4: (3, 2, 1, 0), 2: (3, 0)}
 
+# A one-byte pseudo-random generator, state -> 5 * state + 1 (mod 256), a
+# full-period linear congruential generator. Its low bits cycle quickly, so
+# only its top bits are used. On the machine it is seeded from a VIA timer
+# and stirred every field while players join, so real games differ; tests
+# write DEFAULT_RANDOM_STATE before entering a level, as Game.start assumes.
+DEFAULT_RANDOM_STATE = 17     # gives the two AI slots of a four-player game different facings
+
+
+def next_random(state: int) -> int:
+    return (5 * state + 1) & 0xFF
+
+
+def random_direction(state: int) -> tuple[int, int]:
+    """(a direction 0..7 from the top three bits, the new state)."""
+    state = next_random(state)
+    return state >> 5, state
+
 
 def round_points(percentages: list[int]) -> list[int]:
     """Points for each player from their shares: by rank, ties sharing the
@@ -173,6 +190,7 @@ class Game:
     walls: WallCells = frozenset()
     cells: dict[tuple[int, int], State] = field(default_factory=dict)   # open superpixels
     round_ticks_left: int = ROUND_TICKS
+    random_state: int = DEFAULT_RANDOM_STATE
 
     def __post_init__(self) -> None:
         # A game made without an arena gets a grey one, (1, 1, 1, 1) in every
@@ -182,14 +200,23 @@ class Game:
                           if (x // 4, y // 4) not in self.walls}
 
     @classmethod
-    def start(cls, level: Level) -> Game:
-        """The level's starting state, with the game's default controls:
-        the first two players human, any others the AI."""
+    def start(cls, level: Level, random_state: int = DEFAULT_RANDOM_STATE,
+              humans: int = HUMAN_PLAYERS) -> Game:
+        """The level's starting state: the first `humans` players human (by
+        default the game's two keyboard players), the rest the AI (all of
+        them in demo mode). Each AI player, in slot order, faces (and heads)
+        a random direction, so identical AIs do not move in step like
+        dancers; humans face the level's way."""
         walls = level.wall_cells()
         cells = {(x, y): level.fill for y in range(128) for x in range(128) if (x // 4, y // 4) not in walls}
-        players = [Player(s.sx, s.sy, s.facing, ink, ai=index >= HUMAN_PLAYERS)
-                   for index, (s, ink) in enumerate(zip(level.starts(), level.player_inks()))]
-        return cls(players, walls=walls, cells=cells)
+        players = []
+        for index, (s, ink) in enumerate(zip(level.starts(), level.player_inks())):
+            ai = index >= humans
+            facing = s.facing
+            if ai:
+                facing, random_state = random_direction(random_state)
+            players.append(Player(s.sx, s.sy, facing, ink, ai=ai))
+        return cls(players, walls=walls, cells=cells, random_state=random_state)
 
     @property
     def round_over(self) -> bool:

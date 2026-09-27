@@ -208,3 +208,16 @@ def test_the_title_screen_shows_the_logo_and_asks_for_players(bbc, game_build):
     assert bytes(bbc.memory.address.peek[start:start + len(band)]) == band
     text = bbc.video.screen_text().text
     assert "for two players" in text and "for four players" in text
+
+
+def test_player_select_stirs_the_random_generator_every_field(bbc, game_build):
+    from dontdither.game import next_random
+
+    labels = to_player_select(bbc, game_build)
+    peek = bbc.memory.address.peek
+    state = peek[labels["random_state"]]
+    for _ in range(5):
+        bbc.debugger.step(1)                                  # off select_field
+        bbc.debugger.run_to(labels["select_field"])           # a field later
+        state = next_random(state)
+        assert peek[labels["random_state"]] == state

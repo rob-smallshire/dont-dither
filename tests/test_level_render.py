@@ -11,6 +11,7 @@ import pytest
 
 from conftest import SET_LEVEL_IDS, SET_LEVELS, boot_game, enter_level, show_display
 from dontdither.build import BUILD_DIRPATH
+from dontdither.game import Game
 from dontdither.levels import Level, level_set
 from dontdither.render import arena_bytes, arena_screen, draw_players
 from dontdither.screen import MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
@@ -73,7 +74,8 @@ def test_every_wall_cell_shows_its_tile(rendered, number, level: Level):
 def test_arena_matches_the_model_with_tanks_at_their_starts(rendered, number, level: Level):
     """Every arena byte: fill, walls, and each player's tank at its start."""
     expected = arena_screen(level)
-    draw_players(expected, [(s.sx, s.sy, s.facing, ink) for s, ink in zip(level.starts(), level.player_inks())])
+    # (AI players face a random way, as Game.start decides.)
+    draw_players(expected, [(p.sx, p.sy, p.facing, p.ink) for p in Game.start(level).players])
     actual, wanted = arena_bytes(rendered[number].screen), arena_bytes(expected)
     wrong = [i for i, (a, e) in enumerate(zip(actual, wanted)) if a != e]
     assert not wrong, f"{len(wrong)} arena bytes differ, first offsets {wrong[:8]}"

@@ -14,6 +14,7 @@ import random
 import pytest
 
 from conftest import align_to_tick, step_ticks
+from dontdither.game import HUMAN_PLAYERS, Game
 from dontdither.levels import load_levels
 from dontdither.render import arena_bytes, arena_screen, draw_players
 from dontdither.screen import MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
@@ -72,13 +73,15 @@ def assert_screen_matches(bbc, players):
 
 def test_players_start_at_the_level_starts(game):
     bbc, labels = game
-    starts = [(s.sx, s.sy, s.facing, ink) for s, ink in zip(LEVEL.starts(), LEVEL.player_inks())]
+    starts = [(p.sx, p.sy, p.facing, p.ink) for p in Game.start(LEVEL).players]
     assert player_table(bbc, labels) == starts
+    humans = [(s.sx, s.sy, s.facing) for s in LEVEL.starts()[:HUMAN_PLAYERS]]
+    assert [start[:3] for start in starts[:HUMAN_PLAYERS]] == humans   # humans face the level's way
 
 
 def test_tanks_are_drawn_at_their_starts(game):
     bbc, _ = game
-    assert_screen_matches(bbc, [(s.sx, s.sy, s.facing, ink) for s, ink in zip(LEVEL.starts(), LEVEL.player_inks())])
+    assert_screen_matches(bbc, [(p.sx, p.sy, p.facing, p.ink) for p in Game.start(LEVEL).players])
 
 
 @pytest.mark.parametrize("sx", [40, 41])        # even and odd alignment

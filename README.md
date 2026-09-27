@@ -6,7 +6,28 @@ emulator from Python with pytest.
 
 The arena is a 128×128 grid of 2×2 MODE 1 superpixels. Each superpixel's
 dither pattern *is* its ownership state: one of the 35 mixtures of cyan,
-magenta, yellow and black. See [the design](docs/dont_dither_game_design.md).
+magenta, yellow and black. See [the design](docs/dont_dither_game_design.md),
+[the decisions since](docs/decisions.md) and
+[the architecture and implementation](docs/architecture.md).
+
+## Playing
+
+Boot the disc (Shift-Break) on a Model B with DFS.
+
+- **Two or four players:** the title screen asks; press 2 or 4. Each mode
+  has its own set of levels.
+- **Joining:** during the 10-second countdown, press fire to join. Player 1
+  (cyan) drives with W A S D and fires with SHIFT; player 2 (magenta) uses
+  the cursor keys and COPY. The computer plays everyone else. If nobody
+  joins, the computer plays a demo until you press a key.
+- **A session** plays every level of the set, each a 5-minute round. Each
+  shot splats paint that moves the cells it hits a step towards your ink.
+  When time runs out the territory is tallied, and points are awarded by
+  rank (3/2/1/0, or 3/0 with two players).
+- **Ink:** firing uses ink from your reservoir, shown by the gauges at the
+  bottom of the HUD. Release fire to refill. How fast you refill, and how
+  fast you drive, depends on how much of your own ink is under you: your
+  own colour is a fast road and a filling station; enemy ink slows you.
 
 ## Requirements
 
@@ -22,8 +43,10 @@ uv run dd-build     # -> build/dont-dither.ssd (auto-booting DFS disc)
 uv run pytest       # builds, boots the disc in Beebium, checks the screen
 ```
 
-The tests write screenshots to `build/screenshots/`: the booted game
-(`boot.png`) and the test card (`testcard.png`, `testcard_x3.png`). The test
+The tests write screenshots to `build/screenshots/`, among them the title
+screen (`splash.png`), the booted game (`boot.png`), the ink gauges
+(`gauges.png`), every level and the test card (`testcard.png`,
+`testcard_x3.png`). The test
 card, `*RUN TCARD` from the same disc, shows all 35 ink textures as large
 swatches, each with a wall feature, inside a walled border.
 
@@ -34,13 +57,14 @@ a Model B + DFS: Shift-Break to boot the game.
 
 | Path | Contents |
 |---|---|
-| `asm/` | 6502 source (beebasm). `main.asm` is the game, `testcard.asm` the test card; the rest are shared modules. |
+| `asm/` | 6502 source (beebasm). `splash.asm` is the title screen (the disc boots it), `main.asm` the game, `testcard.asm` the test card; the rest are shared modules. |
+| `art/splash.png` | The logo, converted by the build for the title screen and the HUD. |
 | `levels/` | Level source files (`*.lvl`): symmetric wall layouts, colouring and starts. |
 | `sprites/` | Player tank and paint splats (`*.spr`, editable ASCII art); preview with `uv run dd-preview-sprites` and `uv run dd-preview-splats`. |
 | `data/ink_patterns.json` | The canonical 2×2 pattern for each of the 35 ink states. Source of truth for the generated 6502 tables. |
 | `tools/dontdither/` | Python: ink model, table generator, build, pattern solver. |
 | `tests/` | pytest suite; `conftest.py` has the Beebium fixtures. |
-| `docs/` | Design documents. |
+| `docs/` | Design documents: the design, decisions since, and the architecture. |
 | `build/` | Build output (generated tables, disc image, labels, screenshots). |
 
 ## The canonical ink patterns

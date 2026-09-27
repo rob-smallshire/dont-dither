@@ -45,3 +45,10 @@ MODE1_CHAR_ROWS     = 32      \ 32 character rows of 8 raster lines = 256
 \ ----------------------------------------------------------------------------
 
 VDU_CURRENT_MODE = &0355      \ MOS variable holding the current screen mode.
+
+\ ----------------------------------------------------------------------------
+\ Hardware (AUG chapter 23)
+\ ----------------------------------------------------------------------------
+
+SYSTEM_VIA_T1C_L = &FE44      \ System VIA timer 1 counter, low byte: the MOS
+                              \ runs it continuously for its 100 Hz clock.

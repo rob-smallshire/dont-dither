@@ -21,6 +21,41 @@
 \ ============================================================================
 
 \ ----------------------------------------------------------------------------
+\ next_random -- step the pseudo-random generator
+\
+\ On exit:  A = random_state = 5 * random_state + 1 (mod 256); X, Y
+\           preserved
+\
+\ A full-period linear congruential generator (every byte value comes up
+\ once in 256 steps). Its low bits cycle quickly, so callers use its top
+\ bits (random_direction). start seeds it from a VIA timer, and the
+\ player-select screen steps it every field, so each game differs; tests
+\ write a known state. Must match next_random in tools/dontdither/game.py.
+\ ----------------------------------------------------------------------------
+
+.next_random
+    LDA random_state           \ 4 * state...
+    ASL A
+    ASL A
+    CLC
+    ADC random_state           \ ...+ state...
+    CLC
+    ADC #1                     \ ...+ 1, all mod 256.
+    STA random_state
+    RTS
+
+\ random_direction: A = a random direction 0..7, the generator's top three
+\ bits. X, Y preserved.
+.random_direction
+    JSR next_random
+    LSR A
+    LSR A
+    LSR A
+    LSR A
+    LSR A
+    RTS
+
+\ ----------------------------------------------------------------------------
 \ init_keyboard -- make the keys the game uses plain keys
 \
 \ By default the MOS uses the cursor keys and COPY for cursor editing, which

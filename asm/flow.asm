@@ -67,6 +67,8 @@ JOINABLE_PLAYERS = %11         \ Players who can join: the two keyboard layouts.
 .select_field
     LDA #19                    \ Wait a field.
     JSR OSBYTE
+    JSR next_random            \ Stir the generator: how long players take
+                               \ to join varies it.
     LDA #0                     \ SHIFT: player 1 joins.
     LDX #0
     JSR select_try_join

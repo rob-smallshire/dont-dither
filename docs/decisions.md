@@ -32,6 +32,13 @@ Decisions taken during development that refine or depart from
   (ROT2) of their walls as horizontal/vertical MOVE/DRAW lines in wall-cell
   coordinates. The 6502 expands them under the symmetry, so fairness is
   structural.
+- Every open cell of every level must be reachable by a tank with room to
+  spare: a tank two superpixels wider on each side than the real one
+  (10 superpixels) must be able to drive to it from a start. That means
+  gaps at least three wall cells wide (12 superpixels). Dithering Fights
+  first had one-cell (4-superpixel) gaps into its central room, which no
+  6-superpixel tank could enter; they are now three cells.
+  test_levels.py checks every level.
 
 ## Players and modes
 
@@ -251,6 +258,15 @@ to C than (2,1,1,0), it is a better road and filling station.
   tools/dontdither/ai.py; the 6502 matches it decision for decision.
 - With identical AIs in a symmetric arena, shares come out equal, a useful
   check on fairness.
+- Each AI starts facing (and heading) a random direction. Identical AIs
+  given the level's rotated facings traced the same path under rotation,
+  each a tick or so behind the last (they think on staggered ticks), like
+  country dancers, until they happened to meet. Humans still face the
+  level's way. The random numbers come from a one-byte generator,
+  state -> 5 * state + 1 (mod 256), using its top three bits. It is seeded
+  from the System VIA timer at start-up and stepped every field of the
+  join screen, so how long players take to join varies it; demo rounds
+  keep drawing from it, so each starts differently.
 
 ## Two- or four-player games and level sets
 
@@ -340,7 +356,10 @@ to C than (2,1,1,0), it is a better road and filling station.
   (RS423/cassette, soft keys, user-defined characters 224-255); &0E00-&2FFF
   the main block of code and tables. Zero page &00-&6F is nearly full.
 - The main block starts with the ink tables, whose page-aligned
-  pattern_to_state then needs no padding. The superpixel row address tables
+  pattern_to_state then needs no padding. The level area follows the main
+  block directly, not page-aligned, so no byte is lost to padding; the
+  loader's whole-page copy of the level set runs a few bytes on into
+  screen memory, which the game clears at start-up. The superpixel row address tables
   (256 bytes) are built at start-up into the buffers rather than loaded.
 - Zero page: `zp_boot_status` in the MOS user block &70–&8F; everything else
   in &00–&6F, BASIC's workspace, free because our programs never return to

@@ -166,16 +166,15 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &0800–&08FF | left to the MOS (sound workspace) |
 | &0900–&0CFF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables. `SPLASH` runs here before the game |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
-| &0E00–&2CEA | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
-| &2D00–&2FFF | **level area**: the loaded level set; it starts at the first page boundary after the main block, so it grows or shrinks a page at a time |
+| &0E00–&2D08 | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
+| &2D09–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
 | &3000–&7FFF | MODE 1 screen (the loader and level set pass through here while loading) |
 
-At the last build (with the ink reservoir and gauge frames): the level
-area is 768 bytes, with 39 bytes unused before it; 56 bytes free in the
-low block; about 190 in the buffers. Building the superpixel row tables at start-up
+At the last build (with random AI facings): the level area is 759 bytes;
+56 bytes free in the low block; about 190 in the buffers. Building the superpixel row tables at start-up
 freed 256 bytes of the main block, which the reservoir then used. A level
 costs about 40–55 bytes plus its title, and a set's header 66 bytes, so
-768 bytes hold about 14 levels. Candidates for more room: store sprite
+759 bytes hold about 14 levels. Candidates for more room: store sprite
 frames at one alignment and shift at draw time (saves about 768 bytes),
 move code into the low block, or trim code.
 
@@ -251,6 +250,10 @@ move code into the low block, or trim code.
   titles and the bytecode. The game reads levels through
   `level_code_lo/hi` and `level_title_lo/hi`, which are fixed offsets from
   `level_area`.
+- **Reachability:** every open cell must be reachable by a tank with two
+  superpixels' clearance on each side, so gaps are at least three wall
+  cells wide. `test_levels.py` checks this with a flood fill over tank
+  positions from the starts.
 - **Current levels:** Colour Clash and Dithering Fights (four-player), and
   Mixed Emotions (two-player). The categorised list of 45 titles is in
   `decisions.md`.
@@ -404,6 +407,12 @@ colour, dash and refill, emerge and paint again. The rules are in
   direction out, and the AI chooses again; if every direction is ruled out,
   it stays put.
 - **Firing:** it fires when the chosen direction's score is at least 22.
+- **Starting direction:** each AI slot faces, and heads, a random
+  direction (`random_direction`, from `place_players`), so identical AIs
+  don't trace the same path under rotation. Humans face the level's way.
+  The generator (`next_random`: state → 5·state + 1 mod 256, top three
+  bits) is seeded from the System VIA timer at start-up and stepped every
+  field of the join screen.
 - **Refilling:** an AI that decides with an empty reservoir switches to
   refilling (`ai_refilling`) until it has 64 splats. While refilling it
   holds fire, and a sample cell is worth 4 plus its own ink count, so it
@@ -477,6 +486,9 @@ screen memory and state against them:
   be scanned out without the game running.
 - **Routines:** `enter_routine` jumps to a routine from an instruction
   boundary.
+- **Random state:** `enter_level` and `boot_game` write
+  `DEFAULT_RANDOM_STATE` to `random_state` before entering a level, as
+  `Game.start` assumes, so AI facings match the model.
 - **Timing rules:** always reach an instruction boundary before writing PC
   (Beebium #106). Set `round_length_ticks` before entering a level.
 - **Coverage:** `SET_LEVELS` lists (players, index) pairs, so tests can
@@ -509,11 +521,14 @@ screen memory and state against them:
 
 ## 15. Status and open items
 
-- **Done:** everything described above, including the title screen, with
-  439 tests passing.
+- **Done:** everything described above, including the title screen and HUD
+  logo, the ink reservoir with its framed gauges, and random AI starting
+  directions. Playability is much improved by the last two.
+- **Tuning:** the reservoir's size, refill rates and ground speeds, and the
+  AI's refill threshold, are constants in `game.py` and `ai.py`.
 - **Next:**
-  - more levels, from the categorised titles, which needs memory for up to
-    15 per set (§5);
+  - more levels, from the categorised titles. The 759-byte level area
+    holds about 14 per set; 15 needs a little more memory (§5);
   - SPItFIRE four-joystick support, once Beebium can emulate it;
   - sound (&0800 is reserved for it);
   - a faster suite once Beebium snapshots (#107) exist.
