@@ -64,7 +64,9 @@ uv run pytest       # builds, boots the disc in Beebium, checks the screen
 The tests write screenshots to `build/screenshots/`, among them the title
 screen (`splash.png`), the booted game (`boot.png`), the ink gauges
 (`gauges.png`), every level and the test card (`testcard.png`,
-`testcard_x3.png`). The test
+`testcard_x3.png`). Music goes to `build/music/`: the title theme rendered
+from the model (`splash_theme.wav`, also `uv run dd-render-music`) and
+recorded from Beebium (`beebium_theme.wav`). The test
 card, `*RUN TCARD` from the same disc, shows all 35 ink textures as large
 swatches, each with a wall feature, inside a walled border.
 
@@ -75,7 +77,7 @@ a Model B + DFS: Shift-Break to boot the game.
 
 | Path | Contents |
 |---|---|
-| `asm/` | 6502 source (beebasm). `splash.asm` is the title screen (the disc boots it), `main.asm` the game, `testcard.asm` the test card; the rest are shared modules. |
+| `asm/` | 6502 source (beebasm). `splash.asm` is the title screen (the disc boots it), `main.asm` the game, `testcard.asm` the test card, `tune.asm` the title music alone; the rest are shared modules, among them `music.asm`, the music player. |
 | `art/splash.png` | The logo, converted by the build for the title screen and the HUD. |
 | `levels/` | Level source files (`*.lvl`): symmetric wall layouts, colouring and starts. |
 | `sprites/` | Player tank and paint splats (`*.spr`, editable ASCII art); preview with `uv run dd-preview-sprites` and `uv run dd-preview-splats`. |

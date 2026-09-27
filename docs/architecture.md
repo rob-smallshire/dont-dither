@@ -41,10 +41,11 @@ awarded by rank.
 | Beebium (PyPI `beebium` and `beebium-server`) | headless emulator driven from pytest |
 | OR-tools CP-SAT (the `solver` dependency group) | solves the ink pattern table |
 | Pillow | previews, splash conversion |
+| numpy | the SN76489 model that renders the music to a WAV |
 
 | Path | Contents |
 |---|---|
-| `asm/` | 6502 source. `main.asm` is the game; `splash.asm` the title screen; `testcard.asm` the test card; the rest are modules |
+| `asm/` | 6502 source. `main.asm` is the game; `splash.asm` the title screen; `testcard.asm` the test card; `tune.asm` the title music alone; the rest are modules (among them `music.asm`, the music player, and `handoff.asm`, the key block both programs share) |
 | `tools/dontdither/` | Python: build, generators, and the models that specify the game |
 | `data/ink_patterns.json` | the canonical 2×2 pattern of each of the 35 ink states |
 | `levels/*.lvl` | level sources |
@@ -57,11 +58,12 @@ awarded by rank.
 
 ```bash
 uv run dd-build                           # generate, assemble -> build/dont-dither.ssd
-uv run pytest                             # everything (about 7 minutes)
+uv run pytest                             # everything (about 17 minutes)
 uv run pytest tests/test_inks.py          # a pure-model file, no emulator
 uv run --group solver dd-solve-patterns   # re-solve data/ink_patterns.json
 uv run dd-preview-sprites                 # build/design/sprites.png
 uv run dd-preview-splats                  # build/design/splats.png
+uv run dd-render-music                    # build/music/splash_theme.wav
 ```
 
 ---
@@ -87,6 +89,7 @@ uv run dd-preview-splats                  # build/design/splats.png
    | `testcard_data.asm` | `testcard.py` | test card layout |
    | `logo.bin`, `logo.asm`, `splash_data.asm` | `art/splash.png` via `splash.py` | the logo's screen bytes and the title-screen palette |
    | `hud_logo.bin`, `hud_logo.asm` | `art/splash.png` via `splash.py` | the small HUD logo, 4 character rows × 128 bytes, and its constants |
+   | `splash_theme.asm` | `splash_theme.py` via `music.py` | the title music: note periods, instruments, patterns and channel streams |
    | `levels2.asm`, `levels4.asm` | `levels/*.lvl` | the level sets (generated after the game is assembled; see below) |
 
 2. **Assemble** each entry in `PROGRAMS` onto one disc, from the project root
@@ -101,7 +104,7 @@ uv run dd-preview-splats                  # build/design/splats.png
    labels, then generates and assembles `LEVELS2` and `LEVELS4` to run
    there, saved with a load address of `LEVEL_TEMP` (&6000).
 
-Disc files: `SPLASH`, `DITHER`, `TCARD`, `LOGO`, `LEVELS2`, `LEVELS4`.
+Disc files: `SPLASH`, `DITHER`, `TCARD`, `LOGO`, `TUNE`, `LEVELS2`, `LEVELS4`.
 
 Zero-page variables are declared with `ORG`/`SKIP`, not `=`, so that they
 appear in the labels. beebasm exports labels, not `=` constants.
@@ -538,6 +541,20 @@ screen memory and state against them:
 - **Coverage:** `SET_LEVELS` lists (players, index) pairs, so tests can
   cover every level of both sets.
 
+### Music tests (`test_music.py`)
+
+- `TUNE` (the player alone) is compared with `music.py`'s `Player` on every
+  tick of a whole loop and past its wrap: the chip's registers (from
+  Beebium's sound inspection) against those the model's writes leave,
+  ignoring a silent channel's setting. Each tick steps off
+  `music_tick_done` before running to it again: `run_to` stops at once
+  when already there.
+- The title screen plays the music, and choosing a game leaves the chip
+  silent and the event vector restored. The palette is black while the
+  title screen is drawn.
+- A test records `TUNE` from Beebium's audio stream to
+  `build/music/beebium_theme.wav`.
+
 ### Test practice
 
 - The model is written first, and the 6502 must match it: tick-for-tick
@@ -569,7 +586,8 @@ screen memory and state against them:
   logo, the ink reservoir with its framed gauges, random AI starting
   directions (playability is much improved by these two), up to four
   players on one keyboard, and key layouts shown, redefined and kept
-  across BREAK by the title screen.
+  across BREAK by the title screen, and title music (`docs/music.md`),
+  which sounds the same from the model and from Beebium.
 - **Tuning:** the reservoir's size, refill rates and ground speeds, and the
   AI's refill threshold, are constants in `game.py` and `ai.py`.
 - **Next:**
@@ -578,5 +596,7 @@ screen memory and state against them:
   - joysticks, including SPItFIRE four-joystick support, once Beebium can
     emulate them: a player joining with a joystick's fire button gets
     `CONTROL_JOYSTICK` (reserved), and `read_inputs` reads it;
-  - sound (&0800 is reserved for it);
+  - in-game sound effects (&0800 is reserved for the MOS's sound; memory
+    is the limit);
+  - perhaps sample playback on the title screen (`docs/music.md`);
   - a faster suite once Beebium snapshots (#107) exist.
