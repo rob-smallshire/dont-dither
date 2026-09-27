@@ -798,6 +798,7 @@ def generate_splash(dirpath) -> None:
         f"KEY_LINE_LENGTH = {KEY_LINE_LENGTH}",
         "\\ The cursor keys' codes, as a layout holds its directions: up, left,",
         "\\ down, right. A layout of exactly these shows as \"cursor keys\".",
+        f"ESCAPE_CODE = &{inkey_code('ESCAPE'):02X}   \\ never a player's key",
         ".cursor_key_codes",
         "    EQUB " + ", ".join(f"&{inkey_code(k):02X}" for k in ("UP", "LEFT", "DOWN", "RIGHT")),
     ]) + "\n")

@@ -27,7 +27,10 @@ Boot the disc (Shift-Break) on a Model B with DFS.
 | Y (yellow) | F | C | V | B | SPACE |
 | K (black) | ↑ | ← | ↓ | → | \ |
 
-  The computer plays everyone else. If nobody joins, the computer plays a
+  To change a player's keys, press f1–f4 on the title screen and press
+  each key asked for (another player's keys, and ESCAPE, are refused).
+  Keys you choose are kept when you press BREAK; CTRL-BREAK restores the
+  defaults. The computer plays everyone else. If nobody joins, the computer plays a
   demo until you press a key. (The BBC keyboard has no diodes, so some
   combinations of three or more held keys can make another key appear
   pressed.)

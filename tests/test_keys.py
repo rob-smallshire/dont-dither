@@ -124,3 +124,79 @@ def boot_game_from_select(bbc, labels):
     bbc.memory.address.bus[labels["zp_level"]] = 0
     bbc.memory.address.bus[labels["random_state"]] = DEFAULT_RANDOM_STATE
     bbc.debugger.run_to(labels["main_loop"])
+
+
+# ---- Redefining keys on the title screen ---------------------------------------
+
+def press(bbc, key: str, seconds: float = 0.1) -> None:
+    bbc.keyboard.matrix_down(*matrix_position(key))
+    bbc.run_for_emulated_seconds(seconds)
+    bbc.keyboard.matrix_up(*matrix_position(key))
+    bbc.run_for_emulated_seconds(seconds)
+
+
+def redefine(bbc, function_key: str, keys: list[str]) -> None:
+    """Press f1-f4, then the keys in the order asked: up, left, down, right,
+    fire."""
+    press(bbc, function_key)
+    for key in keys:
+        press(bbc, key)
+
+
+def test_the_title_screen_says_how_to_change_keys(bbc, game_build):
+    to_title_screen(bbc, game_build)
+    assert "f1-f4 change a player's keys:" in bbc.video.screen_text().text
+
+
+def test_f1_redefines_player_ones_keys(bbc, game_build):
+    splash = to_title_screen(bbc, game_build)
+    peek = bbc.memory.address.peek
+    beyond = splash["handoff_end"]
+    before = bytes(peek[beyond:0x0E00])       # up to and including DFS's page &0D
+    redefine(bbc, "f1", ["Q", "Z", "X", "E", "TAB"])
+    assert bytes(peek[beyond:0x0E00]) == before     # nothing written outside the block
+    new = {**LAYOUTS, "C": {"up": "Q", "left": "Z", "down": "X", "right": "E", "fire": "TAB"}}
+    assert block(bbc, splash) == sealed(layout_bytes(new))
+    assert layout_line("C", ["Q", "Z", "X", "E", "TAB"]) in bbc.video.screen_text().text
+
+
+def test_f4_redefines_player_four_and_it_survives_break(bbc, game_build):
+    splash = to_title_screen(bbc, game_build)
+    redefine(bbc, "f4", ["UP", "LEFT", "DOWN", "RIGHT", "RETURN"])
+    new = {**LAYOUTS, "K": {"up": "UP", "left": "LEFT", "down": "DOWN", "right": "RIGHT", "fire": "RETURN"}}
+    to_title_screen(bbc, game_build, again=True)
+    assert block(bbc, splash) == sealed(layout_bytes(new))
+    assert "Black: cursor keys, RET fires" in bbc.video.screen_text().text
+
+
+def test_escape_and_other_players_keys_are_refused(bbc, game_build):
+    splash = to_title_screen(bbc, game_build)
+    press(bbc, "f2")                                        # magenta
+    for refused in ("ESCAPE", "W", "SHIFT", "SPACE", "\\"):   # C's, C's, Y's, K's
+        press(bbc, refused)
+        assert "Magenta: press UP" in bbc.video.screen_text().text, refused
+    for key in ["O", "K", "L", ";", "N"]:                   # its own old K and L are fine
+        press(bbc, key)
+    new = {**LAYOUTS, "M": {"up": "O", "left": "K", "down": "L", "right": ";", "fire": "N"}}
+    assert block(bbc, splash) == sealed(layout_bytes(new))
+
+
+def test_a_key_cannot_be_chosen_twice(bbc, game_build):
+    splash = to_title_screen(bbc, game_build)
+    press(bbc, "f3")
+    press(bbc, "G")
+    press(bbc, "G")                                         # refused: already up
+    assert "Yellow: press LEFT" in bbc.video.screen_text().text
+    for key in ["H", "Y", "U", "CTRL"]:
+        press(bbc, key)
+    new = {**LAYOUTS, "Y": {"up": "G", "left": "H", "down": "Y", "right": "U", "fire": "CTRL"}}
+    assert block(bbc, splash) == sealed(layout_bytes(new))
+
+
+def test_after_redefining_the_game_still_starts(bbc, game_build):
+    to_title_screen(bbc, game_build)
+    redefine(bbc, "f1", ["2", "4", "Q", "E", "TAB"])       # digits as keys...
+    labels = game_build.labels["DITHER"]
+    bbc.keyboard.type("4")                                  # ...do not answer
+    bbc.debugger.run_to(labels["select_players"], timeout=60)
+    assert bbc.memory.address.peek[labels["level_area"]] == 4

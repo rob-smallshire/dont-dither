@@ -115,7 +115,8 @@ appear in the labels. beebasm exports labels, not `=` constants.
             key layouts at &0CE0: kept if sealed (they survive BREAK),
                                   else the defaults, sealed
             MODE 1, CMYK palette, *LOAD LOGO into screen memory
-            the aim, each player's keys (from &0CE0), how ink works
+            the aim, each player's keys (from &0CE0), how ink works;
+            f1-f4 redefine a player's keys (into &0CE0, sealed)
             "Press 2 for two players / or 4 for four players"
             key 2|4 ──► palette to black
                         *LOAD LEVELS2|LEVELS4  (to LEVEL_TEMP = &6000)
@@ -151,6 +152,15 @@ appear in the labels. beebasm exports labels, not `=` constants.
   keys from a generated table (`key_names`, short names from
   `controls.key_name`), a line per player, cut at 35 characters so no line
   reaches the last column.
+- **Redefining keys** (`redefine_keys` in `splash.asm`): `*FX225,128` makes
+  f1–f4 return codes, and each picks a player. The player's line asks for
+  each key in turn. Keys are found with OSBYTE &79 (SHIFT and CTRL tested
+  alone) and &7A (a scan from key 16, avoiding the keyboard links); each
+  must be released before the next is taken. `key_allowed` refuses ESCAPE,
+  other players' keys and repeats. The layout is written and resealed, and
+  the keyboard buffer flushed so that a digit key chosen does not answer
+  the two-or-four question. `*FX4,1` keeps the cursor keys from editing
+  the screen.
 - **The HUD logo** is a 60-pixel-wide copy of the logo, cropped to the
   artwork, 512 bytes at the end of the `DITHER` file. The loader copies it
   into the top four character rows of the HUD, last, because that part of

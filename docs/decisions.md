@@ -361,6 +361,12 @@ to C than (2,1,1,0), it is a better road and filling station.
   loads. They are sealed with a magic byte and checksum and so survive
   BREAK (a soft reset keeps RAM); CTRL-BREAK or power-on brings back the
   defaults.
+- On the title screen, f1-f4 redefine players 1-4's keys (function keys,
+  because 2 and 4 choose the mode, and none is a default key): the
+  player's line asks for up, left, down, right and fire in turn. ESCAPE,
+  another player's key, or a key already chosen is refused; each key must
+  be released before the next is taken. The result is sealed into the
+  resident block at once.
 - The title screen explains the aim, each player's keys and how ink works
   ("Paint as much as you can! ... Firing uses ink. Move faster and
   recharge on your own colour; the more saturated, the better.").
