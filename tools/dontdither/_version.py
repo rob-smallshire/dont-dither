@@ -3,4 +3,4 @@
 The build shows it on the title screen; releases are tagged v<version>.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
