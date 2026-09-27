@@ -32,6 +32,12 @@ dev = [
     { include-group = "test" },
 ]
 
+# Resolve from public PyPI, whatever the machine's default index, so that
+# uv.lock records public URLs and CI can install from it (as Beebium does).
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
