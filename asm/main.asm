@@ -11,12 +11,14 @@
 \ that paint the arena until the clock runs out; the territory is then
 \ tallied, revealed as a bar chart, and points awarded by rank. With no
 \ players the computer plays a demo until a key is pressed. The program
-\   1. selects MODE 1, hides the cursor, programs the CMYK palette and makes
-\      the cursor keys plain keys,
+\   1. clears the screen around the small logo the loader has placed at the
+\      top of the HUD (SPLASH has already selected MODE 1, and hidden the
+\      cursor), programs the CMYK palette and makes the cursor keys plain
+\      keys,
 \   2. enters level 0 (see enter_level): fills the arena with the level's
 \      initial ink state, expands the level's walls into the wall map under
-\      its symmetry, draws them in the level's colouring, shows the title
-\      and level name in the HUD, and draws each player's tank at its start,
+\      its symmetry, draws them in the level's colouring, shows the level
+\      number in the HUD, and draws each player's tank at its start,
 \   3. sets zp_boot_status to BOOT_READY and runs the 25 Hz main loop, in
 \      which players move, turn and fire under keyboard control (player 1:
 \      W A S D and SHIFT, player 2: cursor keys and COPY; see
@@ -48,13 +50,15 @@
 \ cannot load a file into its own workspace, so DITHER is a loader stub
 \ followed by the main and low blocks. DFS loads it at LOADER_ADDRESS (in
 \ screen memory, blacked out by SPLASH) and runs the stub, which copies the
-\ blocks and the level set into place and jumps to start.
+\ blocks and the level set into place, puts the small HUD logo on the screen
+\ (where it stays, costing no memory) and jumps to start.
 \ ============================================================================
 
 INCLUDE "asm/os.asm"
 INCLUDE "build/generated/level_format.asm"
 INCLUDE "asm/macros.asm"
 INCLUDE "asm/zeropage.asm"
+INCLUDE "build/generated/hud_logo.asm"
 
 GAME_ADDRESS   = &0E00         \ Where the game runs (main block).
 LOW_BLOCK_ADDRESS = &0400      \ Where its low block of tables goes.
@@ -70,7 +74,23 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     LDA #0
     STA zp_boot_status
 
+    \ The screen. Booted from SPLASH we are already in MODE 1 with the cursor
+    \ hidden and every colour black, and the loader has put the HUD logo in
+    \ place: selecting MODE 1 again would clear it. Clear the rest of the
+    \ screen instead (it holds whatever was loaded through it), then show
+    \ it with the CMYK palette. Run any other way (*RUN DITHER from BASIC,
+    \ say), select MODE 1 as usual, and go without the logo.
+    LDA VDU_CURRENT_MODE
+    CMP #1
+    BEQ start_screen
     JSR init_display           \ MODE 1, cursor off, CMYK palette.
+    JMP start_screen_done
+.start_screen
+    JSR clear_hud              \ The HUD below the logo...
+    LDX #STATE_ALL_K           \ ...and the arena, black.
+    JSR fill_arena_with_state
+    SEND_VDU palette_vdu_bytes, palette_vdu_bytes_end
+.start_screen_done
     JSR init_keyboard          \ Cursor keys and COPY as plain keys; no
                                \ Escape.
     JSR init_beam_timer        \ User VIA timer 2 as a beam clock.
@@ -134,8 +154,7 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     STA zp_wall_map+1
     JSR draw_walls
 
-    \ HUD: the title, then the level name.
-    SEND_VDU title_vdu_bytes, title_vdu_bytes_end
+    \ HUD: the level number, under the logo.
     JSR print_level_name
 
     \ Put each player's tank at its start and draw it, saving the arena
@@ -144,15 +163,20 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     JMP show_sprites           \ Tail call.
 
 \ ----------------------------------------------------------------------------
-\ clear_hud -- blank the HUD (byte columns 64..79 of every character row)
+\ clear_hud -- blank the HUD (byte columns 64..79) below the logo
+\
+\ The top HUD_LOGO_ROWS character rows hold the logo, which is never
+\ cleared or drawn over.
 \ ----------------------------------------------------------------------------
 
+HUD_BELOW_LOGO = HUD_LOGO_ADDRESS + HUD_LOGO_ROWS * MODE1_ROW_BYTES
+
 .clear_hud
-    LDA #LO(MODE1_SCREEN_BASE + 64 * 8)
+    LDA #LO(HUD_BELOW_LOGO)
     STA zp_screen_ptr
-    LDA #HI(MODE1_SCREEN_BASE + 64 * 8)
+    LDA #HI(HUD_BELOW_LOGO)
     STA zp_screen_ptr+1
-    LDX #MODE1_CHAR_ROWS
+    LDX #MODE1_CHAR_ROWS - HUD_LOGO_ROWS
 .clear_hud_row
     LDA #0
     LDY #127                   \ 16 byte columns x 8 lines = 128 bytes.
@@ -236,18 +260,9 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     EQUS "LEVEL "
 .level_word_end
 
-.title_vdu_bytes
-    \ Two lines of title text in the HUD, in text colour 3 (Y), centred in
-    \ the eight HUD text columns.
-    EQUB VDU_TEXT_COLOUR, 3
-    EQUB VDU_TAB, HUD_TEXT_COLUMN + 1, 1
-    EQUS "DON'T"
-    EQUB VDU_TAB, HUD_TEXT_COLUMN, 2
-    EQUS "DITHER!"
-.title_vdu_bytes_end
-
 .level_name_tab_vdu_bytes
-    EQUB VDU_TAB, HUD_TEXT_COLUMN, 4   \ Level name on HUD text row 4.
+    EQUB VDU_TEXT_COLOUR, 3            \ In yellow,
+    EQUB VDU_TAB, HUD_TEXT_COLUMN, HUD_LOGO_ROWS   \ just under the logo.
 .level_name_tab_vdu_bytes_end
 
 \ ----------------------------------------------------------------------------
@@ -397,7 +412,11 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 \      a forward copy is safe even if they overlapped. Copying a partial
 \      final page in full only writes beyond a block into memory the game
 \      initialises before use, or that the next copy fills;
-\   3. jumps to start.
+\   3. copies the small logo, which follows the blocks in the file, into the
+\      top HUD_LOGO_ROWS character rows of the HUD. It is last because its
+\      destination lies over the main block's image, which must be copied
+\      out first. Only the screen holds it from then on;
+\   4. jumps to start.
 \ It uses zero page &00-&03 (BASIC's, free once we run) as copy pointers,
 \ and only its own code: the game's routines are not in place yet.
 \ ============================================================================
@@ -449,6 +468,42 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
     LDX #LEVEL_AREA_PAGES
     JSR loader_copy
 
+    \ The HUD logo: HUD_LOGO_ROWS character rows of HUD_LOGO_ROW_BYTES bytes,
+    \ each row's bytes contiguous on screen, one row's worth of screen
+    \ (MODE1_ROW_BYTES) apart.
+    LDA #LO(loader_logo_image)
+    STA LOADER_SOURCE
+    LDA #HI(loader_logo_image)
+    STA LOADER_SOURCE+1
+    LDA #LO(HUD_LOGO_ADDRESS)
+    STA LOADER_DEST
+    LDA #HI(HUD_LOGO_ADDRESS)
+    STA LOADER_DEST+1
+    LDX #HUD_LOGO_ROWS
+.loader_logo_row
+    LDY #HUD_LOGO_ROW_BYTES - 1
+.loader_logo_byte
+    LDA (LOADER_SOURCE),Y
+    STA (LOADER_DEST),Y
+    DEY
+    BPL loader_logo_byte
+    LDA LOADER_SOURCE          \ Source: the next row's bytes follow.
+    CLC
+    ADC #HUD_LOGO_ROW_BYTES
+    STA LOADER_SOURCE
+    BCC loader_logo_source_done
+    INC LOADER_SOURCE+1
+.loader_logo_source_done
+    LDA LOADER_DEST            \ Destination: the next character row.
+    CLC
+    ADC #LO(MODE1_ROW_BYTES)
+    STA LOADER_DEST
+    LDA LOADER_DEST+1
+    ADC #HI(MODE1_ROW_BYTES)
+    STA LOADER_DEST+1
+    DEX
+    BNE loader_logo_row
+
     JMP start
 
 \ loader_copy: copy X pages from LOADER_SOURCE to LOADER_DEST.
@@ -469,5 +524,14 @@ LOW_BLOCK_PAGES  = (low_end - low_start + 255) DIV 256
 COPYBLOCK start, end, loader_main_image
 loader_low_image = loader_main_image + (end - start)
 COPYBLOCK low_start, low_end, loader_low_image
+ORG loader_low_image + (low_end - low_start)
+.loader_logo_image
+INCBIN "build/generated/hud_logo.bin"
+.loader_end
 
-SAVE "DITHER", loader, loader_low_image + (low_end - low_start), loader
+\ The loader's own code must lie clear of the logo it writes, and the logo's
+\ image clear of every destination (so it is intact when copied).
+ASSERT loader_main_image <= HUD_LOGO_ADDRESS
+ASSERT loader_logo_image >= HUD_LOGO_ADDRESS + (HUD_LOGO_ROWS - 1) * MODE1_ROW_BYTES + HUD_LOGO_ROW_BYTES
+
+SAVE "DITHER", loader, loader_end, loader

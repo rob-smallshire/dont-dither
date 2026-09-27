@@ -19,10 +19,11 @@ from dontdither.inks import (
     pattern_rows_as_mode1_bytes,
 )
 from dontdither.levels import load_levels
+from dontdither.splash import HUD_LOGO_ROWS, HUD_ROW_BYTES, hud_logo
 from dontdither.screen import ARENA_CELLS, MODE1_ROW_BYTES, MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
 from dontdither.walls import wall_bitmap
 
-HUD_TEXT_ROWS = (1, 2, 4, 6)   # title, title, level name, clock
+HUD_TEXT_ROWS = (4, 6)   # level number, clock
 
 MOS_CURRENT_MODE = 0x0355
 SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
@@ -62,19 +63,27 @@ def test_boots_into_the_first_level(booted_game, game_build):
 
 
 def test_hud_is_blank_apart_from_its_text(screen):
-    # HUD byte columns 64..79 of every character row except those holding
-    # text are still background (logical colour 0).
-    for char_row in range(32):
+    # HUD byte columns 64..79 of every character row below the logo, except
+    # those holding text, are still background (logical colour 0).
+    for char_row in range(HUD_LOGO_ROWS, 32):
         if char_row in HUD_TEXT_ROWS:
             continue
         row = screen[char_row * MODE1_ROW_BYTES + 512:(char_row + 1) * MODE1_ROW_BYTES]
         assert row == bytes(128), f"HUD not blank on character row {char_row}"
 
 
-def test_title_is_shown_in_hud(booted_game):
-    text = booted_game.video.screen_text().text
-    assert "DON'T" in text
-    assert "DITHER!" in text
+def hud_logo_on_screen(screen: bytes) -> bytes:
+    """The HUD bytes of the logo's character rows, as hud_logo() lays them out."""
+    return b"".join(screen[row * MODE1_ROW_BYTES + 512:row * MODE1_ROW_BYTES + 512 + HUD_ROW_BYTES]
+                    for row in range(HUD_LOGO_ROWS))
+
+
+def test_logo_is_shown_at_the_top_of_the_hud(screen):
+    assert hud_logo_on_screen(screen) == hud_logo()
+
+
+def test_hud_logo_is_not_blank():
+    assert any(hud_logo())
 
 
 def test_ink_tables_in_memory_match_the_model(booted_game, game_build, table):

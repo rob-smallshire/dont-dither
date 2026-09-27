@@ -19,6 +19,8 @@ from dontdither.game import (
     round_points,
 )
 from dontdither.levels import level_set, load_levels
+from dontdither.screen import MODE1_ROW_BYTES
+from dontdither.splash import HUD_LOGO_ROWS, HUD_ROW_BYTES, hud_logo
 
 CONTROL_KEYS_A, CONTROL_SCRIPTED, CONTROL_AI = 1, 3, 4
 
@@ -36,6 +38,13 @@ def to_player_select(bbc, game_build, players=4):
 
 def shorten_window(bbc, labels, seconds=1):
     bbc.memory.address.bus[labels["session_seconds"]] = seconds
+
+
+def assert_hud_logo_intact(bbc):
+    peek = bbc.memory.address.peek
+    starts = [0x3000 + row * MODE1_ROW_BYTES + 512 for row in range(HUD_LOGO_ROWS)]
+    shown = b"".join(bytes(peek[start:start + HUD_ROW_BYTES]) for start in starts)
+    assert shown == hud_logo()
 
 
 def controls(bbc, labels):
@@ -143,6 +152,8 @@ def test_a_session_moves_to_the_next_level_then_back_to_player_select(bbc, game_
     bbc.run_for_emulated_seconds(0.1)
     assert "FINAL" in bbc.video.screen_text().text
     bbc.debugger.run_to(labels["select_players"], timeout=60)
+    # Title cards, rounds, reveals and totals have all left the logo alone.
+    assert_hud_logo_intact(bbc)
 
 
 def test_each_session_level_opens_with_its_title_card(bbc, game_build):
@@ -152,6 +163,7 @@ def test_each_session_level_opens_with_its_title_card(bbc, game_build):
     bbc.run_for_emulated_seconds(0.1)
     text = bbc.video.screen_text().text
     assert "LEVEL 1" in text and load_levels()[0].name in text
+    assert_hud_logo_intact(bbc)
 
 
 @pytest.mark.parametrize("players", [2, 4])

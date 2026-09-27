@@ -86,6 +86,7 @@ uv run dd-preview-splats                  # build/design/splats.png
    | `wall_ink_bytes.asm` | `walls.py` | `WALL_INK_*` for the level-set files |
    | `testcard_data.asm` | `testcard.py` | test card layout |
    | `logo.bin`, `logo.asm`, `splash_data.asm` | `art/splash.png` via `splash.py` | the logo's screen bytes and the title-screen palette |
+   | `hud_logo.bin`, `hud_logo.asm` | `art/splash.png` via `splash.py` | the small HUD logo, 4 character rows × 128 bytes, and its constants |
    | `levels2.asm`, `levels4.asm` | `levels/*.lvl` | the level sets (generated after the game is assembled; see below) |
 
 2. **Assemble** each entry in `PROGRAMS` onto one disc, from the project root
@@ -120,8 +121,10 @@ appear in the labels. beebasm exports labels, not `=` constants.
             close *EXEC; copy main block ─► &0E00
                           low block  ─► &0400
                           level set  ─► level_area
+                          HUD logo   ─► top 4 HUD rows (stays for good)
             JMP start
-          start: MODE 1 + palette, *FX4,1, *FX229,1, beam timer ─► select_players
+          start: clear screen around the logo, palette, *FX4,1, *FX229,1,
+                 beam timer ─► select_players
 ```
 
 - **Why a loader stub.** DFS cannot load a file into its own workspace
@@ -133,6 +136,16 @@ appear in the labels. beebasm exports labels, not `=` constants.
   screen memory, so it could not show a picture. `SPLASH` runs at &0900
   (MOS buffer pages unused at boot) and draws the logo by loading
   ready-made screen bytes.
+- **The HUD logo** is a 60-pixel-wide copy of the logo, cropped to the
+  artwork, 512 bytes at the end of the `DITHER` file. The loader copies it
+  into the top four character rows of the HUD, last, because that part of
+  the screen lies over the main block's image. From then on only the
+  screen holds it: `clear_hud` starts below it and nothing draws there,
+  so it costs no memory. For the same reason `start` does not select
+  MODE 1 again (that would clear it). `SPLASH` has already done so, and
+  `start` clears the arena and the HUD below the logo instead. Run any
+  other way, for example by `*RUN DITHER` from BASIC, `start` selects
+  MODE 1 and goes without the logo.
 - **Why the palette goes black.** The loads that follow go through screen
   memory, and blacking out the palette hides that.
 - **After loading, no disc access.** The game overwrites the DFS
@@ -358,7 +371,7 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
 
 ## 12. Rounds, HUD and scoring
 
-- **During play,** the HUD shows only the title, "LEVEL n" and an m:ss
+- **During play,** the HUD shows only the logo, "LEVEL n" and an m:ss
   countdown: 5-minute rounds, or 1 minute in the demo. There are no running
   scores.
 - **At the end of a round:**

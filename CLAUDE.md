@@ -41,7 +41,9 @@ level set and runs the game), `DITHER` (`asm/main.asm`, the game) and `TCARD`
 (`asm/testcard.asm`, the texture and wall test card, started with
 `*RUN TCARD`). `LOGO` (screen bytes from `art/splash.png`, via
 `tools/dontdither/splash.py`) and the level sets `LEVELS2`/`LEVELS4` are data
-files. The full picture is in `docs/architecture.md`. Each program INCLUDEs
+files. The loader puts a small logo (from `art/splash.png`) in the top
+four HUD character rows, which the game never clears or draws over. The
+full picture is in `docs/architecture.md`. Each program INCLUDEs
 the shared modules it needs:
 - `os.asm`, then `macros.asm` first (beebasm needs macros defined before use),
   then `zeropage.asm`;

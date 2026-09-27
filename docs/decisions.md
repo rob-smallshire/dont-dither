@@ -213,6 +213,11 @@ Decisions taken during development that refine or depart from
   LEVELS2 or LEVELS4, to &6000 -- the last disc access, while DFS still has
   its workspace -- and runs DITHER, whose loader copies the set into the
   game's level area. To switch mode, press Break and reload.
+- A small copy of the logo (60 pixels wide, cropped to the artwork) sits at
+  the top of the HUD throughout, in place of the old "DON'T DITHER!" text.
+  It travels at the end of the DITHER file and the loader copies it onto
+  the screen, where it stays: the game never clears or redraws those four
+  character rows, so the logo costs no memory.
 - A level set holds only levels of its player count (ROT2 or ROT4); the
   build generates both from levels/*.lvl. A set has a fixed header
   (players, count, tables of bytecode and title addresses, up to 16 levels)
