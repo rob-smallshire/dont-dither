@@ -135,7 +135,7 @@ def test_an_empty_reservoir_cannot_fire():
     assert game.cells == before
 
 
-def test_a_full_reservoir_lasts_32_shots():
+def test_a_full_reservoir_lasts_reservoir_splats_shots():
     game = game_on_ground(1)
     for _ in range(RESERVOIR_SPLATS * FIRE_PERIOD):
         game.tick([NO_DIRECTION | FIRE_BIT])

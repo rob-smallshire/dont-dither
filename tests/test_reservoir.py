@@ -8,7 +8,8 @@ import random
 
 import pytest
 
-from conftest import boot_game, enter_level, step_ticks
+from conftest import boot_game, enter_level, show_display, step_ticks
+from dontdither.build import BUILD_DIRPATH
 from dontdither.game import FIRE_BIT, NO_DIRECTION, RESERVOIR_SPLATS, Game
 from dontdither.levels import load_levels
 from dontdither.render import arena_bytes, arena_screen, draw_players
@@ -16,10 +17,12 @@ from dontdither.screen import MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE, superpixel_a
 from dontdither.walls import full_byte
 
 LEVEL = load_levels()[0]
+SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
 CONTROL_SCRIPTED = 3
 EAST, SOUTH = 2, 4
 BAR_BASE_LINE = 239
-GAUGE_LINES_PER_SPLAT = 2
+GAUGE_LINES_PER_SPLAT = 1
+FRAME_TOP, FRAME_BOTTOM = BAR_BASE_LINE - RESERVOIR_SPLATS - 1, BAR_BASE_LINE + 2
 FIELDS = ("player_sx", "player_sy", "player_facing", "player_accumulator", "player_cooldown",
           "player_reservoir", "player_reservoir_fraction")
 
@@ -98,7 +101,7 @@ def test_own_ink_is_a_fast_road_and_filling_station(game):
         start = char_row * 640
         bbc.memory.address.bus[MODE1_SCREEN_BASE + start:MODE1_SCREEN_BASE + start + 512] = \
             bytes(screen[start:start + 512])
-    set_reservoirs(bbc, labels, model, [0, 32, 32, 32])
+    set_reservoirs(bbc, labels, model, [0] + [RESERVOIR_SPLATS] * 3)
     grounds = set()
     for tick in range(120):
         grounds.add(model.ground(0))
@@ -125,17 +128,66 @@ def gauge_on_screen(bbc, player: int, players: int = 4) -> list[tuple[int, int]]
     column = 64 + 4 * slot + 1
     peek = bbc.memory.address.peek
     lines = []
-    for n in range(RESERVOIR_SPLATS * GAUGE_LINES_PER_SPLAT + 2):
+    for n in range(RESERVOIR_SPLATS * GAUGE_LINES_PER_SPLAT + 1):
         y = BAR_BASE_LINE - n
         address = superpixel_address(0, y // 2) + (y & 1) + column * 8
         lines.append((peek[address], peek[address + 8]))
     return lines
 
 
+def screen_byte(bbc, y: int, column: int) -> int:
+    return bbc.memory.address.peek[superpixel_address(0, y // 2) + (y & 1) + column * 8]
+
+
+def frame_on_screen(bbc, player: int) -> dict[int, tuple[int, int, int, int]]:
+    """The four byte columns around the gauge (left gap column, the gauge's
+    two, right gap column) on each line from the frame's top to its bottom."""
+    column = 64 + 4 * player
+    return {y: tuple(screen_byte(bbc, y, column + c) for c in range(4))
+            for y in range(FRAME_TOP, FRAME_BOTTOM + 1)}
+
+
+def expected_frame(player: int) -> dict[int, tuple[int, int, int, int]]:
+    ink = "CMYK"[player]
+    colour = full_byte("Y" if ink == "K" else ink)
+    frame = {}
+    for y in range(FRAME_TOP, FRAME_BOTTOM + 1):
+        if y in (FRAME_TOP, FRAME_BOTTOM):
+            frame[y] = (colour & 0x33, colour, colour, colour & 0xCC)
+        elif y in (FRAME_TOP + 1, FRAME_BOTTOM - 1):
+            frame[y] = (colour & 0x22, 0, 0, colour & 0x44)       # the gap around the gauge
+        else:
+            frame[y] = (colour & 0x22, None, None, colour & 0x44)  # the gauge inside
+    return frame
+
+
+def assert_frame(bbc, player: int):
+    actual, expected = frame_on_screen(bbc, player), expected_frame(player)
+    for y in expected:
+        want = expected[y]
+        got = actual[y]
+        assert all(w is None or w == g for w, g in zip(want, got)), (player, y, got, want)
+
+
 def expected_gauge(player: int, splats: int) -> list[tuple[int, int]]:
     height = splats * GAUGE_LINES_PER_SPLAT
     return [gauge_line_bytes(player) if n < height else (0, 0)
-            for n in range(RESERVOIR_SPLATS * GAUGE_LINES_PER_SPLAT + 2)]
+            for n in range(RESERVOIR_SPLATS * GAUGE_LINES_PER_SPLAT + 1)]
+
+
+def test_gauges_are_framed_to_show_full(game):
+    bbc, labels, model = game
+    for p in range(4):
+        assert_frame(bbc, p)
+    for tick in range(RESERVOIR_SPLATS):
+        run(bbc, labels, model, [NO_DIRECTION] * 4)
+    for p in range(4):
+        assert_frame(bbc, p)                    # a full gauge fits inside
+    for tick in range(240):                     # two tanks paint a while
+        run(bbc, labels, model, [FIRE_BIT | EAST, NO_DIRECTION, FIRE_BIT | 4 + 2, NO_DIRECTION])
+    show_display(bbc, labels)
+    SCREENSHOT_DIRPATH.mkdir(parents=True, exist_ok=True)
+    bbc.video.capture_frame().save_png(SCREENSHOT_DIRPATH / "gauges.png")
 
 
 def test_gauges_fill_as_the_level_starts(game):

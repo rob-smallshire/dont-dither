@@ -36,7 +36,7 @@ PERSISTENCE = 2
 FIRE_SCORE = 22            # 4 samples: more than 4 * 5.5, i.e. mostly unowned ground
 WALL_VALUE = 1
 REFILL_BASE = 4            # while refilling, a cell is worth this + own count
-REFILLED = 28              # splats at which a refilling AI paints again
+REFILLED = 64              # splats at which a refilling AI paints again
 FOOTPRINT = 6
 
 # Sample cells relative to the footprint's top-left superpixel, for facing E

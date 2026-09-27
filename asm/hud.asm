@@ -691,16 +691,31 @@ BAR_FRAMES_PER_STEP = 1        \ Vertical syncs per two lines of growth.
 \ printer's ink levels
 \
 \ A gauge is a bar in the player's ink, in the same byte columns as its
-\ tally bar and rising from the same BAR_BASE_LINE, GAUGE_LINES_PER_SPLAT
-\ raster lines per splat (64 lines when full). gauge_drawn holds how many
-\ splats each gauge shows. Each tick update_gauges moves every gauge one
-\ splat towards its reservoir -- a reservoir changes by at most a splat a
-\ tick, so gauges keep up, and a new level's gauges fill from empty over
-\ its first RESERVOIR_SPLATS ticks. clear_gauges empties them all at the
-\ end of a round, before the tally bars grow in their place.
+\ tally bar and rising from the same BAR_BASE_LINE, a raster line per splat
+\ (RESERVOIR_SPLATS lines when full). gauge_drawn holds how many splats each
+\ gauge shows. Each tick update_gauges moves every gauge one splat towards
+\ its reservoir -- a reservoir changes by at most a splat a tick, so gauges
+\ keep up, and a new level's gauges fill from empty over its first
+\ RESERVOIR_SPLATS ticks.
+\
+\ Around each gauge is a frame showing what full looks like, in the
+\ player's label colour (its ink, or Y for K), one pixel clear of the
+\ gauge on every side: the gauge's own edge pixels are its contrast colour
+\ (Y for K, whose body is black), and the gap keeps them distinct from the
+\ frame. The frame's sides are pixel 2 of the byte column left of the
+\ gauge and pixel 1 of the column right of it (the columns between tally
+\ bars); its top and bottom span from one to the other. draw_gauge_frames
+\ draws them as a level starts; clear_gauges empties the gauges and erases
+\ the frames at the end of a round, before the tally bars grow in their
+\ place.
 \ ----------------------------------------------------------------------------
 
-GAUGE_LINES_PER_SPLAT = 2
+\ The frame's top is a line clear of a full gauge: BAR_BASE_LINE -
+\ RESERVOIR_SPLATS - 1, written out where used (RESERVOIR_SPLATS, from
+\ game_data.asm, is defined later, and beebasm cannot forward-reference a
+\ symbol in an = definition, only in an instruction).
+GAUGE_FRAME_BOTTOM = BAR_BASE_LINE + 2
+ASSERT GAUGE_FRAME_BOTTOM < BAR_LABEL_LINE    \ Clear of the tally labels.
 
 .update_gauges
     LDX player_count
@@ -724,12 +739,79 @@ GAUGE_LINES_PER_SPLAT = 2
     LDX zp_player
     LDA gauge_drawn,X
     BNE clear_gauges_loop      \ Until this gauge is empty.
+    LDA #0                     \ Then its frame.
+    JSR gauge_frame
+    LDX zp_player
     DEX
     BPL clear_gauges_loop
     RTS
 
+.draw_gauge_frames
+    LDX player_count
+    DEX
+.draw_gauge_frames_loop
+    STX zp_player
+    JSR set_label_colour       \ The player's ink, or Y for K.
+    LDA label_colour
+    JSR gauge_frame
+    LDX zp_player
+    DEX
+    BPL draw_gauge_frames_loop
+    RTS
+
+\ gauge_frame: draw player zp_player's gauge frame in colour byte A (0
+\ erases it). bar_offset is set to the byte column left of the gauge, so
+\ the frame's four byte columns are at Y = 0, 8, 16 and 24.
+.gauge_frame
+    STA frame_colour
+    JSR bar_column             \ The gauge's column...
+    LDA bar_offset             \ ...less one.
+    SEC
+    SBC #8
+    STA bar_offset
+    BCS gauge_frame_column
+    DEC bar_offset+1
+.gauge_frame_column
+    LDA #BAR_BASE_LINE - RESERVOIR_SPLATS - 1
+    STA bar_line
+.gauge_frame_line
+    JSR hud_line_pointer
+    LDA bar_line
+    CMP #BAR_BASE_LINE - RESERVOIR_SPLATS - 1
+    BEQ gauge_frame_across
+    CMP #GAUGE_FRAME_BOTTOM
+    BEQ gauge_frame_across
+    LDA frame_colour           \ A side line: pixel 2 on the left, pixel 1
+    AND #&22                   \ on the right.
+    LDY #0
+    STA (zp_screen_ptr),Y
+    LDA frame_colour
+    AND #&44
+    LDY #24
+    STA (zp_screen_ptr),Y
+    JMP gauge_frame_next
+.gauge_frame_across
+    LDA frame_colour           \ Top or bottom: pixels 2-3 on the left,
+    AND #&33                   \ both gauge columns, pixels 0-1 on the right.
+    LDY #0
+    STA (zp_screen_ptr),Y
+    LDA frame_colour
+    LDY #8
+    STA (zp_screen_ptr),Y
+    LDY #16
+    STA (zp_screen_ptr),Y
+    AND #&CC
+    LDY #24
+    STA (zp_screen_ptr),Y
+.gauge_frame_next
+    INC bar_line
+    LDA bar_line
+    CMP #GAUGE_FRAME_BOTTOM + 1
+    BNE gauge_frame_line
+    RTS
+
 \ gauge_step: move player zp_player's gauge one splat towards A splats.
-\ Splat d of a gauge is drawn on lines BAR_BASE_LINE - 2d and the one above.
+\ Splat d of a gauge is drawn on line BAR_BASE_LINE - d.
 .gauge_step
     LDX zp_player
     CMP gauge_drawn,X
@@ -747,18 +829,12 @@ GAUGE_LINES_PER_SPLAT = 2
     STA bar_right
     LDA gauge_drawn,X
 .gauge_step_draw
-    ASL A                      \ Its lines: BAR_BASE_LINE - 2d and above.
-    ASSERT GAUGE_LINES_PER_SPLAT = 2
-    STA bar_height             \ (borrowed)
+    STA bar_height             \ (borrowed) Its line: BAR_BASE_LINE - d.
     JSR bar_column
     LDA #BAR_BASE_LINE
     SEC
     SBC bar_height
     STA bar_line
-    LDA bar_left
-    LDX bar_right
-    JSR draw_bar_line
-    DEC bar_line
     LDA bar_left
     LDX bar_right
     JMP draw_bar_line          \ Tail call.

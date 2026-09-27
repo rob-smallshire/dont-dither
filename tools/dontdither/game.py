@@ -106,7 +106,7 @@ FIRE_PERIOD = 6            # ticks between shots while fire is held (4 per secon
 # superpixels of its footprint, DIV 4, so 0 (hostile) to 4 (solid own ink).
 # The centre four are the only cells every player's rotation treats alike.
 # While fire is held the tank moves at normal speed and does not refill.
-RESERVOIR_SPLATS = 32      # a full reservoir, in splats
+RESERVOIR_SPLATS = 128     # a full reservoir, in splats (about 30 s of fire)
 GROUND_LEVELS = 5
 FIRING_GROUND = 1          # the ground level whose speed applies while firing
 # By ground level: speed in 1/256 superpixel per tick (axial, then diagonal

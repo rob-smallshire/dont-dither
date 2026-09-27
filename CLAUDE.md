@@ -92,11 +92,11 @@ compare every arena byte with `render.arena_screen(level, model.cells)`
 plus tanks.
 
 **Ink reservoir** (`game.py`, `game.asm`, `hud.asm`): each shot uses a
-splat from a 32-splat reservoir. With fire released, the tank's ground level
+splat from a 128-splat reservoir. With fire released, the tank's ground level
 (own quanta over its footprint's centre four superpixels, DIV 4) sets its
 speed (up to two steps a tick) and refill rate; with fire held it moves at
 normal speed and does not refill. HUD gauges show the reservoirs. An AI
-that runs dry refills on its own ink until it has 28 splats.
+that runs dry refills on its own ink until it has 64 splats.
 
 **Data flow from one source of truth:**
 

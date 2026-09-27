@@ -162,7 +162,7 @@ appear in the labels. beebasm exports labels, not `=` constants.
 |---|---|
 | &00–&6F | zero page: game variables (BASIC's area; the game never returns to BASIC). Nearly full: top used &6B |
 | &70–&8F | MOS user zero page: `zp_boot_status` only (polled by tests from boot) |
-| &0400–&07FF | **low block**: initialised tables (paint data, about 830 bytes), copied by the loader |
+| &0400–&07FF | **low block**: initialised tables (paint data, game data, HUD digit font; about 970 bytes), copied by the loader |
 | &0800–&08FF | left to the MOS (sound workspace) |
 | &0900–&0CFF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables. `SPLASH` runs here before the game |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
@@ -170,9 +170,9 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &2D00–&2FFF | **level area**: the loaded level set; it starts at the first page boundary after the main block, so it grows or shrinks a page at a time |
 | &3000–&7FFF | MODE 1 screen (the loader and level set pass through here while loading) |
 
-At the last build (with the ink reservoir): the level area is 768 bytes,
-with 21 bytes unused before it; about 190 bytes free in the low block;
-about 190 in the buffers. Building the superpixel row tables at start-up
+At the last build (with the ink reservoir and gauge frames): the level
+area is 768 bytes, with 39 bytes unused before it; 56 bytes free in the
+low block; about 190 in the buffers. Building the superpixel row tables at start-up
 freed 256 bytes of the main block, which the reservoir then used. A level
 costs about 40–55 bytes plus its title, and a set's header 66 bytes, so
 768 bytes hold about 14 levels. Candidates for more room: store sprite
@@ -312,7 +312,7 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   tank's own ink quanta over the four centre superpixels of its footprint
   (through `read_cell`, so from its save buffer) and divides by 4, giving
   0–4. The reservoir (whole splats plus 1/256ths) refills by
-  `ground_refill` for that level, up to 32 splats. With fire held the
+  `ground_refill` for that level, up to 128 splats. With fire held the
   ground counts as 1 and there is no refill. See §10a.
 - **Movement:** a direction sets the facing at once. The speed for the
   ground and direction (`ground_speed_lo` and `ground_speed_whole`; normal
@@ -378,10 +378,12 @@ colour, dash and refill, emerge and paint again. The rules are in
   `gauge_drawn`, `ai_refilling`, and the working bytes `move_ground`,
   `move_steps`, `ground_total` and `ground_index`.
 - **Gauges** (`hud.asm`): `update_gauges` runs each tick after the tanks
-  are drawn and moves every gauge one splat (two raster lines) towards its
-  reservoir. The gauges share the tally bars' columns and base line and
+  are drawn and moves every gauge one splat (a raster line) towards its
+  reservoir. `draw_gauge_frames` (from `enter_level`, so not on the
+  player-select backdrop) frames each gauge in the player's colour, a pixel
+  clear all round, in the gap columns between tally bars. The gauges share the tally bars' columns and base line and
   their drawing (`bar_bytes`, `bar_column`, `draw_bar_line`).
-  `clear_gauges` empties them at the end of a round.
+  `clear_gauges` empties them and erases the frames at the end of a round.
 - **Cost:** a tank with fire released reads four cells instead of
   shooting, far cheaper than a shot. A test checks the game keeps 25 Hz
   with two tanks firing and two refilling.
@@ -403,7 +405,7 @@ colour, dash and refill, emerge and paint again. The rules are in
   it stays put.
 - **Firing:** it fires when the chosen direction's score is at least 22.
 - **Refilling:** an AI that decides with an empty reservoir switches to
-  refilling (`ai_refilling`) until it has 28 splats. While refilling it
+  refilling (`ai_refilling`) until it has 64 splats. While refilling it
   holds fire, and a sample cell is worth 4 plus its own ink count, so it
   heads for its own ink.
 - **Properties:** it's deterministic and produces the ordinary input byte.

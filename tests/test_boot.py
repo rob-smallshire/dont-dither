@@ -24,7 +24,7 @@ from dontdither.screen import ARENA_CELLS, MODE1_ROW_BYTES, MODE1_SCREEN_BASE, M
 from dontdither.walls import wall_bitmap
 
 HUD_TEXT_ROWS = (4, 6)   # level number, clock
-HUD_GAUGE_ROWS = range(22, 30)   # the ink gauges: raster lines 176..239
+HUD_GAUGE_ROWS = range(13, 31)   # the ink gauges and frames: raster lines 110..241
 
 MOS_CURRENT_MODE = 0x0355
 SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"

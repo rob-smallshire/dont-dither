@@ -124,6 +124,9 @@ INCLUDE "build/generated/ink_tables.asm"
     LDA #0                     \ Not ready while drawing (matters when a test
     STA zp_boot_status         \ jumps here to draw another level).
     JSR draw_level
+    JSR draw_gauge_frames      \ Frames for the ink gauges (not on the
+                               \ player-select backdrop, which is drawn by
+                               \ draw_level too).
     JSR start_round            \ Set and show the round clock.
     LDA #BOOT_READY            \ Tell the harness we have finished setting
     STA zp_boot_status         \ up.
@@ -290,8 +293,6 @@ INCLUDE "asm/flow.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
 INCLUDE "build/generated/sprite_data.asm"
-INCLUDE "build/generated/game_data.asm"
-INCLUDE "build/generated/hud_font.asm"
 
 .end
 
@@ -311,7 +312,8 @@ level_title_hi    = level_area + LEVEL_SET_NAME_HI
 LEVEL_AREA_PAGES  = (MODE1_SCREEN_BASE - level_area) DIV 256
 
 \ ----------------------------------------------------------------------------
-\ Low block: initialised tables in BASIC's language workspace (&0400-&07FF),
+\ Low block: initialised tables in BASIC's language workspace (&0400-&07FF)
+\ -- paint data, game data (speeds, controls, AI) and the HUD digit font --
 \ which is free once the game runs (it never returns to BASIC). The loader
 \ copies them here along with the main block.
 \ ----------------------------------------------------------------------------
@@ -321,6 +323,8 @@ GUARD &0800                    \ &0800-&08FF is the MOS sound workspace.
 
 .low_start
 INCLUDE "build/generated/paint_data.asm"
+INCLUDE "build/generated/game_data.asm"
+INCLUDE "build/generated/hud_font.asm"
 .low_end
 
 \ ----------------------------------------------------------------------------
@@ -364,6 +368,7 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .player_reservoir SKIP MAX_PLAYERS \ Ink: whole splats (0..RESERVOIR_SPLATS)...
 .player_reservoir_fraction SKIP MAX_PLAYERS \ ...and 1/256ths of a splat.
 .gauge_drawn      SKIP MAX_PLAYERS \ Splats each HUD ink gauge shows.
+.frame_colour     SKIP 1       \ gauge_frame: its colour byte.
 .move_ground      SKIP 1       \ update_players: the mover's ground level,
 .move_steps       SKIP 1       \ and its steps still to take this tick.
 .ground_total     SKIP 1       \ ground_level: own quanta so far,

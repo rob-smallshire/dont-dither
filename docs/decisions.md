@@ -198,9 +198,11 @@ colour, dash and refill, then emerge and paint again. It gives the dithered
 ownership levels an immediate use: a (3,1,0,0) region is not just worth more
 to C than (2,1,1,0), it is a better road and filling station.
 
-- Each tank carries a reservoir of RESERVOIR_SPLATS (32) splats, full at the
+- Each tank carries a reservoir of RESERVOIR_SPLATS (128) splats, full at the
   start of a level. Each shot uses one; with none left, holding fire does
-  nothing. A full reservoir lasts about 7.7 seconds of continuous fire.
+  nothing. A full reservoir lasts about 30 seconds of continuous fire. (It
+  started at 32, about 7.7 seconds; that ran dry too often, and play spent
+  more time refilling than painting.)
 - While fire is held the tank moves at normal speed and does not refill,
   wherever it is (as in Splatoon: you cannot paint while dashing).
 - While fire is released, the ground sets the speed and refill rate. A
@@ -212,10 +214,10 @@ to C than (2,1,1,0), it is a better road and filling station.
   | Ground | Speed (fire released) | Refill |
   |---|---|---|
   | 0 | 0.5x | none |
-  | 1 | 1x | trickle, about 20 s to fill |
-  | 2 | 1x | about 5 s to fill |
-  | 3 | 1.25x | about 3 s to fill |
-  | 4 | 1.5x | about 1.7 s to fill |
+  | 1 | 1x | trickle: 1.6 splats/s (82 s from empty) |
+  | 2 | 1x | 6 splats/s (20 s from empty) |
+  | 3 | 1.25x | 10 splats/s (13 s from empty) |
+  | 4 | 1.5x | 19 splats/s (7 s from empty) |
 
   The trickle on ground 1 means a tank on the grey start arena is never
   stranded. The values are GROUND_AXIAL_SPEED, GROUND_DIAGONAL_SPEED and
@@ -224,14 +226,16 @@ to C than (2,1,1,0), it is a better road and filling station.
   (1/256 superpixel per tick) take a second step on some ticks; each step is
   tried and slides as before.
 - The HUD shows each reservoir as an ink gauge, like an inkjet printer's ink
-  levels: a bar in the player's ink, two raster lines per splat, in the
+  levels: a bar in the player's ink, a raster line per splat, in the
   columns where the tally bars grow. The gauges fill from empty as a level
   starts, follow the reservoirs a splat a tick, and are cleared when the
-  round ends, before the tally bars rise in their place.
+  round ends, before the tally bars rise in their place. Each gauge has a
+  frame in the player's colour (Y for K), a pixel clear of a full gauge all
+  round, showing what full looks like.
 - A computer player that decides with an empty reservoir switches to
   refilling: it holds fire and heads for its own ink (a sample cell is
-  worth 4 + its own count instead of 8 - its own count) until it has 28
-  splats, then paints again.
+  worth 4 + its own count instead of 8 - its own count) until it has 64
+  splats (half full), then paints again.
 
 ## Computer players
 
@@ -329,7 +333,8 @@ to C than (2,1,1,0), it is a better road and filling station.
   copies the image to &0E00 and jumps to it. The game never uses the disc
   again, and ESCAPE is made an ordinary key (*FX229,1) so no Escape
   handling reaches the filing system.
-- Memory map: &0400-&07FF a low block of initialised tables (paint data),
+- Memory map: &0400-&07FF a low block of initialised tables (paint data,
+  game data and the HUD digit font),
   copied there by the loader; &0800-&08FF left to the MOS for sound;
   &0900-&0CFF uninitialised buffers, over MOS buffers the game does not use
   (RS423/cassette, soft keys, user-defined characters 224-255); &0E00-&2FFF
