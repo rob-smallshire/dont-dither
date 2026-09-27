@@ -111,9 +111,11 @@ appear in the labels. beebasm exports labels, not `=` constants.
 ## 4. Loading and start-up
 
 ```
-!BOOT ──► SPLASH (&0900)
+!BOOT ──► SPLASH (&1900)
+            key layouts at &0CE0: kept if sealed (they survive BREAK),
+                                  else the defaults, sealed
             MODE 1, CMYK palette, *LOAD LOGO into screen memory
-            the aim, each player's keys, how ink works
+            the aim, each player's keys (from &0CE0), how ink works
             "Press 2 for two players / or 4 for four players"
             key 2|4 ──► palette to black
                         *LOAD LEVELS2|LEVELS4  (to LEVEL_TEMP = &6000)
@@ -125,7 +127,7 @@ appear in the labels. beebasm exports labels, not `=` constants.
                           HUD logo   ─► top 4 HUD rows (stays for good)
             JMP start
           start: clear screen around the logo, palette, *FX4,1, *FX229,1,
-                 beam timer ─► select_players
+                 beam timer ─► select_players   (keys read from &0CE0)
 ```
 
 - **Why a loader stub.** DFS cannot load a file into its own workspace
@@ -134,9 +136,21 @@ appear in the labels. beebasm exports labels, not `=` constants.
   copies them down whole pages at a time; destinations are below the
   sources, so forward copies are safe.
 - **Why `SPLASH` is separate.** `DITHER` loads at &3100, which is MODE 1
-  screen memory, so it could not show a picture. `SPLASH` runs at &0900
-  (MOS buffer pages unused at boot) and draws the logo by loading
-  ready-made screen bytes.
+  screen memory, so it could not show a picture. `SPLASH` runs at &1900
+  (BASIC's PAGE with DFS: above DFS's workspace, below the screen and the
+  level set) and draws the logo by loading ready-made screen bytes.
+- **The key handoff** (`asm/handoff.asm`, included by both programs): the
+  four players' key layouts live in a small block at &0CE0, the top of the
+  MOS's page for user-defined characters, which nothing here uses. `SPLASH`
+  fills it and `DITHER` reads it (`key_layouts`), so the keys can be shown,
+  and changed, before the game loads. The loader never writes it, and the
+  game's buffers stop below it. The block is sealed with a magic byte and
+  a checksum. BREAK is a soft reset that keeps RAM, so a sealed block
+  survives it and `SPLASH` keeps it. After CTRL-BREAK or power-on, which
+  clear RAM, it gets the defaults from `controls.py`. `SPLASH` names the
+  keys from a generated table (`key_names`, short names from
+  `controls.key_name`), a line per player, cut at 35 characters so no line
+  reaches the last column.
 - **The HUD logo** is a 60-pixel-wide copy of the logo, cropped to the
   artwork, 512 bytes at the end of the `DITHER` file. The loader copies it
   into the top four character rows of the HUD, last, because that part of
@@ -165,7 +179,8 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &70–&8F | MOS user zero page: `zp_boot_status` only (polled by tests from boot) |
 | &0400–&07FF | **low block**: initialised tables (paint data, game data, HUD digit font; about 970 bytes), copied by the loader |
 | &0800–&08FF | left to the MOS (sound workspace) |
-| &0900–&0CFF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables. `SPLASH` runs here before the game |
+| &0900–&0CDF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables |
+| &0CE0–&0CF5 | **key handoff**: the four key layouts, magic and checksum, left by `SPLASH` (`asm/handoff.asm`); kept across BREAK |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
 | &0E00–&2D08 | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
 | &2D09–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |

@@ -433,6 +433,13 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .sprite_save_buffers
     SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.
 
+.buffers_end
+ASSERT buffers_end <= HANDOFF_ADDRESS    \ Clear of what SPLASH left us.
+
+\ The key layouts SPLASH left resident (key_layouts; see handoff.asm).
+INCLUDE "asm/handoff.asm"
+ASSERT HANDOFF_KEY_BYTES = MAX_PLAYERS * KEY_LAYOUT_BYTES
+
 \ ============================================================================
 \ Loader
 \

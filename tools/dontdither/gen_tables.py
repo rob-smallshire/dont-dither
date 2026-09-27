@@ -577,17 +577,10 @@ def generate_game_data() -> str:
         ".key_direction",
         "    EQUB " + ", ".join(f"&{direction_of_keys(m):02X}" for m in range(16)),
         "",
-        "\\ Keyboard layouts: negative-INKEY codes (for OSBYTE &81) in the order",
-        "\\ " + ", ".join(reversed(LAYOUT_KEYS)) + " -- the scan order, so that",
-        "\\ rotating each result into the key mask leaves up in bit 0 and fire in",
-        "\\ bit 4. KEY_LAYOUT_BYTES per layout, one per player slot (C, M, Y, K).",
+        "\\ Keyboard layouts: KEY_LAYOUT_BYTES negative-INKEY codes per player slot,",
+        "\\ in key_layouts -- the block SPLASH leaves resident (asm/handoff.asm).",
         f"KEY_LAYOUT_BYTES = {len(LAYOUT_KEYS)}",
-        ".key_layouts",
     ]
-    for name, layout in LAYOUTS.items():
-        keys = [layout[k] for k in reversed(LAYOUT_KEYS)]
-        lines.append("    EQUB " + ", ".join(f"&{inkey_code(k):02X}" for k in keys)
-                     + f"    \\ {name}: " + ", ".join(keys))
     return "\n".join(lines) + "\n"
 
 
@@ -703,6 +696,37 @@ def generate_hud_font() -> str:
 # Splash screen
 # ---------------------------------------------------------------------------
 
+def key_layout_lines() -> list[str]:
+    """The default key layouts (controls.py) as EQUB lines: per player slot,
+    negative-INKEY codes (for OSBYTE &81) in the order fire, right, left,
+    down, up -- the scan order, so that rotating each result into the key
+    mask leaves up in bit 0 and fire in bit 4."""
+    from dontdither.controls import LAYOUT_KEYS, LAYOUTS, inkey_code
+
+    lines = []
+    for name, layout in LAYOUTS.items():
+        keys = [layout[k] for k in reversed(LAYOUT_KEYS)]
+        lines.append("    EQUB " + ", ".join(f"&{inkey_code(k):02X}" for k in keys)
+                     + f"    \\ {name}: " + ", ".join(keys))
+    return lines
+
+
+def key_name_lines() -> list[str]:
+    """key_names: for every key, its negative-INKEY code then its name
+    (controls.key_name), the last character with bit 7 set; then 0."""
+    from dontdither.controls import INTERNAL_KEY, inkey_code, key_name
+
+    lines = []
+    for key in INTERNAL_KEY:
+        name = key_name(key)
+        chars = [ord(c) for c in name]
+        chars[-1] |= 0x80
+        lines.append(f"    EQUB &{inkey_code(key):02X}, " + ", ".join(f"&{c:02X}" for c in chars)
+                     + f"    \\ {name}")
+    lines.append("    EQUB 0                 \\ (No key's code is 0: that is INKEY -256.)")
+    return lines
+
+
 INK_NAMES = {"C": "Cyan", "M": "Magenta", "Y": "Yellow", "K": "Black"}
 
 
@@ -711,19 +735,25 @@ def key_line(ink: str) -> str:
     from dontdither.controls import LAYOUTS
 
     layout = LAYOUTS[ink]
-    directions = [layout[k] for k in ("up", "left", "down", "right")]
-    keys = "cursor keys" if directions == ["UP", "LEFT", "DOWN", "RIGHT"] else " ".join(directions)
-    return f"{INK_NAMES[ink]}: {keys}, {layout['fire']} fires"
+    return layout_line(ink, [layout[k] for k in ("up", "left", "down", "right", "fire")])
 
 
-def splash_key_lines() -> list[str]:
-    lines = []
-    for slot, ink in enumerate("CMYK"):
-        colour = LOGICAL_COLOUR["Y" if ink == "K" else ink]
-        text = key_line(ink).replace("\\", '", 92, "')
-        lines.append(f"    EQUB 17, {colour}, 31, TEXT_COLUMN, KEYS_ROW + {slot}")
-        lines.append(f'    EQUS "{text}"')
-    return lines
+KEY_LINE_LENGTH = 35           # characters: from TEXT_COLUMN, short of column 39
+
+
+def layout_line(ink: str, keys: list[str]) -> str:
+    """How a player plays, given its keys up, left, down, right and fire:
+    e.g. "Cyan: W A S D, SHIFT fires", or "cursor keys" for the four cursor
+    keys. SPLASH prints it the same way from the resident layouts, cut off
+    at KEY_LINE_LENGTH characters."""
+    from dontdither.controls import key_name
+
+    *directions, fire = keys
+    if directions == ["UP", "LEFT", "DOWN", "RIGHT"]:
+        moves = "cursor keys"
+    else:
+        moves = " ".join(key_name(k) for k in directions)
+    return f"{INK_NAMES[ink]}: {moves}, {key_name(fire)} fires"[:KEY_LINE_LENGTH]
 
 
 def generate_splash(dirpath) -> None:
@@ -731,6 +761,7 @@ def generate_splash(dirpath) -> None:
     disc file LOGO loading straight into screen memory, and the constants
     and palette the SPLASH program uses."""
     from dontdither.splash import LOGO_TOP_ROW, logo_band
+    from dontdither.controls import LAYOUT_KEYS, inkey_code
 
     rows, band = logo_band()
     (dirpath / "logo.bin").write_bytes(band)
@@ -752,11 +783,23 @@ def generate_splash(dirpath) -> None:
         ".splash_palette",
         *(f"    EQUB 19, {LOGICAL_COLOUR[ink]}, {PHYSICAL_COLOUR[ink]}, 0, 0, 0" for ink in "KCMY"),
         ".splash_palette_end",
-        "\\ splash_keys: each player's keys (controls.py), a line each in its",
-        "\\ colour (K's in Y, as black would not show), from KEYS_ROW down.",
-        ".splash_keys",
-        *splash_key_lines(),
-        ".splash_keys_end",
+        "\\ The default key layouts (controls.py), for key_layouts when the",
+        "\\ resident block is not sealed (see asm/handoff.asm).",
+        f"KEY_LAYOUT_BYTES = {len(LAYOUT_KEYS)}",
+        ".default_key_layouts",
+        *key_layout_lines(),
+        "\\ key_names: every key's name, looked up by its negative-INKEY code.",
+        ".key_names",
+        *key_name_lines(),
+        "\\ The players' names, each ending with bit 7 set, in slot order.",
+        ".ink_names",
+        *(f"    EQUB " + ", ".join(f"&{c:02X}" for c in [*map(ord, name[:-1]), ord(name[-1]) | 0x80])
+          + f"    \\ {name}" for name in INK_NAMES.values()),
+        f"KEY_LINE_LENGTH = {KEY_LINE_LENGTH}",
+        "\\ The cursor keys' codes, as a layout holds its directions: up, left,",
+        "\\ down, right. A layout of exactly these shows as \"cursor keys\".",
+        ".cursor_key_codes",
+        "    EQUB " + ", ".join(f"&{inkey_code(k):02X}" for k in ("UP", "LEFT", "DOWN", "RIGHT")),
     ]) + "\n")
     from dontdither.splash import HUD_FIRST_COLUMN, HUD_LOGO_ROWS, HUD_ROW_BYTES, hud_logo
     (dirpath / "hud_logo.bin").write_bytes(hud_logo())

@@ -216,7 +216,10 @@ tests; they must stay consistent):
   (`GUARD &3000`, over DFS workspace), the low block of tables (paint data,
   game data, HUD font) to &0400-&07FF, and the level set to `level_area`,
   which runs from the end of the main block (not page-aligned) to &2FFF:
-  code growth shrinks it. Keep an eye on its size (about 14 levels today). Uninitialised buffers are at &0900-&0CFF. &0800 is left to
+  code growth shrinks it. Keep an eye on its size (about 14 levels today).
+  Uninitialised buffers are at &0900-&0CDF. The key layouts are at &0CE0
+  (`asm/handoff.asm`): SPLASH (at &1900) fills them, the game reads them,
+  and they survive BREAK. &0800 is left to
   the MOS for sound. The MODE 1 screen is &3000-&7FFF. Zero page &00-&6F
   is nearly full: put rarely used variables in the buffer area.
   Sideways RAM only if we hit the limit, and raise it with the user first.

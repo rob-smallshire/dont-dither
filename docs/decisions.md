@@ -270,7 +270,7 @@ to C than (2,1,1,0), it is a better road and filling station.
 ## Two- or four-player games and level sets
 
 - The game is two-player or four-player, chosen once on the title screen
-  by pressing 2 or 4. The title screen (SPLASH, run by !BOOT at &0900)
+  by pressing 2 or 4. The title screen (SPLASH, run by !BOOT at &1900)
   shows the logo -- art/splash.png, resampled to 300 pixels wide and
   quantised to CMYK by the build, saved as screen bytes in LOGO -- with the
   prompt beneath it, and a short guide in the players' colours: the aim,
@@ -355,6 +355,12 @@ to C than (2,1,1,0), it is a better road and filling station.
   three or more held keys ghost; that is a hardware limit.
 - Keys are read with OSBYTE &81; *FX4,1 stops the cursor keys and COPY
   doing cursor editing, and the keyboard buffer is flushed every tick.
+- The layouts are not part of the game: SPLASH leaves them resident at
+  &0CE0 (asm/handoff.asm) and the game reads them there, so the title
+  screen can show them, and players can change them, before the game
+  loads. They are sealed with a magic byte and checksum and so survive
+  BREAK (a soft reset keeps RAM); CTRL-BREAK or power-on brings back the
+  defaults.
 - The title screen explains the aim, each player's keys and how ink works
   ("Paint as much as you can! ... Firing uses ink. Move faster and
   recharge on your own colour; the more saturated, the better.").
@@ -373,8 +379,9 @@ to C than (2,1,1,0), it is a better road and filling station.
 - Memory map: &0400-&07FF a low block of initialised tables (paint data,
   game data and the HUD digit font),
   copied there by the loader; &0800-&08FF left to the MOS for sound;
-  &0900-&0CFF uninitialised buffers, over MOS buffers the game does not use
-  (RS423/cassette, soft keys, user-defined characters 224-255); &0E00-&2FFF
+  &0900-&0CDF uninitialised buffers, over MOS buffers the game does not use
+  (RS423/cassette, soft keys, user-defined characters 224-255); &0CE0 the
+  key layouts SPLASH leaves for the game (see Input); &0E00-&2FFF
   the main block of code and tables. Zero page &00-&6F is nearly full.
 - The main block starts with the ink tables, whose page-aligned
   pattern_to_state then needs no padding. The level area follows the main

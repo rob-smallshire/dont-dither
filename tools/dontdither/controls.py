@@ -42,6 +42,17 @@ LAYOUTS = {
 }
 
 
+# How a key is named on screen, where its name is not the key itself: short,
+# so that a player's keys fit on one line of the title screen.
+KEY_DISPLAY_NAME = {"CAPS LOCK": "CAPS", "SHIFT LOCK": "SLOCK", "DELETE": "DEL",
+                    "RETURN": "RET", "ESCAPE": "ESC"}
+
+
+def key_name(key: str) -> str:
+    """The key's name on screen: at most five characters."""
+    return KEY_DISPLAY_NAME.get(key, key)
+
+
 def inkey_code(key: str) -> int:
     """The negative-INKEY byte for OSBYTE &81."""
     return INTERNAL_KEY[key] ^ 0xFF
