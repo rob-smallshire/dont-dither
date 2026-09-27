@@ -80,7 +80,7 @@ uv run dd-render-music                    # build/music/splash_theme.wav
    | `ink_tables.asm` | `data/ink_patterns.json`, `inks.py` | palette VDU bytes, `state_top_bytes`/`state_bottom_bytes`, `pattern_to_state` (256, page-aligned), `STATE_*` constants |
    | `screen_tables.asm` | — | `bit_masks` (the superpixel row tables are built at start-up) |
    | `wall_tiles.asm` | `walls.py` | 16 rim-mask tiles, corner patches, `WALL_INK_*` |
-   | `sprite_data.asm` | `sprites/tank.spr` | 16 frames (8 facings × 2 alignments) as mask and select planes, footprint masks, ink bytes |
+   | `sprite_data.asm` | `sprites/tank.spr` | 8 frames (one per facing, even alignment) as mask and select planes, footprint masks, ink bytes |
    | `game_data.asm` | `game.py`, `controls.py`, `ai.py` | speeds, direction tables, key layouts, AI constants and samples, round lengths |
    | `paint_data.asm` | ink table, `sprites/splats.spr` | ink-state arithmetic tables and splat ray trees |
    | `hud_font.asm` | `hud_font.py` | 3×5 digit font |
@@ -203,19 +203,23 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &0900–&0CDF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables |
 | &0CE0–&0CF5 | **key handoff**: the four key layouts, magic and checksum, left by `SPLASH` (`asm/handoff.asm`); kept across BREAK |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
-| &0E00–&2D1B | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
-| &2D1C–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
+| &0E00–&2AD3 | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
+| &2AD4–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
 | &3000–&7FFF | MODE 1 screen (the loader and level set pass through here while loading) |
 
-At the last build (with four keyboard players and resident keys): the
-level area is 740 bytes; 66 bytes free in the low block; about 150
-in the buffers below the key handoff block. `SPLASH`, at &1900, has plenty
-of room up to the screen. Building the superpixel row tables at start-up
-freed 256 bytes of the main block, which the reservoir then used. A level
-costs about 40–55 bytes plus its title, and a set's header 66 bytes, so
-740 bytes hold about 14 levels. Candidates for more room: store sprite
-frames at one alignment and shift at draw time (saves about 768 bytes),
-move code into the low block, or trim code.
+At the last build (with sprite frames stored at one alignment): the level
+area is 1,324 bytes, of which each set of 16 levels uses about 530–560;
+66 bytes free in the low block; about 50 in the buffers below the key
+handoff block. `SPLASH`, at &1900, has plenty of room up to the screen.
+Where memory came from:
+- Building the superpixel row tables at start-up freed 256 bytes, which
+  the reservoir then used.
+- The compact level format roughly halved each level's cost.
+- Storing the tank frames at one alignment, and shifting them for odd sx
+  as they are drawn, freed about 650 bytes. That room is for tunnels.
+
+Other candidates for more room: move code into the low block, or trim
+code.
 
 ---
 
@@ -320,8 +324,13 @@ move code into the low block, or trim code.
   tanks are drawn within 11 rows so the one-pixel barrel has a centre row.
   Each tank is two-tone: the player's ink plus a contrast ink (black, or
   yellow for the K player). Players are identified by colour only.
-- **Frames:** each facing and horizontal alignment has a mask plane and a
-  select plane, 4 bytes × 12 lines each. The colour is applied at draw time
+- **Frames:** each facing has a mask plane and a select plane, 4 bytes ×
+  12 lines each, stored for even sx only. For odd sx, `prepare_sprite`
+  shifts the frame a superpixel right into a buffer:
+  `((byte >> 2) AND &33) OR ((left << 2) AND &CC)`. That gives exactly the
+  odd frame, and a test checks it. It costs about 2,000 cycles, and
+  `render_sprites` spends them before waiting for the beam, so the timed
+  redraw is unchanged. The colour is applied at draw time
   as `contrast EOR ((contrast EOR ink) AND select)`, merged under the mask.
   The inner loops patch their own absolute addresses (self-modifying code)
   and index everything with X through `sprite_line_offsets`.

@@ -429,6 +429,10 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 
 .sprite_save_buffers
     SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.
+.sprite_shifted_mask
+    SKIP SPRITE_FRAME_BYTES    \ prepare_sprite: a frame shifted for odd sx,
+.sprite_shifted_select         \ its mask and select planes.
+    SKIP SPRITE_FRAME_BYTES
 
 .buffers_end
 ASSERT buffers_end <= HANDOFF_ADDRESS    \ Clear of what SPLASH left us.

@@ -95,11 +95,14 @@ Decisions taken during development that refine or depart from
 
 ### Drawing tanks on the 6502
 
-- Frames are stored as a mask plane and a select plane per facing and per
-  horizontal alignment (even or odd superpixel column), 4 bytes x 12 lines
-  each: 16 frames, about 1.5 KB. Colour is applied at draw time
+- Frames are stored as a mask plane and a select plane per facing, 4 bytes
+  x 12 lines each, for even superpixel columns only: 8 frames, 768 bytes.
+  For odd columns the game shifts a frame one superpixel right as it
+  prepares to draw it, which gives exactly the odd frame. That costs about
+  2,000 cycles per tank, spent before the beam-raced redraw, and freed 768
+  bytes, room for tunnels. Colour is applied at draw time
   (contrast EOR ((contrast EOR ink) AND select)), so all players share the
-  frames. Runtime shifting could halve the frame memory if space runs short.
+  frames.
 - Tanks are solid: they cannot pass through each other, so their pictures
   never overlap. Each tank that moved or turned is redrawn on its own
   (restore, save, draw); the rest are untouched. Painting will write cells

@@ -31,6 +31,10 @@ GUARD &90                      \ Assembly fails if we outgrow &70-&8F.
 
 BOOT_READY = &FF               \ zp_boot_status value once set-up is done.
 
+    SKIP 3                     \ (&71-&73: the music player's, in TUNE.)
+.zp_shift_source  SKIP 2       \ prepare_sprite: the frame plane being shifted,
+.zp_shift_dest    SKIP 2       \ and where the shifted copy goes.
+
 \ ============================================================================
 \ &00-&6F: former BASIC workspace
 \ ============================================================================

@@ -175,6 +175,7 @@ MAX_PLAYERS = 4
     STX zp_player
     JSR save_under
     LDX zp_player
+    JSR prepare_sprite
     JSR draw_sprite
     LDX zp_player
     INX
@@ -409,6 +410,8 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     ADC #2
     STA zp_region_bottom
 
+    LDX zp_player              \ The frame first (shifting it takes time),
+    JSR prepare_sprite         \ then wait for the beam to pass.
     JSR wait_for_beam
     LDX zp_player
     JSR restore_under
@@ -585,9 +588,129 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     EQUB HI(footprint_mask_0), HI(footprint_mask_1)
 
 \ ----------------------------------------------------------------------------
-\ draw_sprite -- draw player X's tank at its position and facing
+\ prepare_sprite -- make player X's frame ready for draw_sprite
 \
 \ On entry:  X = player
+\ On exit:   draw_sprite's plane operands point at the frame; X preserved;
+\            A, Y, zp_sprite_tmp/xor/contrast and zp_shift_* corrupted
+\
+\ Frames are stored for even sx only. For odd sx the sprite starts a
+\ superpixel (2 pixels) into its first byte, so the frame is shifted right
+\ by that into sprite_shifted_mask/_select: each byte's pixels 0-1 move to
+\ 2-3, and the byte to its left gives its pixels 2-3 to this one's 0-1:
+\     shifted = ((byte >> 2) AND &33) OR ((left << 2) AND &CC)
+\ A stored frame's fourth byte column is empty, so each raster line's
+\ shifted bytes come from its first three. That gives exactly the odd
+\ frame (tests check), for about 2000 cycles -- done here, before
+\ render_sprites waits for the beam, so the timed redraw is unchanged.
+\ ----------------------------------------------------------------------------
+
+.prepare_sprite
+    LDY player_facing,X
+    LDA player_sx,X
+    LSR A
+    BCS prepare_sprite_odd
+    LDA sprite_select_lo,Y     \ Even: the stored frame as it is.
+    STA draw_sprite_select+1   \ PATCHED: LDA select,X in draw_sprite.
+    LDA sprite_select_hi,Y
+    STA draw_sprite_select+2
+    LDA sprite_mask_lo,Y
+    STA draw_sprite_mask+1     \ PATCHED: AND mask,X in draw_sprite.
+    LDA sprite_mask_hi,Y
+    STA draw_sprite_mask+2
+    RTS
+
+.prepare_sprite_odd
+    TXA
+    PHA
+    LDA sprite_select_lo,Y     \ Odd: shift the select plane...
+    STA zp_shift_source
+    LDA sprite_select_hi,Y
+    STA zp_shift_source+1
+    LDA #LO(sprite_shifted_select)
+    STA zp_shift_dest
+    LDA #HI(sprite_shifted_select)
+    STA zp_shift_dest+1
+    TYA
+    PHA
+    JSR shift_plane
+    PLA
+    TAY
+    LDA sprite_mask_lo,Y       \ ...and the mask plane...
+    STA zp_shift_source
+    LDA sprite_mask_hi,Y
+    STA zp_shift_source+1
+    LDA #LO(sprite_shifted_mask)
+    STA zp_shift_dest
+    LDA #HI(sprite_shifted_mask)
+    STA zp_shift_dest+1
+    JSR shift_plane
+    LDA #LO(sprite_shifted_select)   \ ...and draw those.
+    STA draw_sprite_select+1
+    LDA #HI(sprite_shifted_select)
+    STA draw_sprite_select+2
+    LDA #LO(sprite_shifted_mask)
+    STA draw_sprite_mask+1
+    LDA #HI(sprite_shifted_mask)
+    STA draw_sprite_mask+2
+    PLA
+    TAX
+    RTS
+
+\ shift_plane: (zp_shift_dest) = (zp_shift_source) shifted a superpixel
+\ right, raster line by raster line (4 bytes each; see prepare_sprite).
+\ zp_sprite_tmp and zp_sprite_xor hold the line's source bytes as they
+\ are passed; zp_sprite_contrast is a working byte.
+.shift_plane
+    LDY #0
+.shift_plane_line
+    LDA (zp_shift_source),Y    \ Byte 0: its own pixels 0-1, moved right.
+    STA zp_sprite_tmp
+    LSR A
+    LSR A
+    AND #&33
+    STA (zp_shift_dest),Y
+    INY
+    LDA (zp_shift_source),Y    \ Byte 1: its own, moved right, and byte
+    STA zp_sprite_xor          \ 0's pixels 2-3.
+    LSR A
+    LSR A
+    AND #&33
+    STA zp_sprite_contrast
+    LDA zp_sprite_tmp
+    ASL A
+    ASL A
+    AND #&CC
+    ORA zp_sprite_contrast
+    STA (zp_shift_dest),Y
+    INY
+    LDA (zp_shift_source),Y    \ Byte 2: likewise, with byte 1's.
+    STA zp_sprite_tmp
+    LSR A
+    LSR A
+    AND #&33
+    STA zp_sprite_contrast
+    LDA zp_sprite_xor
+    ASL A
+    ASL A
+    AND #&CC
+    ORA zp_sprite_contrast
+    STA (zp_shift_dest),Y
+    INY
+    LDA zp_sprite_tmp          \ Byte 3: byte 2's pixels 2-3 only.
+    ASL A
+    ASL A
+    AND #&CC
+    STA (zp_shift_dest),Y
+    INY
+    CPY #SPRITE_FRAME_BYTES
+    BNE shift_plane_line
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ draw_sprite -- draw player X's tank at its position and facing
+\
+\ On entry:  X = player; its frame made ready by prepare_sprite
 \ On exit:   A, X, Y corrupted
 \ ----------------------------------------------------------------------------
 
@@ -603,23 +726,6 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     STA zp_sprite_contrast
     EOR ink_bytes,Y
     STA zp_sprite_xor
-
-    \ Frame = facing * 2 + (sx AND 1); patch its planes into the loop.
-    LDA player_sx,X
-    AND #1
-    STA zp_sprite_tmp
-    LDA player_facing,X
-    ASL A
-    ORA zp_sprite_tmp
-    TAY
-    LDA sprite_select_lo,Y
-    STA draw_sprite_select+1   \ PATCHED: LDA select,X below.
-    LDA sprite_select_hi,Y
-    STA draw_sprite_select+2
-    LDA sprite_mask_lo,Y
-    STA draw_sprite_mask+1     \ PATCHED: AND mask,X below.
-    LDA sprite_mask_hi,Y
-    STA draw_sprite_mask+2
 
     LDY player_sy,X
     LDA player_sx,X

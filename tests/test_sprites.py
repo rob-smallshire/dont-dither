@@ -79,3 +79,22 @@ def test_diagonal_tank_is_mirror_symmetric_about_the_box_diagonal(tank):
     north_east = tank["NE"]
     n = SPRITE_PIXELS - 1
     assert all(north_east[y][x] == north_east[n - x][n - y] for y in range(n + 1) for x in range(n + 1))
+
+
+def shift_right_a_superpixel(plane: bytes) -> list[int]:
+    """What prepare_sprite (asm/sprites.asm) does to a stored frame plane for
+    odd sx: per raster line of 4 bytes, each byte's pixels 0-1 move to 2-3,
+    and the byte to its left gives its pixels 2-3 to this one's 0-1."""
+    return [((b >> 2) & 0x33) | (((plane[i - 1] if i % 4 else 0) << 2) & 0xCC)
+            for i, b in enumerate(plane)]
+
+
+def test_odd_frames_are_the_even_frames_shifted():
+    """Only even-sx frames are stored; the game shifts them for odd sx."""
+    from dontdither.sprites import FACINGS, frame_planes, load_tank
+
+    tank = load_tank()
+    for facing in FACINGS:
+        for even, odd in zip(frame_planes(tank[facing], 0), frame_planes(tank[facing], 1)):
+            assert all(even[i] == 0 for i in range(3, len(even), 4)), facing   # 4th column empty
+            assert shift_right_a_superpixel(even) == list(odd), facing
