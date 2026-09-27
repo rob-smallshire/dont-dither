@@ -56,6 +56,8 @@
     DEC player_cooldown,X      \ Still reloading.
     JMP fire_players_next
 .fire_players_ready
+    LDA player_in_tunnel,X     \ No firing from inside a tunnel.
+    BNE fire_players_next
     LDA player_input,X
     AND #FIRE_BIT
     BEQ fire_players_next
@@ -295,6 +297,8 @@
 .read_cell_tank
     CPX player_count
     BEQ read_cell_located
+    LDA player_drawn,X         \ (A tank not on screen hides nothing.)
+    BEQ read_cell_next_tank
     LDA zp_cell_x
     SEC
     SBC saved_sx,X

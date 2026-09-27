@@ -4,6 +4,7 @@ NAME Binary Opposition
 SYMMETRY ROT2
 WALLS K Y
 START 61 12 S
+TUNNELS                        # mouths mid-edge; drive through to the far side
 
 # The 1: a stem with a flag at its top.
 MOVE 6 4

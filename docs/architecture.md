@@ -203,20 +203,20 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &0900–&0CDF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables |
 | &0CE0–&0CF5 | **key handoff**: the four key layouts, magic and checksum, left by `SPLASH` (`asm/handoff.asm`); kept across BREAK |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
-| &0E00–&2AD3 | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
-| &2AD4–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
+| &0E00–&2C2B | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
+| &2C2C–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
 | &3000–&7FFF | MODE 1 screen (the loader and level set pass through here while loading) |
 
-At the last build (with sprite frames stored at one alignment): the level
-area is 1,324 bytes, of which each set of 16 levels uses about 530–560;
-66 bytes free in the low block; about 50 in the buffers below the key
-handoff block. `SPLASH`, at &1900, has plenty of room up to the screen.
+At the last build (with tunnels): the level area is 980 bytes, of which
+each set of 16 levels uses about 530–560; 66 bytes free in the low block;
+about 38 in the buffers below the key handoff block. `SPLASH`, at &1900, has plenty of room up to the screen.
 Where memory came from:
 - Building the superpixel row tables at start-up freed 256 bytes, which
   the reservoir then used.
 - The compact level format roughly halved each level's cost.
 - Storing the tank frames at one alignment, and shifting them for odd sx
-  as they are drawn, freed about 650 bytes. That room is for tunnels.
+  as they are drawn, freed about 650 bytes. Tunnels then used 344 of
+  them.
 
 Other candidates for more room: move code into the low block, or trim
 code.
@@ -289,7 +289,10 @@ code.
   player, by (sx, sy) → (122−sy, sx) with facing + 2 per quarter turn.
   Player *k* plays ink *k*.
 - **The border** is not stored: `build_wall_map` sets the outermost ring
-  of the wall map itself, before expanding the level.
+  of the wall map itself, before expanding the level. On a level with
+  tunnels (bit 7 of the header's symmetry byte), it leaves the mouths
+  open: cells 14–17 of the left and right edges, and on four-player levels
+  of the top and bottom as well.
 - **Bytecode**, compact so that 16 levels fit each set:
   - a 7-byte header: symmetry, wall core and rim ink bytes, fill state,
     and player 1's start (sx, sy, facing);
@@ -456,6 +459,31 @@ colour, dash and refill, emerge and paint again. The rules are in
 
 ---
 
+## 10b. Tunnels
+
+The model is in `game.py` (`_into_tunnel`, `_tunnel`); `game.asm`
+(`into_tunnel`, `tunnel_tick`) matches it tick for tick.
+
+- **Entering:** before each step, `into_tunnel` checks for an axial step
+  out of the arena with the footprint within a mouth (sx or sy between
+  `MOUTH_LOW` and `MOUTH_HIGH`, 56–66). If so, the tank goes into the
+  tunnel (`player_in_tunnel`, `player_tunnel_ticks` = `TUNNEL_TICKS`), and
+  that is its movement for the tick.
+- **In the tunnel:** `update_players` gives the tank only `tunnel_tick`.
+  This counts down, then tries the opposite mouth with `position_clear`.
+  `fire_players` skips the tank.
+- **On screen:** `player_drawn` records whether a tank is drawn. `save_under`
+  sets it and `restore_under` clears it. `render_sprites` redraws a tank
+  whose visibility changed: into a tunnel means restore only, out of one
+  means save and draw. `hide_sprites` skips undrawn tanks.
+- **What ignores a tank in a tunnel:**
+  - `position_clear` ignores its current position, and ignores its drawn
+    position once it is no longer drawn;
+  - `read_cell` looks for cells under drawn tanks only.
+- **Cost:** 344 bytes of code; the level area is 980 bytes.
+
+---
+
 ## 11. Computer players
 
 `ai.py` is the specification, and `ai.asm` matches it decision for decision.
@@ -577,6 +605,16 @@ screen memory and state against them:
 - A test records `TUNE` from Beebium's audio stream to
   `build/music/beebium_theme.wav`.
 
+### Tunnel tests
+
+- `test_tunnels_model.py` covers the rules: the mouths for each symmetry,
+  going through, the whole footprint within a mouth, no diagonal entry,
+  top and bottom mouths only with four players, out of play inside
+  (no firing, refilling or blocking), and waiting for a blocked exit.
+- `test_tunnels.py` drives a tank through Tug of War's tunnel on the
+  machine, matching the model on every tick. The screen is checked as the
+  tank vanishes, and again as it reappears on the far side.
+
 ### Test practice
 
 - The model is written first, and the 6502 must match it: tick-for-tick
@@ -608,13 +646,15 @@ screen memory and state against them:
   logo, the ink reservoir with its framed gauges, random AI starting
   directions (playability is much improved by these two), up to four
   players on one keyboard, and key layouts shown, redefined and kept
-  across BREAK by the title screen, and title music (`docs/music.md`),
-  which sounds the same from the model and from Beebium.
+  across BREAK by the title screen, title music (`docs/music.md`), which
+  sounds the same from the model and from Beebium, 16 levels in each set,
+  and tunnels on the last four of each.
 - **Tuning:** the reservoir's size, refill rates and ground speeds, and the
   AI's refill threshold, are constants in `game.py` and `ai.py`.
 - **Next:**
-  - more levels, from the categorised titles. The 740-byte level area
-    holds about 14 per set; 15 needs a little more memory (§5);
+  - session length: 16 five-minute rounds is long, so shorter rounds or
+    choosing levels may be wanted;
+  - teaching the AI to use tunnels;
   - joysticks, including SPItFIRE four-joystick support, once Beebium can
     emulate them: a player joining with a joystick's fire button gets
     `CONTROL_JOYSTICK` (reserved), and `read_inputs` reads it;

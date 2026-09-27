@@ -71,6 +71,7 @@ MAX_PLAYERS = 4
 .place_players
     LDY #LEVEL_HEADER_SYMMETRY
     LDA (zp_level_ptr),Y
+    AND #&FF EOR LEVEL_TUNNELS_BIT
     STA zp_symmetry_step       \ 1 (ROT4, four players) or 2 (ROT2, two).
     LDX #4
     CMP #1
@@ -125,6 +126,8 @@ MAX_PLAYERS = 4
     STA player_cooldown,X
     STA player_variant,X
     STA player_repaint,X
+    STA player_in_tunnel,X
+    STA player_drawn,X         \ (show_sprites draws it.)
     STA player_reservoir_fraction,X
     STA ai_refilling,X
     STA gauge_drawn,X          \ (clear_hud has erased the gauges)
@@ -151,7 +154,9 @@ MAX_PLAYERS = 4
 
     INX
     CPX #MAX_PLAYERS           \ (All four slots are set; only player_count
-    BNE place_players_loop     \ of them play.)
+    BEQ place_players_done     \ of them play.)
+    JMP place_players_loop
+.place_players_done
 
     LDA #0                     \ Nothing is on screen to restore yet.
     STA sprites_shown
@@ -192,6 +197,8 @@ MAX_PLAYERS = 4
 .hide_sprites_loop
     DEX
     BMI hide_sprites_hidden    \ Stop once X wraps below 0.
+    LDA player_drawn,X         \ (One in a tunnel is not on screen.)
+    BEQ hide_sprites_loop
     STX zp_player
     JSR restore_under
     LDX zp_player
@@ -313,6 +320,14 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
 .render_collect
     CPX player_count
     BEQ render_sort
+    LDA player_drawn,X         \ In a tunnel, or out of one? (Drawn and in
+    BNE render_collect_drawn   \ a tunnel: hide it; not drawn and out:
+    LDA player_in_tunnel,X     \ show it; not drawn and in: nothing.)
+    BNE render_collect_next
+    BEQ render_collect_add     \ (Always.)
+.render_collect_drawn
+    LDA player_in_tunnel,X
+    BNE render_collect_add
     LDA player_sx,X
     CMP saved_sx,X
     BNE render_collect_add
@@ -414,11 +429,17 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     JSR prepare_sprite         \ then wait for the beam to pass.
     JSR wait_for_beam
     LDX zp_player
+    LDA player_drawn,X         \ Off the screen where it was drawn...
+    BEQ render_draw_new
     JSR restore_under
     LDX zp_player
+.render_draw_new
+    LDA player_in_tunnel,X     \ ...and on where it is, unless in a tunnel.
+    BNE render_draw_next
     JSR save_under
     LDX zp_player
     JSR draw_sprite
+.render_draw_next
 
     INC zp_render_index
     JMP render_draw_loop
@@ -507,6 +528,8 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
     LDA zp_sprite_tmp
     STA save_under_store+2
 
+    LDA #1                     \ The tank is (about to be) on screen.
+    STA player_drawn,X
     LDA player_sx,X            \ Remember where this background came from,
     STA saved_sx,X             \ for restore_under.
     LDY player_sy,X
@@ -545,6 +568,8 @@ BEAM_REDRAW_UNITS = 14         \ Time for one restore + save + draw (about
 \ ----------------------------------------------------------------------------
 
 .restore_under
+    LDA #0                     \ The tank is off the screen.
+    STA player_drawn,X
     JSR point_at_save_buffer
     STA restore_under_load+1   \ PATCHED: LDA buffer,X below.
     LDA zp_sprite_tmp

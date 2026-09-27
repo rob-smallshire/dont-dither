@@ -5,6 +5,7 @@ NAME Four Gone Conclusion
 SYMMETRY ROT4
 WALLS K M
 START 8 8 SE
+TUNNELS                        # mouths mid-edge; drive through to the far side
 
 # A long spiral arm, from the left side in and up.
 MOVE 4 18

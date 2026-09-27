@@ -91,7 +91,7 @@ def decide(game, index: int) -> int:
         player.ai_refilling = player.reservoir == 0
     scores = direction_scores(game, index)
     current = player.ai_direction
-    starts = [(p.sx, p.sy) for p in game.players]
+    starts = [None if p.in_tunnel else (p.sx, p.sy) for p in game.players]
     ruled_out = set()
     while len(ruled_out) < 8:
         best, best_score = None, -1

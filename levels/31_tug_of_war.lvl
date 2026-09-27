@@ -5,6 +5,7 @@ NAME Tug of War
 SYMMETRY ROT2
 WALLS Y K
 START 61 8 S
+TUNNELS                        # mouths mid-edge; drive through to the far side
 
 # The rope: across the middle, leaving the ends free to go round.
 MOVE 4 15

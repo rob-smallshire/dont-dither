@@ -11,6 +11,10 @@ text after '#' are ignored. Directives:
     START <sx> <sy> <facing>    player 0's start: top-left superpixel (0..127)
                                 of its 6x6 footprint, and facing N NE E SE S
                                 SW W NW; other players by symmetry
+    TUNNELS                     mouths in the border, centred on the edges the
+                                symmetry pairs (left and right; on four-player
+                                levels top and bottom too), joined by tunnels
+                                (see game.py)
     MOVE <cx> <cy>              move the pen to wall cell (0..31)
     DRAW <cx> <cy>              draw wall cells from the pen to here inclusive,
                                 horizontally or vertically, and move the pen
@@ -23,7 +27,8 @@ maps wall cell (x, y) to (31 - y, x).
 
 Bytecode, made compact so that as many levels as possible fit the game's
 level area:
-    header   symmetry step (quarter turns between copies: 1 ROT4, 2 ROT2),
+    header   symmetry step (quarter turns between copies: 1 ROT4, 2 ROT2;
+             TUNNELS_BIT set if the level has tunnels),
              core ink byte, rim ink byte, fill state, and player 0's start
              sx, sy and facing (HEADER_SIZE bytes)
     commands two bytes each: cx, with bit 7 set for DRAW (clear for MOVE),
@@ -56,15 +61,24 @@ class LevelOp(enum.IntEnum):
 
 
 DRAW_BIT = 0x80                # in a command's first byte (cx)
+TUNNELS_BIT = 0x80             # in the header's symmetry byte
+MOUTH_CELLS = range(14, 18)    # a tunnel mouth: 4 cells in the middle of an edge
 END = 0xFF                     # the byte ending a level's commands
 HEADER_SIZE = 7
 
 
-def border_cells() -> set[tuple[int, int]]:
-    """The outermost ring of wall cells, which every level has."""
+def border_cells(mouths: str = "") -> set[tuple[int, int]]:
+    """The outermost ring of wall cells, which every level has, less any
+    tunnel mouths: "LR" in the left and right edges, "LRTB" in all four."""
     last = WALL_GRID_CELLS - 1
-    return {(x, y) for x in range(WALL_GRID_CELLS) for y in range(WALL_GRID_CELLS)
-            if x in (0, last) or y in (0, last)}
+    cells = {(x, y) for x in range(WALL_GRID_CELLS) for y in range(WALL_GRID_CELLS)
+             if x in (0, last) or y in (0, last)}
+    for m in MOUTH_CELLS:
+        if "L" in mouths:
+            cells -= {(0, m), (last, m)}
+        if "T" in mouths:
+            cells -= {(m, 0), (m, last)}
+    return cells
 
 
 class Symmetry(enum.IntEnum):
@@ -97,6 +111,13 @@ class Level:
     fill: State
     start: Start
     commands: tuple[tuple[LevelOp, int, int], ...] = field(default=())
+    tunnels: bool = False
+
+    @property
+    def mouths(self) -> str:
+        if not self.tunnels:
+            return ""
+        return "LRTB" if self.symmetry.copies == 4 else "LR"
 
     # ---- Model of the expansion -----------------------------------------------
 
@@ -115,7 +136,7 @@ class Level:
 
     def wall_cells(self) -> WallCells:
         """All wall cells after applying the symmetry, and the border."""
-        cells = border_cells()
+        cells = border_cells(self.mouths)
         for copy in range(self.symmetry.copies):
             turns = copy * self.symmetry.value
             cells.update(rotate_cell(c, turns) for c in self.stored_cells())
@@ -135,7 +156,7 @@ class Level:
 
     def bytecode(self, table: InkTable) -> bytes:
         data = [
-            self.symmetry.value,
+            self.symmetry.value | (TUNNELS_BIT if self.tunnels else 0),
             full_byte(self.colouring.core),
             full_byte(self.colouring.rim),
             table.states.index(self.fill),
@@ -195,6 +216,7 @@ def parse_level(text: str, source: str = "<level>") -> Level:
     colouring = None
     fill: State = (1, 1, 1, 1)
     start = None
+    tunnels = False
     commands: list[tuple[LevelOp, int, int]] = []
     pen = None
 
@@ -227,6 +249,10 @@ def parse_level(text: str, source: str = "<level>") -> Level:
                 limit = ARENA_SUPERPIXELS - PLAYER_FOOTPRINT
                 start = Start(_int(sx, 0, limit, "START sx"), _int(sy, 0, limit, "START sy"),
                               FACINGS.index(facing.upper()))
+            elif keyword == "TUNNELS":
+                if args:
+                    raise LevelError("TUNNELS takes no arguments")
+                tunnels = True
             elif keyword in ("MOVE", "DRAW"):
                 x, y = (_int(a, 0, WALL_GRID_CELLS - 1, f"{keyword} coordinate") for a in args)
                 if keyword == "DRAW":
@@ -244,7 +270,7 @@ def parse_level(text: str, source: str = "<level>") -> Level:
     for value, directive in ((name, "NAME"), (symmetry, "SYMMETRY"), (colouring, "WALLS"), (start, "START")):
         if value is None:
             raise LevelError(f"{source}: missing {directive}")
-    return Level(name, symmetry, colouring, fill, start, tuple(commands))  # type: ignore[arg-type]
+    return Level(name, symmetry, colouring, fill, start, tuple(commands), tunnels)  # type: ignore[arg-type]
 
 
 PLAYER_COUNTS = (2, 4)

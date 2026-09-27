@@ -123,6 +123,16 @@ FIRE_PERIOD = 6            # ticks between shots while fire is held (4 per secon
 # superpixels of its footprint, DIV 4, so 0 (hostile) to 4 (solid own ink).
 # The centre four are the only cells every player's rotation treats alike.
 # While fire is held the tank moves at normal speed and does not refill.
+# Tunnels (levels with TUNNELS): the border has a mouth in the middle of
+# each edge the level's symmetry pairs up -- left and right, and on four-
+# player levels top and bottom too. A tank stepping out of the arena through
+# a mouth goes into the tunnel: for TUNNEL_TICKS it is out of play (not
+# drawn, not in anyone's way, not firing or refilling), then it comes out of
+# the opposite mouth, in the same row or column and facing the same way --
+# or, if a tank is there, as soon as the way is clear.
+TUNNEL_TICKS = 12          # about half a second
+MOUTH_LOW, MOUTH_HIGH = 56, 66   # sx or sy of a footprint within a mouth (cells 14-17)
+
 RESERVOIR_SPLATS = 128     # a full reservoir, in splats (about 30 s of fire)
 GROUND_LEVELS = 5
 FIRING_GROUND = 1          # the ground level whose speed applies while firing
@@ -161,6 +171,8 @@ class Player:
     last_victim: int = -1
     reservoir: int = RESERVOIR_SPLATS   # whole splats of ink
     reservoir_fraction: int = 0         # and 1/256ths of a splat
+    in_tunnel: bool = False        # out of play, in a tunnel...
+    tunnel_ticks: int = 0          # ...for this many more ticks
     ai: bool = False               # controlled by the AI (see ai.py)
     ai_refilling: bool = False     # the AI is seeking its own ink to refill
     ai_direction: int = -1         # the AI's current direction
@@ -191,6 +203,7 @@ class Game:
     cells: dict[tuple[int, int], State] = field(default_factory=dict)   # open superpixels
     round_ticks_left: int = ROUND_TICKS
     random_state: int = DEFAULT_RANDOM_STATE
+    tunnels: bool = False
 
     def __post_init__(self) -> None:
         # A game made without an arena gets a grey one, (1, 1, 1, 1) in every
@@ -216,7 +229,8 @@ class Game:
             if ai:
                 facing, random_state = random_direction(random_state)
             players.append(Player(s.sx, s.sy, facing, ink, ai=ai))
-        return cls(players, walls=walls, cells=cells, random_state=random_state)
+        return cls(players, walls=walls, cells=cells, random_state=random_state,
+                   tunnels=level.tunnels)
 
     @property
     def round_over(self) -> bool:
@@ -256,7 +270,8 @@ class Game:
                 if (self.ticks + index) % AI_PERIOD == 0:
                     player.ai_input = decide(self, index)
                 inputs[index] = player.ai_input
-        starts = [(p.sx, p.sy) for p in self.players]
+        # Where each tank was drawn as the tick began (None: in a tunnel).
+        starts = [None if p.in_tunnel else (p.sx, p.sy) for p in self.players]
         first = self.ticks % count
         order = [(first + i) % count for i in range(count)]
         for index in order:
@@ -270,7 +285,7 @@ class Game:
         if player.cooldown:
             player.cooldown -= 1
             return
-        if not byte & FIRE_BIT or (tick + index) % 2 or not player.reservoir:
+        if not byte & FIRE_BIT or (tick + index) % 2 or not player.reservoir or player.in_tunnel:
             return
         player.reservoir -= 1
         trees = _trees()[FACINGS_[player.facing]]
@@ -288,14 +303,50 @@ class Game:
         for other, player in enumerate(self.players):
             if other == index:
                 continue
-            if footprints_overlap(x, y, player.sx, player.sy):
+            if not player.in_tunnel and footprints_overlap(x, y, player.sx, player.sy):
                 return False
-            if footprints_overlap(x, y, *starts[other]):
+            if starts[other] is not None and footprints_overlap(x, y, *starts[other]):
                 return False
         return True
 
+    def _into_tunnel(self, index: int, direction: int) -> bool:
+        """Does a step in this direction take the tank out through a mouth?"""
+        if not self.tunnels or direction % 2:
+            return False
+        player = self.players[index]
+        dx, dy = DIRECTION_DX[direction], DIRECTION_DY[direction]
+        if dx:
+            leaving = player.sx + dx < 0 or player.sx + dx > MAX_POSITION
+            across = player.sy
+        else:
+            if len(self.players) != 4:              # only four-player levels
+                return False                         # have top and bottom mouths
+            leaving = player.sy + dy < 0 or player.sy + dy > MAX_POSITION
+            across = player.sx
+        return leaving and MOUTH_LOW <= across <= MOUTH_HIGH
+
+    def _tunnel(self, index: int, starts) -> None:
+        """A tick in the tunnel: count down, then come out of the opposite
+        mouth if the way is clear."""
+        player = self.players[index]
+        if player.tunnel_ticks:
+            player.tunnel_ticks -= 1
+            if player.tunnel_ticks:
+                return
+        x, y = player.sx, player.sy
+        dx, dy = DIRECTION_DX[player.facing], DIRECTION_DY[player.facing]
+        if dx:
+            x = 0 if dx > 0 else MAX_POSITION
+        else:
+            y = 0 if dy > 0 else MAX_POSITION
+        if self._clear(index, x, y, starts):
+            player.sx, player.sy, player.in_tunnel = x, y, False
+
     def _move(self, index: int, byte: int, starts) -> None:
         player = self.players[index]
+        if player.in_tunnel:
+            self._tunnel(index, starts)
+            return
         if byte & FIRE_BIT:
             ground = FIRING_GROUND
         else:
@@ -313,6 +364,9 @@ class Game:
         player.accumulator += speeds[ground]
         steps, player.accumulator = player.accumulator >> 8, player.accumulator & 0xFF
         for _ in range(steps):
+            if self._into_tunnel(index, direction):
+                player.in_tunnel, player.tunnel_ticks = True, TUNNEL_TICKS
+                return
             self._step(index, direction, starts)
 
     def _step(self, index: int, direction: int, starts) -> None:

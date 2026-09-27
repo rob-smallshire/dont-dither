@@ -378,6 +378,11 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .gauge_drawn      SKIP MAX_PLAYERS \ Splats each HUD ink gauge shows.
 .frame_colour     SKIP 1       \ gauge_frame: its colour byte.
 .level_title      SKIP 2       \ select_level: the level's title.
+.level_tunnels    SKIP 1       \ Non-zero: the level has tunnels.
+.player_in_tunnel SKIP MAX_PLAYERS \ Non-zero: in a tunnel, out of play...
+.player_tunnel_ticks SKIP MAX_PLAYERS \ ...for this many more ticks.
+.player_drawn     SKIP MAX_PLAYERS \ Non-zero: its tank is on screen (and
+                               \ saved_sx/sy say where).
 .move_ground      SKIP 1       \ update_players: the mover's ground level,
 .move_steps       SKIP 1       \ and its steps still to take this tick.
 .ground_total     SKIP 1       \ ground_level: own quanta so far,

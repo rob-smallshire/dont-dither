@@ -42,6 +42,9 @@ Boot the disc (Shift-Break) on a Model B with DFS.
   Splatoon's punk battle music (`docs/music.md`). `*RUN TUNE` plays it
   alone; `uv run dd-render-music` renders it to
   `build/music/splash_theme.wav` for listening on the host.
+- **Tunnels:** on the later levels, gaps in the middle of the arena's
+  edges lead through to the far side. Drive out of one and, after a
+  moment out of sight, you come out of the other.
 - **Ink:** firing uses ink from your reservoir, shown by the gauges at the
   bottom of the HUD. Release fire to refill. How fast you refill, and how
   fast you drive, depends on how much of your own ink is under you: your

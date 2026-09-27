@@ -284,7 +284,7 @@ LEVEL_TEMP = 0x6000            # where the loader loads a level set before copyi
 
 def generate_level_format() -> str:
     """Definitions shared by the game and the level-set files."""
-    from dontdither.levels import DRAW_BIT, END, HEADER_SIZE
+    from dontdither.levels import DRAW_BIT, END, HEADER_SIZE, MOUTH_CELLS, TUNNELS_BIT
 
     return "\n".join([
         "\\ " + "=" * 74,
@@ -314,9 +314,12 @@ def generate_level_format() -> str:
         "",
         f"LEVEL_DRAW_BIT = &{DRAW_BIT:02X}   \\ in a command's cx: draw (set) or move",
         f"LEVEL_END      = &{END:02X}   \\ ends a level's commands",
+        f"LEVEL_TUNNELS_BIT = &{TUNNELS_BIT:02X}   \\ in the symmetry byte: the level has tunnels",
+        f"MOUTH_FIRST_CELL  = {MOUTH_CELLS[0]}   \\ a tunnel mouth: wall cells {MOUTH_CELLS[0]}..{MOUTH_CELLS[-1]} of an edge",
         "",
         "\\ Level bytecode header offsets",
-        "LEVEL_HEADER_SYMMETRY = 0   \\ quarter turns between copies: 1 ROT4, 2 ROT2",
+        "LEVEL_HEADER_SYMMETRY = 0   \\ quarter turns between copies: 1 ROT4, 2 ROT2,",
+        "                            \\ with LEVEL_TUNNELS_BIT",
         "LEVEL_HEADER_CORE     = 1   \\ wall core ink byte",
         "LEVEL_HEADER_RIM      = 2   \\ wall rim ink byte",
         "LEVEL_HEADER_FILL     = 3   \\ ink state of open cells",
@@ -363,7 +366,8 @@ def generate_level_set(table: InkTable, players: int, level_area: int) -> str:
             f"    EQUB {len(lv.name)}",
             f'    EQUS "{lv.name}"',
             f".level_{i}",
-            f"    EQUB {lv.symmetry.value}    \\ {lv.symmetry.name}",
+            f"    EQUB {lv.symmetry.value}{' OR LEVEL_TUNNELS_BIT' if lv.tunnels else ''}"
+            f"    \\ {lv.symmetry.name}{', tunnels' if lv.tunnels else ''}",
             f"    EQUB WALL_INK_{lv.colouring.core}, WALL_INK_{lv.colouring.rim}"
             f"    \\ walls: {lv.colouring.core} core, {lv.colouring.rim} rim",
             f"    EQUB {table.states.index(lv.fill)}    \\ fill state {lv.fill}",
@@ -480,6 +484,9 @@ def generate_game_data() -> str:
     from dontdither.game import (
         DEMO_ROUND_TICKS,
         FIRING_GROUND,
+        MOUTH_HIGH,
+        MOUTH_LOW,
+        TUNNEL_TICKS,
         GROUND_AXIAL_SPEED,
         GROUND_DIAGONAL_SPEED,
         GROUND_LEVELS,
@@ -549,6 +556,11 @@ def generate_game_data() -> str:
         "\\ (0..4) is its own ink quanta over the centre four superpixels of its",
         "\\ footprint, DIV 4; FIRING_GROUND applies while fire is held.",
         f"RESERVOIR_SPLATS = {RESERVOIR_SPLATS}   \\ a full reservoir",
+        "\\ Tunnels: ticks out of play, and the sx or sy of a footprint within a",
+        "\\ mouth (see game.py).",
+        f"TUNNEL_TICKS = {TUNNEL_TICKS}",
+        f"MOUTH_LOW    = {MOUTH_LOW}",
+        f"MOUTH_HIGH   = {MOUTH_HIGH}",
         f"GROUND_LEVELS    = {GROUND_LEVELS}",
         f"FIRING_GROUND    = {FIRING_GROUND}",
         "\\ Speed by ground level, in 1/256 superpixel per tick, indexed by",

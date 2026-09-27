@@ -126,6 +126,48 @@
 
     LDY #LEVEL_HEADER_SYMMETRY
     LDA (zp_level_ptr),Y
+    AND #LEVEL_TUNNELS_BIT     \ Tunnels?
+    STA level_tunnels
+    BEQ build_wall_map_symmetry
+    \ The tunnel mouths: wall cells MOUTH_FIRST_CELL..+3 of the left and
+    \ right edges -- bit 7 of each such row's first byte and bit 0 of its
+    \ last -- and, on four-player levels, of the top and bottom edges.
+    LDY #(MOUTH_FIRST_CELL + 3) * 4
+.build_wall_map_mouth_row
+    LDA wall_map,Y
+    AND #&7F
+    STA wall_map,Y
+    LDA wall_map + 3,Y
+    AND #&FE
+    STA wall_map + 3,Y
+    DEY
+    DEY
+    DEY
+    DEY
+    CPY #(MOUTH_FIRST_CELL - 1) * 4
+    BNE build_wall_map_mouth_row
+    LDY #LEVEL_HEADER_SYMMETRY
+    LDA (zp_level_ptr),Y
+    AND #&FF EOR LEVEL_TUNNELS_BIT
+    CMP #1                     \ ROT4: four players.
+    BNE build_wall_map_symmetry
+    ASSERT MOUTH_FIRST_CELL = 14   \ Cells 14-15 are bits 1-0 of a row's byte
+    LDA wall_map + 1           \ 1, cells 16-17 bits 7-6 of its byte 2.
+    AND #&FC
+    STA wall_map + 1
+    LDA wall_map + 2
+    AND #&3F
+    STA wall_map + 2
+    LDA wall_map + 125
+    AND #&FC
+    STA wall_map + 125
+    LDA wall_map + 126
+    AND #&3F
+    STA wall_map + 126
+.build_wall_map_symmetry
+    LDY #LEVEL_HEADER_SYMMETRY
+    LDA (zp_level_ptr),Y
+    AND #&FF EOR LEVEL_TUNNELS_BIT
     STA zp_symmetry_step       \ 1 for ROT4, 2 for ROT2.
 
     \ Draw the stored geometry once per copy, at 0, step, 2*step... quarter

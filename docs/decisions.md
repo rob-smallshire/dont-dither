@@ -46,6 +46,21 @@ Decisions taken during development that refine or depart from
   four-player titles (all but Four Better or Worse) after Colour Clash and
   Dithering Fights; the two-player set uses all 15 two-player titles after
   Mixed Emotions. Wall colourings vary across the 12 pairs.
+- Tunnels, Pac-Man style, on the last four levels of each set. A level
+  with TUNNELS has a mouth 4 cells wide in the middle of each edge its
+  symmetry pairs: left and right, and on four-player levels top and
+  bottom as well. Centred mouths are the only ones the symmetry maps onto
+  a straight wrap-around, so tunnels stay fair.
+  - A tank stepping out through a mouth (an axial step, its whole
+    footprint within the mouth) goes into the tunnel: for 12 ticks, about
+    half a second, it is out of play.
+  - Out of play means not drawn, in nobody's way, not firing and not
+    refilling. This avoids drawing a tank split across both edges.
+  - It then comes out of the opposite mouth, in the same row or column
+    and facing the same way. If a tank blocks the exit, it waits until
+    the way is clear.
+  - The AI does not use tunnels: its samples treat off-arena cells as
+    walls. Humans get a small secret edge.
 - To fit 16 levels in the level area, the level format is compact:
   - the border is implicit, drawn by the game (it cost every level 6–12
     bytes);

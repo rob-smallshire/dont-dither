@@ -5,6 +5,7 @@ NAME Four Play
 SYMMETRY ROT4
 WALLS M C
 START 12 12 SE
+TUNNELS                        # mouths mid-edge; drive through to the far side
 
 # A T.
 MOVE 5 10

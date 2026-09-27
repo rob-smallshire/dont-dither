@@ -242,6 +242,11 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
 
 .update_players_loop
     LDX zp_update_index
+    LDA player_in_tunnel,X     \ In a tunnel: only the tunnel's tick.
+    BEQ update_players_in_play
+    JSR tunnel_tick
+    JMP update_players_next
+.update_players_in_play
     LDA player_input,X         \ Fire held: move normally, no refill.
     AND #FIRE_BIT
     BEQ update_players_ground
@@ -293,6 +298,14 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     STA move_steps
 .update_players_step
     LDX zp_update_index
+    JSR into_tunnel            \ Out through a mouth: into the tunnel, and
+    BCC update_players_stepping    \ that is this tick's movement.
+    LDA #1
+    STA player_in_tunnel,X
+    LDA #TUNNEL_TICKS
+    STA player_tunnel_ticks,X
+    JMP update_players_next
+.update_players_stepping
     LDY player_facing,X        \ Y = direction.
     JSR try_step
     DEC move_steps
@@ -305,7 +318,124 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     AND zp_player_mask
     STA zp_update_index
     DEC zp_update_remaining
-    BNE update_players_loop
+    BEQ update_players_done
+    JMP update_players_loop
+.update_players_done
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ into_tunnel -- does player X's next step take it out through a mouth?
+\
+\ On entry:  X = player
+\ On exit:   carry set if so; A, Y corrupted; X preserved
+\
+\ Only on a level with tunnels, and only an axial step: west from sx = 0
+\ or east from sx = MAX_POSITION with sy within a mouth, or on four-player
+\ levels north from sy = 0 or south from sy = MAX_POSITION with sx within
+\ one (MOUTH_LOW..MOUTH_HIGH). Must match game.py's _into_tunnel.
+\ ----------------------------------------------------------------------------
+
+.into_tunnel
+    LDA level_tunnels
+    BEQ into_tunnel_no
+    LDA player_facing,X
+    LSR A                      \ Diagonal (odd): no. A = 0 N, 1 E, 2 S, 3 W.
+    BCS into_tunnel_no
+    CMP #1
+    BEQ into_tunnel_east
+    CMP #3
+    BEQ into_tunnel_west
+    LDY player_count           \ North and south: four-player levels only.
+    CPY #4
+    BNE into_tunnel_no
+    CMP #0
+    BEQ into_tunnel_north
+    LDA player_sy,X            \ South: at the bottom edge?
+    CMP #MAX_POSITION
+    BNE into_tunnel_no
+    BEQ into_tunnel_across_x   \ (Always.)
+.into_tunnel_north
+    LDA player_sy,X
+    BNE into_tunnel_no
+.into_tunnel_across_x
+    LDA player_sx,X            \ Within the mouth across?
+    JMP into_tunnel_across
+.into_tunnel_east
+    LDA player_sx,X
+    CMP #MAX_POSITION
+    BNE into_tunnel_no
+    BEQ into_tunnel_across_y   \ (Always.)
+.into_tunnel_west
+    LDA player_sx,X
+    BNE into_tunnel_no
+.into_tunnel_across_y
+    LDA player_sy,X
+.into_tunnel_across
+    CMP #MOUTH_LOW
+    BCC into_tunnel_no
+    CMP #MOUTH_HIGH + 1        \ Carry clear if within: flip it.
+    BCS into_tunnel_no
+    SEC
+    RTS
+.into_tunnel_no
+    CLC
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ tunnel_tick -- a tick in a tunnel for player X
+\
+\ On entry:  X = player (also zp_update_index)
+\ On exit:   A, X, Y corrupted
+\
+\ Count the ticks down; then come out of the opposite mouth -- sx = 0 for
+\ a tank going east, MAX_POSITION going west; sy likewise going south or
+\ north -- facing the same way, if the way is clear (position_clear);
+\ otherwise try again next tick. Must match game.py's _tunnel.
+\ ----------------------------------------------------------------------------
+
+.tunnel_tick
+    LDA player_tunnel_ticks,X
+    BEQ tunnel_tick_out
+    DEC player_tunnel_ticks,X
+    BNE tunnel_tick_done
+.tunnel_tick_out
+    STX zp_step_player
+    LDA player_sx,X
+    STA zp_try_x
+    LDA player_sy,X
+    STA zp_try_y
+    LDA player_facing,X        \ 0 N, 2 E, 4 S, 6 W.
+    CMP #2
+    BEQ tunnel_tick_east
+    CMP #6
+    BEQ tunnel_tick_west
+    CMP #0
+    BEQ tunnel_tick_north
+    LDA #0                     \ Going south: out at the top.
+    BEQ tunnel_tick_y          \ (Always.)
+.tunnel_tick_north
+    LDA #MAX_POSITION          \ Going north: out at the bottom.
+.tunnel_tick_y
+    STA zp_try_y
+    JMP tunnel_tick_try
+.tunnel_tick_east
+    LDA #0                     \ Going east: out at the left.
+    BEQ tunnel_tick_x          \ (Always.)
+.tunnel_tick_west
+    LDA #MAX_POSITION          \ Going west: out at the right.
+.tunnel_tick_x
+    STA zp_try_x
+.tunnel_tick_try
+    JSR position_clear
+    BCC tunnel_tick_done       \ Blocked: wait.
+    LDX zp_step_player
+    LDA zp_try_x
+    STA player_sx,X
+    LDA zp_try_y
+    STA player_sy,X
+    LDA #0
+    STA player_in_tunnel,X
+.tunnel_tick_done
     RTS
 
 \ ----------------------------------------------------------------------------
@@ -506,13 +636,18 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     BEQ position_clear_yes
     CPX zp_step_player         \ A tank never blocks itself.
     BEQ position_clear_next
+    LDA player_in_tunnel,X     \ (A tank in a tunnel is nowhere.)
+    BNE position_clear_drawn
     LDA player_sx,X            \ Against where the other tank is now...
     STA zp_other_x
     LDA player_sy,X
     STA zp_other_y
     JSR footprints_overlap
     BCS position_clear_blocked
-    LDA saved_sx,X             \ ...and where it was drawn.
+.position_clear_drawn
+    LDA player_drawn,X         \ ...and where it was drawn, if it is.
+    BEQ position_clear_next
+    LDA saved_sx,X
     STA zp_other_x
     LDA saved_sy,X
     STA zp_other_y

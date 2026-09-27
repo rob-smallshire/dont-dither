@@ -76,7 +76,9 @@ compiled in filename order. A level stores one quadrant (`ROT4`) or half
 colouring, fill state and player 0's START; the border is implicit (the game
 draws it). The bytecode is compact (a 7-byte header, two-byte commands, &FF
 to end) and a set lists levels one after another, so 16 fit each set;
-`uv run dd-preview-levels` draws them all and reports the sizes.
+`uv run dd-preview-levels` draws them all and reports the sizes. A level
+with `TUNNELS` has Pac-Man mouths mid-edge (`game.py` and `game.asm` model
+and play them; a tank in a tunnel is undrawn and out of play).
 `asm/level.asm` interprets the bytecode once per symmetric copy, rotating each plotted cell ((x, y) ->
 (31 - y, x) per quarter turn) into a 128-byte `wall_map` buffer. So symmetry,
 and hence fairness, is structural. `enter_level` in `asm/main.asm` fills the
@@ -232,7 +234,8 @@ tests; they must stay consistent):
   (`GUARD &3000`, over DFS workspace), the low block of tables (paint data,
   game data, HUD font) to &0400-&07FF, and the level set to `level_area`,
   which runs from the end of the main block (not page-aligned) to &2FFF:
-  code growth shrinks it. Keep an eye on its size (about 14 levels today).
+  code growth shrinks it. Keep an eye on its size: 980 bytes today, with
+  each set of 16 levels using about 560 (`uv run dd-preview-levels`).
   Uninitialised buffers are at &0900-&0CDF. The key layouts are at &0CE0
   (`asm/handoff.asm`): SPLASH (at &1900) fills them, the game reads them,
   and they survive BREAK. &0800 is left to
