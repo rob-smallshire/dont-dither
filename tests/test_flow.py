@@ -195,7 +195,7 @@ def test_play_starts_as_soon_as_everyone_has_joined(bbc, game_build):
     assert peek[labels["session_joined"]] == 0b11
 
 
-def test_the_title_screen_shows_the_logo_and_asks_for_players(bbc, game_build):
+def test_the_title_screen_shows_the_logo_a_guide_and_asks_for_players(bbc, game_build):
     from dontdither.screen import MODE1_ROW_BYTES
     from dontdither.splash import LOGO_TOP_ROW, logo_band
 
@@ -208,6 +208,13 @@ def test_the_title_screen_shows_the_logo_and_asks_for_players(bbc, game_build):
     assert bytes(bbc.memory.address.peek[start:start + len(band)]) == band
     text = bbc.video.screen_text().text
     assert "for two players" in text and "for four players" in text
+    for guide in ("Most ink wins", "W A S D, SHIFT fires", "cursor keys, COPY fires",
+                  "Firing uses ink", "refills it and speeds you up"):
+        assert guide in text, guide
+    from dontdither.build import BUILD_DIRPATH
+    screenshot_dirpath = BUILD_DIRPATH / "screenshots"
+    screenshot_dirpath.mkdir(parents=True, exist_ok=True)
+    bbc.video.capture_frame().save_png(screenshot_dirpath / "splash.png")
 
 
 def test_player_select_stirs_the_random_generator_every_field(bbc, game_build):

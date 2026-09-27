@@ -274,7 +274,9 @@ to C than (2,1,1,0), it is a better road and filling station.
   by pressing 2 or 4. The title screen (SPLASH, run by !BOOT at &0900)
   shows the logo -- art/splash.png, resampled to 300 pixels wide and
   quantised to CMYK by the build, saved as screen bytes in LOGO -- with the
-  prompt beneath it. It then blacks out the palette, loads that level set,
+  prompt beneath it, and a short guide in the players' colours: the aim,
+  each keyboard player's keys, and how ink works. The title screen is the
+  place for it: SPLASH has memory to spare, and the game has none. It then blacks out the palette, loads that level set,
   LEVELS2 or LEVELS4, to &6000 -- the last disc access, while DFS still has
   its workspace -- and runs DITHER, whose loader copies the set into the
   game's level area. To switch mode, press Break and reload.

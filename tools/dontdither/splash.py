@@ -21,7 +21,7 @@ SPLASH_FILEPATH = PROJECT_DIRPATH / "art" / "splash.png"
 
 SCREEN_WIDTH = 320
 LOGO_WIDTH = 300
-LOGO_TOP_ROW = 4                    # character row (8 raster lines each)
+LOGO_TOP_ROW = 2                    # character row (8 raster lines each)
 MODE1_PIXEL_ASPECT = 1.0667         # a MODE 1 pixel is this much wider than tall
 ROW_BYTES = 640
 

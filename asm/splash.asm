@@ -6,7 +6,8 @@
 \   2. selects MODE 1 with the game's CMYK palette and loads the logo (the
 \      disc file LOGO: a band of ready-made screen bytes, converted from
 \      art/splash.png by the build) straight into screen memory;
-\   3. asks for two or four players and waits for 2 or 4;
+\   3. shows a short guide -- the aim, each keyboard player's keys, and how
+\      ink works -- asks for two or four players and waits for 2 or 4;
 \   4. turns every colour black, so that the loads which follow -- into
 \      screen memory, which is where there is room -- are not seen;
 \   5. loads the chosen level set (LEVELS2 or LEVELS4) to LEVEL_TEMP, and
@@ -19,7 +20,7 @@
 INCLUDE "asm/os.asm"
 INCLUDE "build/generated/level_format.asm"
 
-PROMPT_ROW = 24                \ Character row of the first prompt line.
+TEXT_COLUMN = 4                \ Everything is left-aligned here.
 
 ORG &0900
 GUARD &0D00                    \ &0D00 holds the DFS NMI routine.
@@ -41,6 +42,10 @@ GUARD &0D00                    \ &0D00 holds the DFS NMI routine.
     LDY #HI(load_logo)
     JSR OSCLI
 
+    LDX #LO(splash_guide)      \ The aim, the keys and the ink.
+    LDY #HI(splash_guide)
+    LDA #splash_guide_end - splash_guide
+    JSR splash_vdu
     LDX #LO(splash_prompt)     \ Ask for two or four players.
     LDY #HI(splash_prompt)
     LDA #splash_prompt_end - splash_prompt
@@ -99,21 +104,49 @@ GUARD &0D00                    \ &0D00 holds the DFS NMI routine.
 
 INCLUDE "build/generated/splash_data.asm"
 
+\ Under the logo (character rows LOGO_TOP_ROW to LOGO_TOP_ROW + LOGO_ROWS - 1),
+\ in groups a row apart:
+AIM_ROW    = LOGO_TOP_ROW + LOGO_ROWS + 1   \ the aim;
+PROMPT_ROW = AIM_ROW + 2       \ two lines asking for two or four players;
+KEYS_ROW   = PROMPT_ROW + 3    \ each keyboard player's keys;
+INK_ROW    = KEYS_ROW + 3      \ two lines on how ink works.
+ASSERT INK_ROW + 1 <= 31
+
 .splash_prompt                 \ Two lines under the logo, in the players'
     EQUB 17, 1                 \ colours (logical 1 = C, 2 = M, 3 = Y).
-    EQUB 31, 4, PROMPT_ROW
+    EQUB 31, TEXT_COLUMN, PROMPT_ROW
     EQUS "Press "
     EQUB 17, 3
     EQUS "2"
     EQUB 17, 1
     EQUS " for two players"
-    EQUB 31, 4, PROMPT_ROW + 2
+    EQUB 31, TEXT_COLUMN, PROMPT_ROW + 1
     EQUS "   or "
     EQUB 17, 3
     EQUS "4"
     EQUB 17, 2
     EQUS " for four players"
 .splash_prompt_end
+
+.splash_guide                  \ In the players' colours (logical 1 = C,
+    EQUB 17, 3                 \ 2 = M, 3 = Y).
+    EQUB 31, TEXT_COLUMN, AIM_ROW
+    EQUS "Paint the arena. Most ink wins!"
+    EQUB 17, 1
+    EQUB 31, TEXT_COLUMN, KEYS_ROW
+    EQUS "Player 1: W A S D, SHIFT fires"
+    EQUB 17, 2
+    EQUB 31, TEXT_COLUMN, KEYS_ROW + 1
+    EQUS "Player 2: cursor keys, COPY fires"
+    EQUB 17, 3
+    EQUB 31, TEXT_COLUMN, INK_ROW
+    EQUS "Firing uses ink. Your own colour"
+    EQUB 31, TEXT_COLUMN, INK_ROW + 1
+    \ (Short of column 39: printing in the bottom-right character cell would
+    \ make the MOS scroll the screen.)
+    EQUS "refills it and speeds you up."
+.splash_guide_end
+ASSERT splash_guide_end - splash_guide < 256   \ splash_vdu counts in a byte.
 
 .splash_blackout               \ Logical colours 1-3 to black (0 already is).
     EQUB 19, 1, 0, 0, 0, 0

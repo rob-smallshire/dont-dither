@@ -113,6 +113,7 @@ appear in the labels. beebasm exports labels, not `=` constants.
 ```
 !BOOT ──► SPLASH (&0900)
             MODE 1, CMYK palette, *LOAD LOGO into screen memory
+            the aim, each keyboard player's keys, how ink works
             "Press 2 for two players / or 4 for four players"
             key 2|4 ──► palette to black
                         *LOAD LEVELS2|LEVELS4  (to LEVEL_TEMP = &6000)
