@@ -13,7 +13,7 @@ DRAW 31 0
 # An arm from the top edge down towards the centre, then bending east.
 MOVE 12 4
 DRAW 12 12
-DRAW 17 12
+DRAW 15 12
 
 # A short baffle in the corner pocket.
 MOVE 4 8

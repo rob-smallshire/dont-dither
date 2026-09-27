@@ -108,3 +108,44 @@ def test_invalid_levels_are_rejected(bad, message):
 def test_missing_directives_are_rejected():
     with pytest.raises(LevelError, match="missing START"):
         parse_level(MINIMAL.replace("START 10 10 SE", ""))
+
+
+# A tank's footprint plus two superpixels' clearance on each side: every gap
+# must let a tank through with room to steer, not merely squeeze past.
+REACH_FOOTPRINT = 6 + 2 * 2
+
+
+def reachable_cells(level, footprint: int) -> set[tuple[int, int]]:
+    """Open wall-grid cells covered by some position a tank of the given
+    footprint can reach, by axial steps, from any player's start."""
+    walls = level.wall_cells()
+    limit = 128 - footprint
+
+    def clear(x: int, y: int) -> bool:
+        return 0 <= x <= limit and 0 <= y <= limit and not any(
+            (cx, cy) in walls
+            for cy in range(y // 4, (y + footprint - 1) // 4 + 1)
+            for cx in range(x // 4, (x + footprint - 1) // 4 + 1))
+
+    # Start from any position of the enlarged footprint that encloses a
+    # player's (real) start footprint.
+    spare = footprint - 6
+    frontier = [(s.sx - dx, s.sy - dy) for s in level.starts()
+                for dx in range(spare + 1) for dy in range(spare + 1)]
+    seen = set()
+    while frontier:
+        x, y = frontier.pop()
+        if (x, y) in seen or not clear(x, y):
+            continue
+        seen.add((x, y))
+        frontier += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+    return {((x + dx) // 4, (y + dy) // 4)
+            for x, y in seen for dx in range(footprint) for dy in range(footprint)}
+
+
+@pytest.mark.parametrize("level", load_levels(), ids=lambda lv: lv.name)
+def test_every_open_cell_is_reachable_with_room_to_spare(level):
+    walls = level.wall_cells()
+    open_cells = {(x, y) for x in range(32) for y in range(32)} - walls
+    unreachable = open_cells - reachable_cells(level, REACH_FOOTPRINT)
+    assert not unreachable, f"unreachable cells: {sorted(unreachable)}"
