@@ -17,6 +17,7 @@ dd-preview-sprites = "dontdither.preview_sprites:main"
 dd-preview-splats = "dontdither.preview_splats:main"
 dd-render-music = "dontdither.splash_theme:main"
 dd-preview-levels = "dontdither.preview_levels:main"
+dd-preview-ink-graph = "dontdither.preview_ink_graph:main"
 
 [dependency-groups]
 test = [

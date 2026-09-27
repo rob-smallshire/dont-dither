@@ -237,6 +237,9 @@ code.
 
 ## 6. Display, inks and the canonical patterns
 
+(`ink_patterns.md` explains the choice of patterns in full: the states, the
+graph of painting moves and the minimum-churn objective.)
+
 - **Inks → logical colours:** K=0 (so screen clears are black), C=1, M=2,
   Y=3. Physical colours K=0, C=6, M=5, Y=3. `inks.py` is the single source;
   it generates both the palette and the patterns.

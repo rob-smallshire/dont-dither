@@ -105,6 +105,10 @@ a Model B + DFS: Shift-Break to boot the game.
 
 ## The canonical ink patterns
 
+[docs/ink_patterns.md](docs/ink_patterns.md) explains the choice in full:
+the 256 possible patterns, the 35 ownership states, the graph of painting
+moves between them, and the minimum-churn objective.
+
 `data/ink_patterns.json` is produced by `uv run --group solver dd-solve-patterns`,
 which solves for the table exactly with OR-tools CP-SAT under three hard
 constraints:
