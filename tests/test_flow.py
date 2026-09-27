@@ -212,8 +212,8 @@ def test_the_title_screen_shows_the_logo_a_guide_and_asks_for_players(bbc, game_
     assert "for two players" in text and "for four players" in text
     from dontdither.gen_tables import key_line
     for guide in ("Paint as much as you can!", *(key_line(ink) for ink in "CMYK"),
-                  "Firing uses ink. Move faster and", "recharge on your own colour; the",
-                  "more saturated, the better."):
+                  "Firing uses ink. Release fire on", "your own colour to refill and",
+                  "speed up; more saturated, faster."):
         assert guide in text, guide
     from dontdither.build import BUILD_DIRPATH
     screenshot_dirpath = BUILD_DIRPATH / "screenshots"
@@ -232,3 +232,16 @@ def test_player_select_stirs_the_random_generator_every_field(bbc, game_build):
         bbc.debugger.run_to(labels["select_field"])           # a field later
         state = next_random(state)
         assert peek[labels["random_state"]] == state
+
+
+def test_the_title_screen_is_drawn_in_black_then_shown_at_once(bbc, game_build):
+    """While the logo loads and the text is drawn every colour is black; the
+    CMYK palette comes at the end, so the whole screen appears at once."""
+    from dontdither.inks import PHYSICAL_COLOUR
+
+    splash = game_build.labels["SPLASH"]
+    bbc.boot_disc(game_build.disc_filepath)
+    bbc.debugger.run_to(splash["print_all_keys"], timeout=60)   # part-way through drawing
+    assert set(bbc.video_ula.state.palette) == {0}
+    bbc.debugger.run_to(splash["splash_key"], timeout=10)
+    assert set(bbc.video_ula.state.palette) == set(PHYSICAL_COLOUR.values())

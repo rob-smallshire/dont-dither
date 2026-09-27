@@ -38,6 +38,10 @@ Boot the disc (Shift-Break) on a Model B with DFS.
   shot splats paint that moves the cells it hits a step towards your ink.
   When time runs out the territory is tallied, and points are awarded by
   rank (3/2/1/0, or 3/0 with two players).
+- **Music:** the title screen plays an original theme in the spirit of
+  Splatoon's punk battle music (`docs/music.md`). `*RUN TUNE` plays it
+  alone; `uv run dd-render-music` renders it to
+  `build/music/splash_theme.wav` for listening on the host.
 - **Ink:** firing uses ink from your reservoir, shown by the gauges at the
   bottom of the HUD. Release fire to refill. How fast you refill, and how
   fast you drive, depends on how much of your own ink is under you: your

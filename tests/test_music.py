@@ -104,3 +104,76 @@ def test_the_6502_player_matches_the_model_tick_by_tick(tune):
         for byte in player.tick():
             chip.write(byte)
         assert chip_registers(bbc) == model_registers(chip), f"tick {tick}"
+
+
+# ---- On the title screen -------------------------------------------------------
+
+def test_the_title_screen_plays_the_music(launch_bbc, game_build):
+    bbc = launch_bbc()
+    splash = game_build.labels["SPLASH"]
+    bbc.boot_disc(game_build.disc_filepath)
+    bbc.debugger.run_to(splash["splash_key"], timeout=60)
+    bbc.run_for_emulated_seconds(1.0)
+    peek = bbc.memory.address.peek
+    assert peek[0x0220] | peek[0x0221] << 8 == splash["music_event"]
+    bbc.debugger.run_to(splash["music_tick_done"])      # it is ticking
+    heard = False
+    for _ in range(100):                                 # something sounds within 2 s
+        bbc.debugger.step(1)
+        bbc.debugger.run_to(splash["music_tick_done"])
+        heard |= any(v != 15 for _, v in chip_registers(bbc))
+    assert heard
+
+
+def test_choosing_the_game_silences_the_music_first(launch_bbc, game_build):
+    bbc = launch_bbc()
+    splash = game_build.labels["SPLASH"]
+    bbc.boot_disc(game_build.disc_filepath)
+    bbc.debugger.run_to(splash["splash_key"], timeout=60)
+    bbc.run_for_emulated_seconds(3.0)                    # into the song
+    bbc.keyboard.type("4")
+    bbc.debugger.run_to(game_build.labels["DITHER"]["select_players"], timeout=60)
+    peek = bbc.memory.address.peek
+    assert peek[0x0220] | peek[0x0221] << 8 != splash["music_event"]
+    assert [v for _, v in chip_registers(bbc)] == [15, 15, 15, 15]
+
+
+# ---- Recorded from the emulator ---------------------------------------------------
+
+RECORD_SECONDS = 12.0
+
+
+def test_record_the_tune_from_the_emulator(launch_bbc, game_build):
+    """Record TUNE's sound as Beebium produces it (its SN76489 emulation, not
+    ours) to build/music/beebium_theme.wav, to listen to beside the model's
+    build/music/splash_theme.wav. Beebium streams 48 kHz frames of 8 signed
+    16-bit values: the chip's four channels, then four reserved (silent)."""
+    import threading
+
+    import numpy as np
+
+    from dontdither.build import BUILD_DIRPATH
+    from dontdither.sn76489 import write_wav
+
+    bbc = launch_bbc()
+    fmt = bbc.audio.format
+    chunks, stop = [], threading.Event()
+
+    def collect():
+        for chunk in bbc.audio.subscribe(chunk_size=4096):
+            if stop.is_set():
+                break
+            chunks.append(chunk.samples)
+
+    thread = threading.Thread(target=collect, daemon=True)
+    run_program(bbc, game_build, "TUNE")
+    thread.start()
+    bbc.run_for_emulated_seconds(RECORD_SECONDS)
+    stop.set()
+    frames = np.frombuffer(b"".join(chunks), dtype="<i2").reshape(-1, 8).astype(float)
+    mix = frames[:, :4].sum(axis=1)
+    mix -= mix.mean()
+    peak = np.abs(mix).max()
+    assert peak > 0, "the emulator played nothing"
+    write_wav(BUILD_DIRPATH / "music" / "beebium_theme.wav", mix / peak * 0.9, rate=fmt.sample_rate)
+    assert len(mix) / fmt.sample_rate > RECORD_SECONDS / 2

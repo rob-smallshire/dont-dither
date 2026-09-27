@@ -316,6 +316,19 @@ to C than (2,1,1,0), it is a better road and filling station.
   consistent across a session; two-player levels are played by slots 1 and
   2 (C and M). (Supersedes the earlier "C against Y" default.)
 
+## Music
+
+- The title screen plays an original theme, in the spirit of Splatoon's
+  battle music, from a small tone-and-noise player (docs/music.md). The
+  game has none: it has no memory for it, and the sound workspace
+  (&0800) stays free.
+- The player uses the chip's tone channels and noise directly: arpeggios,
+  envelopes and noise drums. Sample playback, as in scarybeasts' MOD
+  players, would take over the whole machine, stopping the title screen
+  from using the MOS (and so from redefining keys); it remains a possible
+  step (docs/music.md).
+- The composition was approved by ear ("perfect for the game").
+
 ## Rounds and scoring
 
 - No running scores. As in Splatoon's Turf War, the HUD shows only a
@@ -368,8 +381,8 @@ to C than (2,1,1,0), it is a better road and filling station.
   be released before the next is taken. The result is sealed into the
   resident block at once.
 - The title screen explains the aim, each player's keys and how ink works
-  ("Paint as much as you can! ... Firing uses ink. Move faster and
-  recharge on your own colour; the more saturated, the better.").
+  ("Paint as much as you can! ... Firing uses ink. Release fire on your
+  own colour to refill and speed up; more saturated, faster.").
 
 ## Memory
 

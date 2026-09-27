@@ -114,11 +114,14 @@ appear in the labels. beebasm exports labels, not `=` constants.
 !BOOT ──► SPLASH (&1900)
             key layouts at &0CE0: kept if sealed (they survive BREAK),
                                   else the defaults, sealed
-            MODE 1, CMYK palette, *LOAD LOGO into screen memory
-            the aim, each player's keys (from &0CE0), how ink works;
+            MODE 1, every colour black while drawing:
+              *LOAD LOGO into screen memory
+              the aim, each player's keys (from &0CE0), how ink works
+              "Press 2 for two players / or 4 for four players"
+            CMYK palette (all appears at once); the title music starts
             f1-f4 redefine a player's keys (into &0CE0, sealed)
-            "Press 2 for two players / or 4 for four players"
-            key 2|4 ──► palette to black
+            key 2|4 ──► music stops (silence)
+                        palette to black
                         *LOAD LEVELS2|LEVELS4  (to LEVEL_TEMP = &6000)
                         *RUN DITHER            (loads at &3100)
           DITHER loader (&3100)
@@ -140,6 +143,11 @@ appear in the labels. beebasm exports labels, not `=` constants.
   screen memory, so it could not show a picture. `SPLASH` runs at &1900
   (BASIC's PAGE with DFS: above DFS's workspace, below the screen and the
   level set) and draws the logo by loading ready-made screen bytes.
+- **The title music** (`docs/music.md`): `asm/music.asm` plays the theme
+  from the MOS vsync event, writing the SN76489 directly, while the title
+  screen carries on as usual (the MOS's OSBYTE entry disables interrupts,
+  so key scans are never interrupted). It stops, unhooking the event and
+  silencing the chip, before the disc is used. `TUNE` is the player alone.
 - **The key handoff** (`asm/handoff.asm`, included by both programs): the
   four players' key layouts live in a small block at &0CE0, the top of the
   MOS's page for user-defined characters, which nothing here uses. `SPLASH`

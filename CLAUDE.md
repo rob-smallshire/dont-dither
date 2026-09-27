@@ -18,6 +18,7 @@ uv run pytest tests/test_boot.py::test_palette_maps_logical_colours_to_cmyk
 uv run --group solver dd-solve-patterns           # re-solve data/ink_patterns.json (OR-tools CP-SAT)
 uv run dd-preview-sprites                         # render sprites/tank.spr to build/design/sprites.png
 uv run dd-preview-splats                          # render sprites/splats.spr to build/design/splats.png
+uv run dd-render-music                            # the title theme -> build/music/splash_theme.wav
 ```
 
 Screenshots from emulator tests land in `build/screenshots/` (`boot.png`,
@@ -39,7 +40,11 @@ that SAVEs a file of the same name (`PROGRAMS` in `tools/dontdither/build.py`):
 `SPLASH` (`asm/splash.asm`, run by `!BOOT`: the title screen, which loads a
 level set and runs the game), `DITHER` (`asm/main.asm`, the game) and `TCARD`
 (`asm/testcard.asm`, the texture and wall test card, started with
-`*RUN TCARD`). `LOGO` (screen bytes from `art/splash.png`, via
+`*RUN TCARD`) and `TUNE` (`asm/tune.asm`, the title music alone, `*RUN
+TUNE`). The title screen plays music: `asm/music.asm` is a 50 Hz SN76489
+player on the vsync event, the theme is `tools/dontdither/splash_theme.py`,
+and `tools/dontdither/music.py` models the player tick by tick (the tests
+compare the chip's registers). See `docs/music.md`. `LOGO` (screen bytes from `art/splash.png`, via
 `tools/dontdither/splash.py`) and the level sets `LEVELS2`/`LEVELS4` are data
 files. The loader puts a small logo (from `art/splash.png`) in the top
 four HUD character rows, which the game never clears or draws over. The

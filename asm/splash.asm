@@ -5,14 +5,17 @@
 \   1. closes the !BOOT *EXEC file (so the keyboard, not the file, answers);
 \   2. makes sure the resident key layouts are set (see handoff.asm): kept
 \      if sealed -- they survive BREAK -- otherwise the defaults;
-\   3. selects MODE 1 with the game's CMYK palette and loads the logo (the
-\      disc file LOGO: a band of ready-made screen bytes, converted from
+\   3. selects MODE 1 with every colour black and loads the logo (the disc
+\      file LOGO: a band of ready-made screen bytes, converted from
 \      art/splash.png by the build) straight into screen memory;
 \   4. shows a short guide -- the aim, each player's keys (from the resident
 \      layouts), and how ink works -- asks for two or four players and
 \      waits for 2 or 4, meanwhile letting f1-f4 redefine players 1-4's
-\      keys (see redefine_keys);
-\   5. turns every colour black, so that the loads which follow -- into
+\      keys (see redefine_keys) -- then shows it all at once with the CMYK
+\      palette, to the title music (music.asm), which plays from the vsync
+\      event while the MOS runs as usual;
+\   5. stops the music, and turns every colour black, so that the loads
+\      which follow -- into
 \      screen memory, which is where there is room -- are not seen;
 \   6. loads the chosen level set (LEVELS2 or LEVELS4) to LEVEL_TEMP, and
 \      runs DITHER, whose loader puts the game and the level set in place.
@@ -48,13 +51,13 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     JSR OSBYTE
     JSR keep_or_default_keys   \ The resident key layouts.
 
-    LDX #LO(splash_setup)      \ MODE 1, no cursor, the CMYK palette.
+    LDX #LO(splash_setup)      \ MODE 1, no cursor...
     LDY #HI(splash_setup)
     LDA #splash_setup_end - splash_setup
     JSR splash_vdu
-    LDX #LO(splash_palette)
-    LDY #HI(splash_palette)
-    LDA #splash_palette_end - splash_palette
+    LDX #LO(splash_blackout)   \ ...and every colour black while the title
+    LDY #HI(splash_blackout)   \ screen is drawn, so it appears all at once.
+    LDA #splash_blackout_end - splash_blackout
     JSR splash_vdu
 
     LDX #LO(load_logo)         \ *LOAD LOGO: into screen memory.
@@ -70,6 +73,11 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     LDY #HI(splash_prompt)
     LDA #splash_prompt_end - splash_prompt
     JSR splash_vdu
+    LDX #LO(splash_palette)    \ Show it all: the CMYK palette...
+    LDY #HI(splash_palette)
+    LDA #splash_palette_end - splash_palette
+    JSR splash_vdu
+    JSR music_start            \ ...and the title music, meanwhile.
 
 .splash_key
     JSR OSRDCH                 \ A = the key pressed; carry set on Escape.
@@ -99,6 +107,7 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 .splash_chosen
     STX splash_command         \ Keep the *LOAD command while the palette
     STY splash_command+1       \ goes black.
+    JSR music_stop             \ Silence, before the disc is used.
     LDX #LO(splash_blackout)
     LDY #HI(splash_blackout)
     LDA #splash_blackout_end - splash_blackout
@@ -172,7 +181,7 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 \ ----------------------------------------------------------------------------
 \ Showing the keys
 \
-\ Each player's line, in its colour (K's in Y: black would not show), from
+\ Each player's line, in its colour (K's black on yellow, like its tank), from
 \ KEYS_ROW down: "<Ink>: <up> <left> <down> <right>, <fire> fires", or
 \ "cursor keys" for the four directions when they are exactly those. Keys
 \ are named from key_names. A line stops at KEY_LINE_LENGTH characters,
@@ -247,7 +256,8 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     JSR print_key_name
     LDX #LO(fires_text)
     LDY #HI(fires_text)
-    JMP print_text             \ Tail call.
+    JSR print_text
+    JMP background_black       \ Tail call.
 
 \ start_key_line: begin player key_slot's line -- its colour, its row, a
 \ fresh allowance of characters, and "<Ink>: ". A, X, Y corrupted.
@@ -273,13 +283,19 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     LDA #' '
     JMP key_char               \ Tail call.
 
-\ start_key_line_position: player key_slot's colour, and the cursor to the
+\ start_key_line_position: player key_slot's colours, and the cursor to the
 \ start of its line. A, X corrupted.
 .start_key_line_position
-    LDA #17                    \ Its colour...
+    LDA #17                    \ Its colours: text...
     JSR OSWRCH
     LDX key_slot
     LDA ink_text_colours,X
+    JSR OSWRCH
+    LDA #17                    \ ...and background (VDU 17, 128 + colour)...
+    JSR OSWRCH
+    LDX key_slot
+    LDA ink_background_colours,X
+    ORA #128
     JSR OSWRCH
     LDA #31                    \ ...and its row.
     JSR OSWRCH
@@ -438,11 +454,22 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     BNE ask_for_key_skip
 .ask_for_key_print
     LDY #&FF
-    JMP print_name_at          \ Tail call.
+    JSR print_name_at
+    \ Fall through.
 
-\ clear_key_line: blank player key_slot's line.
+\ background_black: text background back to black (VDU 17, 128), for the
+\ text that follows a player's line.
+.background_black
+    LDA #17
+    JSR OSWRCH
+    LDA #128
+    JMP OSWRCH                 \ Tail call.
+
+\ clear_key_line: blank player key_slot's line (on black: the background
+\ colour only ever lies behind text).
 .clear_key_line
     JSR start_key_line_position
+    JSR background_black
     LDX #KEY_LINE_LENGTH
     LDA #' '
 .clear_key_line_char
@@ -546,8 +573,10 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 .key_code         EQUB 0       \ print_key_name: the key sought.
 .line_room        EQUB 0       \ Characters the line has room for.
 
-.ink_text_colours              \ Each player's text colour: its ink, but Y
-    EQUB 1, 2, 3, 3            \ for K (logical colours 1 = C, 2 = M, 3 = Y).
+.ink_text_colours              \ Each player's text and background colours:
+    EQUB 1, 2, 3, 0            \ its ink on black, but for K black on yellow,
+.ink_background_colours        \ like its tank (logical colours 0 = K, 1 = C,
+    EQUB 0, 0, 0, 3            \ 2 = M, 3 = Y).
 
 .display_offsets               \ The directions in display order -- up, left,
 .display_stored                \ down, right, then fire -- as offsets in a
@@ -575,13 +604,15 @@ ASSERT KEY_LAYOUT_BYTES = 5    \ needs its size before splash_data defines it.)
 .splash_setup_end
 
 INCLUDE "build/generated/splash_data.asm"
+INCLUDE "asm/music.asm"
+INCLUDE "build/generated/splash_theme.asm"
 
 \ Under the logo (character rows LOGO_TOP_ROW to LOGO_TOP_ROW + LOGO_ROWS - 1),
-\ in groups a row apart (the aim and the question together):
-AIM_ROW    = LOGO_TOP_ROW + LOGO_ROWS + 1   \ the aim;
-PROMPT_ROW = AIM_ROW + 1       \ two lines asking for two or four players;
-KEYS_ROW   = PROMPT_ROW + 4    \ each player's keys, a line each, under a
-                               \ heading on how to change them;
+\ in groups a blank row apart, filling the screen to its last row:
+AIM_ROW    = LOGO_TOP_ROW + LOGO_ROWS   \ the aim, centred;
+PROMPT_ROW = AIM_ROW + 2       \ two lines asking for two or four players;
+KEYS_ROW   = PROMPT_ROW + 5    \ a heading on changing keys, then each
+                               \ player's keys, a line each;
 INK_ROW    = KEYS_ROW + 5      \ three lines on how ink works.
 ASSERT INK_ROW + 2 <= 31
 ASSERT TEXT_COLUMN + KEY_LINE_LENGTH <= 39   \ Short of the last column.
@@ -604,18 +635,20 @@ ASSERT TEXT_COLUMN + KEY_LINE_LENGTH <= 39   \ Short of the last column.
 
 .splash_guide                  \ In yellow (logical colour 3).
     EQUB 17, 3
-    EQUB 31, TEXT_COLUMN, AIM_ROW
+    EQUB 31, (40 - (aim_text_end - aim_text)) DIV 2, AIM_ROW   \ Centred.
+.aim_text
     EQUS "Paint as much as you can!"
-    EQUB 31, TEXT_COLUMN, KEYS_ROW - 1
+.aim_text_end
+    EQUB 31, TEXT_COLUMN, KEYS_ROW - 2
     EQUS "f1-f4 change a player's keys:"
     EQUB 31, TEXT_COLUMN, INK_ROW
-    EQUS "Firing uses ink. Move faster and"
+    EQUS "Firing uses ink. Release fire on"
     EQUB 31, TEXT_COLUMN, INK_ROW + 1
-    EQUS "recharge on your own colour; the"
+    EQUS "your own colour to refill and"
     EQUB 31, TEXT_COLUMN, INK_ROW + 2
     \ (Short of column 39: printing in the bottom-right character cell would
     \ make the MOS scroll the screen.)
-    EQUS "more saturated, the better."
+    EQUS "speed up; more saturated, faster."
 .splash_guide_end
 ASSERT splash_guide_end - splash_guide < 256   \ splash_vdu counts in a byte.
 
