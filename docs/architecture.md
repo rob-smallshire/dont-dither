@@ -113,7 +113,7 @@ appear in the labels. beebasm exports labels, not `=` constants.
 ```
 !BOOT ──► SPLASH (&0900)
             MODE 1, CMYK palette, *LOAD LOGO into screen memory
-            the aim, each keyboard player's keys, how ink works
+            the aim, each player's keys, how ink works
             "Press 2 for two players / or 4 for four players"
             key 2|4 ──► palette to black
                         *LOAD LEVELS2|LEVELS4  (to LEVEL_TEMP = &6000)
@@ -307,8 +307,10 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   about 58,600 of 80,000 cycles with four tanks moving and firing.
 - **Input byte:** a direction 0–7 (0 = N, clockwise) or `NO_DIRECTION`
   (&08), plus `FIRE_BIT` (&10). It comes from the player's control source:
-  keyboard layout A (W, A, S, D; fire Shift), keyboard layout B (cursor
-  keys; fire Copy), AI, scripted (tests) or none.
+  the keyboard (`CONTROL_KEYS`: the slot's own layout, at
+  `key_layouts + slot × 5`; C: W A S D and SHIFT, M: I J K L and M,
+  Y: F C V B and SPACE, K: cursor keys and \), AI, scripted (tests) or
+  none. `CONTROL_JOYSTICK` is reserved.
   - Keys are read with OSBYTE &81 (negative INKEY codes).
   - `*FX4,1` stops the cursor keys and Copy doing cursor editing.
   - The keyboard buffer is flushed every tick.
@@ -446,8 +448,10 @@ colour, dash and refill, emerge and paint again. The rules are in
 ## 13. Session flow (`flow.asm`)
 
 - **Player select** (`select_players`): level 1 is drawn as a backdrop.
-  Players press fire within 10 seconds to join: Shift for player 1, Copy
-  for player 2. Play starts early once both keyboard players have joined.
+  Players press their fire key within 10 seconds to join; any of the set's
+  slots can join, and play starts early once all have. Joining records the
+  player's control in `session_controls` (the keyboard; later, a joystick
+  for a joystick's fire), which `place_players` gives human slots.
   Unjoined slots are AI.
 - **Sessions** play each level of the set in turn, each opening with a
   **title card** (a black arena, "LEVEL n" and the title).

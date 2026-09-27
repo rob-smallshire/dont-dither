@@ -22,7 +22,7 @@ from dontdither.levels import level_set, load_levels
 from dontdither.screen import MODE1_ROW_BYTES
 from dontdither.splash import HUD_LOGO_ROWS, HUD_ROW_BYTES, hud_logo
 
-CONTROL_KEYS_A, CONTROL_SCRIPTED, CONTROL_AI = 1, 3, 4
+CONTROL_KEYS, CONTROL_SCRIPTED, CONTROL_AI = 1, 3, 4
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def test_player_select_screen_invites_players_to_join(bbc, game_build):
 
 def test_pressing_fire_joins_player_one(bbc, game_build):
     labels = to_player_select(bbc, game_build)
-    shift = matrix_position(LAYOUTS["A"]["fire"])
+    shift = matrix_position(LAYOUTS["C"]["fire"])
     bbc.keyboard.matrix_down(*shift)
     bbc.run_for_emulated_seconds(0.2)
     bbc.keyboard.matrix_up(*shift)
@@ -70,7 +70,7 @@ def test_pressing_fire_joins_player_one(bbc, game_build):
     bbc.debugger.run_to(labels["main_loop"], timeout=60)
     peek = bbc.memory.address.peek
     assert peek[labels["session_humans"]] == 0b0001
-    assert controls(bbc, labels) == [CONTROL_KEYS_A, CONTROL_AI, CONTROL_AI, CONTROL_AI]
+    assert controls(bbc, labels) == [CONTROL_KEYS, CONTROL_AI, CONTROL_AI, CONTROL_AI]
     assert peek.word(labels["round_length_ticks"]) == ROUND_TICKS
 
 
@@ -84,7 +84,7 @@ def test_nobody_joining_starts_a_demo_that_a_key_ends(bbc, game_build):
     assert peek.word(labels["round_length_ticks"]) == DEMO_ROUND_TICKS
 
     step_ticks(bbc, labels, 20)                           # the demo plays
-    w = matrix_position(LAYOUTS["A"]["up"])
+    w = matrix_position(LAYOUTS["K"]["up"])               # any player's key
     bbc.keyboard.matrix_down(*w)
     bbc.debugger.step(1)
     bbc.debugger.run_to(labels["select_players"], timeout=10)
@@ -182,9 +182,10 @@ def test_two_player_select_lists_two_players(bbc, game_build):
     assert "C CPU" in text and "M CPU" in text and "Y CPU" not in text
 
 
-def test_play_starts_as_soon_as_everyone_has_joined(bbc, game_build):
-    labels = to_player_select(bbc, game_build)
-    keys = [matrix_position(LAYOUTS["A"]["fire"]), matrix_position(LAYOUTS["B"]["fire"])]
+@pytest.mark.parametrize("players", [2, 4])
+def test_play_starts_as_soon_as_everyone_has_joined(bbc, game_build, players):
+    labels = to_player_select(bbc, game_build, players)
+    keys = [matrix_position(LAYOUTS[ink]["fire"]) for ink in "CMYK"[:players]]
     for key in keys:
         bbc.keyboard.matrix_down(*key)
     bbc.debugger.run_to(labels["select_start"], timeout=10)
@@ -192,7 +193,8 @@ def test_play_starts_as_soon_as_everyone_has_joined(bbc, game_build):
         bbc.keyboard.matrix_up(*key)
     peek = bbc.memory.address.peek
     assert peek[labels["session_seconds"]] > 5            # well before time ran out
-    assert peek[labels["session_joined"]] == 0b11
+    assert peek[labels["session_joined"]] == (1 << players) - 1
+    assert [peek[labels["session_controls"] + p] for p in range(players)] == [CONTROL_KEYS] * players
 
 
 def test_the_title_screen_shows_the_logo_a_guide_and_asks_for_players(bbc, game_build):
@@ -208,8 +210,10 @@ def test_the_title_screen_shows_the_logo_a_guide_and_asks_for_players(bbc, game_
     assert bytes(bbc.memory.address.peek[start:start + len(band)]) == band
     text = bbc.video.screen_text().text
     assert "for two players" in text and "for four players" in text
-    for guide in ("Most ink wins", "W A S D, SHIFT fires", "cursor keys, COPY fires",
-                  "Firing uses ink", "refills it and speeds you up"):
+    from dontdither.gen_tables import key_line
+    for guide in ("Paint as much as you can!", *(key_line(ink) for ink in "CMYK"),
+                  "Firing uses ink. Move faster and", "recharge on your own colour; the",
+                  "more saturated, the better."):
         assert guide in text, guide
     from dontdither.build import BUILD_DIRPATH
     screenshot_dirpath = BUILD_DIRPATH / "screenshots"

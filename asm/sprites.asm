@@ -105,7 +105,7 @@ MAX_PLAYERS = 4
     LDA player_bits,X          \ A human in this session, or the computer?
     AND session_humans
     BEQ place_players_ai
-    LDA human_controls,X       \ The player's keyboard layout.
+    LDA session_controls,X     \ The control the player joined with.
     JMP place_players_control
 .place_players_ai
     CPX player_count           \ A playing AI (not an unused slot) faces and
@@ -159,8 +159,6 @@ MAX_PLAYERS = 4
     STA tick_count+1
     RTS
 
-.human_controls                \ Each slot's control when a human plays it.
-    EQUB CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_NONE, CONTROL_NONE
 
 \ ----------------------------------------------------------------------------
 \ show_sprites -- save the background under, then draw, each player in order

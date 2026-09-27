@@ -526,8 +526,9 @@ def generate_game_data() -> str:
         "",
         "\\ Player control sources.",
         "CONTROL_NONE     = 0   \\ no input (stationary)",
-        "CONTROL_KEYS_A   = 1   \\ keyboard layout A",
-        "CONTROL_KEYS_B   = 2   \\ keyboard layout B",
+        "CONTROL_KEYS     = 1   \\ the keyboard: the slot's own layout in key_layouts",
+        "CONTROL_JOYSTICK = 2   \\ reserved: a joystick, for a player who joins with its",
+        "                       \\ fire button (Beebium cannot emulate one yet)",
         "CONTROL_SCRIPTED = 3   \\ player_input written by someone else (tests)",
         "CONTROL_AI       = 4   \\ the computer (ai.asm)",
         "",
@@ -579,14 +580,14 @@ def generate_game_data() -> str:
         "\\ Keyboard layouts: negative-INKEY codes (for OSBYTE &81) in the order",
         "\\ " + ", ".join(reversed(LAYOUT_KEYS)) + " -- the scan order, so that",
         "\\ rotating each result into the key mask leaves up in bit 0 and fire in",
-        "\\ bit 4. KEY_LAYOUT_BYTES per layout, layout A first.",
+        "\\ bit 4. KEY_LAYOUT_BYTES per layout, one per player slot (C, M, Y, K).",
         f"KEY_LAYOUT_BYTES = {len(LAYOUT_KEYS)}",
         ".key_layouts",
     ]
     for name, layout in LAYOUTS.items():
         keys = [layout[k] for k in reversed(LAYOUT_KEYS)]
         lines.append("    EQUB " + ", ".join(f"&{inkey_code(k):02X}" for k in keys)
-                     + f"    \\ layout {name}: " + ", ".join(keys))
+                     + f"    \\ {name}: " + ", ".join(keys))
     return "\n".join(lines) + "\n"
 
 
@@ -702,6 +703,29 @@ def generate_hud_font() -> str:
 # Splash screen
 # ---------------------------------------------------------------------------
 
+INK_NAMES = {"C": "Cyan", "M": "Magenta", "Y": "Yellow", "K": "Black"}
+
+
+def key_line(ink: str) -> str:
+    """How player `ink` plays: e.g. "Cyan: W A S D, SHIFT fires"."""
+    from dontdither.controls import LAYOUTS
+
+    layout = LAYOUTS[ink]
+    directions = [layout[k] for k in ("up", "left", "down", "right")]
+    keys = "cursor keys" if directions == ["UP", "LEFT", "DOWN", "RIGHT"] else " ".join(directions)
+    return f"{INK_NAMES[ink]}: {keys}, {layout['fire']} fires"
+
+
+def splash_key_lines() -> list[str]:
+    lines = []
+    for slot, ink in enumerate("CMYK"):
+        colour = LOGICAL_COLOUR["Y" if ink == "K" else ink]
+        text = key_line(ink).replace("\\", '", 92, "')
+        lines.append(f"    EQUB 17, {colour}, 31, TEXT_COLUMN, KEYS_ROW + {slot}")
+        lines.append(f'    EQUS "{text}"')
+    return lines
+
+
 def generate_splash(dirpath) -> None:
     """The logo as screen bytes (logo.bin), a source that saves them as the
     disc file LOGO loading straight into screen memory, and the constants
@@ -728,6 +752,11 @@ def generate_splash(dirpath) -> None:
         ".splash_palette",
         *(f"    EQUB 19, {LOGICAL_COLOUR[ink]}, {PHYSICAL_COLOUR[ink]}, 0, 0, 0" for ink in "KCMY"),
         ".splash_palette_end",
+        "\\ splash_keys: each player's keys (controls.py), a line each in its",
+        "\\ colour (K's in Y, as black would not show), from KEYS_ROW down.",
+        ".splash_keys",
+        *splash_key_lines(),
+        ".splash_keys_end",
     ]) + "\n")
     from dontdither.splash import HUD_FIRST_COLUMN, HUD_LOGO_ROWS, HUD_ROW_BYTES, hud_logo
     (dirpath / "hud_logo.bin").write_bytes(hud_logo())

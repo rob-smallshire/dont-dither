@@ -246,8 +246,7 @@ to C than (2,1,1,0), it is a better road and filling station.
 
 ## Computer players
 
-- Player slots without a human are played by the AI; players 1 and 2 are on
-  the keyboard. The AI produces the same input byte as a keyboard player,
+- Player slots nobody joins are played by the AI. The AI produces the same input byte as a keyboard player,
   and the simulation cannot tell them apart.
 - The AI is deterministic (no random numbers) and simple: every 4 ticks
   (AIs take turns) it scores each direction by sampling 4 cells ahead,
@@ -296,9 +295,14 @@ to C than (2,1,1,0), it is a better road and filling station.
 
 ## Player selection, sessions and demo
 
-- At boot, and after every session, players join by pressing fire within a
-  10-second window (SHIFT for player 1, COPY for player 2), shown over a
-  backdrop of level 1. Every slot nobody joins is played by the computer.
+- At boot, and after every session, players join by pressing their fire key
+  within a 10-second window, shown over a backdrop of level 1. Every slot of
+  the set (C and M in a two-player game, all four in a four-player one) can
+  be joined, and play starts early once all have. Every slot nobody joins is
+  played by the computer.
+- How a player joins chooses their control (session_controls): a fire key
+  means the keyboard. When joysticks can be read, joining with a joystick's
+  fire button will choose the joystick (CONTROL_JOYSTICK is reserved).
 - A session plays every level in turn. After each round, points by rank:
   3, 2, 1, 0 for first to last with four players; 3 and 0 with two. Ties
   are ties: tied players share the better rank (two tied for first both
@@ -307,7 +311,7 @@ to C than (2,1,1,0), it is a better road and filling station.
   player selection.
 - If nobody joins, the computer plays a demo (attract mode) in 1-minute
   rounds, cycling the levels for ever; any player key (a direction or
-  fire) returns to player selection.
+  fire, of any layout) returns to player selection.
 - Player slot k always plays in ink k (C, M, Y, K), so colours are
   consistent across a session; two-player levels are played by slots 1 and
   2 (C and M). (Supersedes the earlier "C against Y" default.)
@@ -335,10 +339,25 @@ to C than (2,1,1,0), it is a better road and filling station.
 
 - Keyboard only for now. Beebium does not yet emulate joysticks, and the
   SPItFIRE four-joystick interface comes later.
-- Player 1: W A S D, fire SHIFT. Player 2: cursor keys, fire COPY
-  (tools/dontdither/controls.py). Keys are read with OSBYTE &81; *FX4,1
-  stops the cursor keys and COPY doing cursor editing, and the keyboard
-  buffer is flushed every tick.
+- Each player slot has its own keyboard layout, so up to four people can
+  play on one keyboard (tools/dontdither/controls.py):
+
+  | Player | Up | Left | Down | Right | Fire |
+  |---|---|---|---|---|---|
+  | C (cyan) | W | A | S | D | SHIFT |
+  | M (magenta) | I | J | K | L | M |
+  | Y (yellow) | F | C | V | B | SPACE |
+  | K (black) | ↑ | ← | ↓ | → | \ |
+
+  Each is an inverted T plus a fire key, spread so hands do not collide;
+  they work on a real BBC Micro keyboard and on an emulator's host
+  keyboard. The keyboard matrix has no diodes, so some combinations of
+  three or more held keys ghost; that is a hardware limit.
+- Keys are read with OSBYTE &81; *FX4,1 stops the cursor keys and COPY
+  doing cursor editing, and the keyboard buffer is flushed every tick.
+- The title screen explains the aim, each player's keys and how ink works
+  ("Paint as much as you can! ... Firing uses ink. Move faster and
+  recharge on your own colour; the more saturated, the better.").
 
 ## Memory
 

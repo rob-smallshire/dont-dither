@@ -131,20 +131,10 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     JMP read_inputs_next
 
 .read_inputs_keys
-    \ Keyboard layout A (1) or B (2): the layout's codes start at
-    \ (control - 1) * KEY_LAYOUT_BYTES in key_layouts.
+    \ The keyboard (CONTROL_KEYS): the slot's own layout. (CONTROL_JOYSTICK
+    \ is reserved for when a joystick can be read.)
     STX zp_player
-    SEC
-    SBC #CONTROL_KEYS_A
-    TAY                        \ Y = layout number 0 or 1.
-    LDA #0
-.read_inputs_layout_offset
-    DEY                        \ A += KEY_LAYOUT_BYTES for each layout
-    BMI read_inputs_scan       \ before this one.
-    CLC
-    ADC #KEY_LAYOUT_BYTES
-    JMP read_inputs_layout_offset
-.read_inputs_scan
+    JSR layout_offset          \ A = X * KEY_LAYOUT_BYTES.
     JSR scan_layout            \ A = input byte for this layout's keys.
     LDX zp_player
     STA player_input,X
@@ -159,6 +149,22 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     LDA #21
     LDX #0
     JMP OSBYTE
+
+\ ----------------------------------------------------------------------------
+\ layout_offset -- A = the offset of player slot X's layout in key_layouts
+\
+\ On exit:  A = X * KEY_LAYOUT_BYTES; X, Y preserved; zp_key_index corrupted
+\ ----------------------------------------------------------------------------
+
+.layout_offset
+    STX zp_key_index           \ (borrowed: scan_layout sets it afresh)
+    TXA
+    ASL A                      \ 4X...
+    ASL A
+    CLC
+    ADC zp_key_index           \ ...+ X.
+    ASSERT KEY_LAYOUT_BYTES = 5
+    RTS
 
 \ ----------------------------------------------------------------------------
 \ scan_layout -- read one keyboard layout's keys into an input byte

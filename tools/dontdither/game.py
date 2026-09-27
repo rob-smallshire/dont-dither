@@ -78,7 +78,7 @@ DIRECTION_DY = (-1, -1, 0, 1, 1, 1, 0, -1)
 FOOTPRINT = 6
 MAX_POSITION = 128 - FOOTPRINT      # 122
 
-HUMAN_PLAYERS = 2          # players 1 and 2 are on the keyboard; the rest are AI
+HUMAN_PLAYERS = 2          # the default (test) session: players 1 and 2 human, the rest AI
 
 TICKS_PER_SECOND = 25
 DEMO_ROUND_SECONDS = 60    # demo (attract) rounds, with no human players
@@ -203,8 +203,8 @@ class Game:
     def start(cls, level: Level, random_state: int = DEFAULT_RANDOM_STATE,
               humans: int = HUMAN_PLAYERS) -> Game:
         """The level's starting state: the first `humans` players human (by
-        default the game's two keyboard players), the rest the AI (all of
-        them in demo mode). Each AI player, in slot order, faces (and heads)
+        default players 1 and 2, as in the game's default session), the
+        rest the AI (all of them in demo mode). Each AI player, in slot order, faces (and heads)
         a random direction, so identical AIs do not move in step like
         dancers; humans face the level's way."""
         walls = level.wall_cells()

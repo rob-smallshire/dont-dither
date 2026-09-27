@@ -16,10 +16,21 @@ Boot the disc (Shift-Break) on a Model B with DFS.
 
 - **Two or four players:** the title screen asks; press 2 or 4. Each mode
   has its own set of levels.
-- **Joining:** during the 10-second countdown, press fire to join. Player 1
-  (cyan) drives with W A S D and fires with SHIFT; player 2 (magenta) uses
-  the cursor keys and COPY. The computer plays everyone else. If nobody
-  joins, the computer plays a demo until you press a key.
+- **Joining:** during the 10-second countdown, press your fire key to join.
+  Up to four people can play on one keyboard, one per ink (two in a
+  two-player game: cyan and magenta):
+
+| Player | Up | Left | Down | Right | Fire |
+|---|---|---|---|---|---|
+| C (cyan) | W | A | S | D | SHIFT |
+| M (magenta) | I | J | K | L | M |
+| Y (yellow) | F | C | V | B | SPACE |
+| K (black) | ↑ | ← | ↓ | → | \ |
+
+  The computer plays everyone else. If nobody joins, the computer plays a
+  demo until you press a key. (The BBC keyboard has no diodes, so some
+  combinations of three or more held keys can make another key appear
+  pressed.)
 - **A session** plays every level of the set, each a 5-minute round. Each
   shot splats paint that moves the cells it hits a step towards your ink.
   When time runs out the territory is tallied, and points are awarded by

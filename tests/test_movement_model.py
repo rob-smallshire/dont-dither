@@ -239,3 +239,13 @@ def test_round_points_by_rank():
     assert round_points([30, 30, 20, 20]) == [3, 3, 1, 1]
     assert round_points([60, 40]) == [3, 0]
     assert round_points([50, 50]) == [3, 3]
+
+
+def test_the_four_keyboard_layouts_share_no_key():
+    from dontdither.controls import INTERNAL_KEY, LAYOUT_KEYS, LAYOUTS
+
+    assert list(LAYOUTS) == list("CMYK")
+    keys = [layout[k] for layout in LAYOUTS.values() for k in LAYOUT_KEYS]
+    assert len(set(keys)) == len(keys) == 20
+    assert all(key in INTERNAL_KEY for key in keys)
+    assert not {"ESCAPE", "BREAK"} & set(keys)

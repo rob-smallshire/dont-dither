@@ -46,6 +46,10 @@ GUARD &0D00                    \ &0D00 holds the DFS NMI routine.
     LDY #HI(splash_guide)
     LDA #splash_guide_end - splash_guide
     JSR splash_vdu
+    LDX #LO(splash_keys)       \ Each player's keys.
+    LDY #HI(splash_keys)
+    LDA #splash_keys_end - splash_keys
+    JSR splash_vdu
     LDX #LO(splash_prompt)     \ Ask for two or four players.
     LDY #HI(splash_prompt)
     LDA #splash_prompt_end - splash_prompt
@@ -108,9 +112,9 @@ INCLUDE "build/generated/splash_data.asm"
 \ in groups a row apart:
 AIM_ROW    = LOGO_TOP_ROW + LOGO_ROWS + 1   \ the aim;
 PROMPT_ROW = AIM_ROW + 2       \ two lines asking for two or four players;
-KEYS_ROW   = PROMPT_ROW + 3    \ each keyboard player's keys;
-INK_ROW    = KEYS_ROW + 3      \ two lines on how ink works.
-ASSERT INK_ROW + 1 <= 31
+KEYS_ROW   = PROMPT_ROW + 3    \ each player's keys, a line each;
+INK_ROW    = KEYS_ROW + 5      \ three lines on how ink works.
+ASSERT INK_ROW + 2 <= 31
 
 .splash_prompt                 \ Two lines under the logo, in the players'
     EQUB 17, 1                 \ colours (logical 1 = C, 2 = M, 3 = Y).
@@ -131,20 +135,16 @@ ASSERT INK_ROW + 1 <= 31
 .splash_guide                  \ In the players' colours (logical 1 = C,
     EQUB 17, 3                 \ 2 = M, 3 = Y).
     EQUB 31, TEXT_COLUMN, AIM_ROW
-    EQUS "Paint the arena. Most ink wins!"
-    EQUB 17, 1
-    EQUB 31, TEXT_COLUMN, KEYS_ROW
-    EQUS "Player 1: W A S D, SHIFT fires"
-    EQUB 17, 2
-    EQUB 31, TEXT_COLUMN, KEYS_ROW + 1
-    EQUS "Player 2: cursor keys, COPY fires"
+    EQUS "Paint as much as you can!"
     EQUB 17, 3
     EQUB 31, TEXT_COLUMN, INK_ROW
-    EQUS "Firing uses ink. Your own colour"
+    EQUS "Firing uses ink. Move faster and"
     EQUB 31, TEXT_COLUMN, INK_ROW + 1
+    EQUS "recharge on your own colour; the"
+    EQUB 31, TEXT_COLUMN, INK_ROW + 2
     \ (Short of column 39: printing in the bottom-right character cell would
     \ make the MOS scroll the screen.)
-    EQUS "refills it and speeds you up."
+    EQUS "more saturated, the better."
 .splash_guide_end
 ASSERT splash_guide_end - splash_guide < 256   \ splash_vdu counts in a byte.
 

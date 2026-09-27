@@ -109,8 +109,14 @@ INCLUDE "build/generated/ink_tables.asm"
     LDA #HI(ROUND_TICKS)
     STA round_length_ticks+1
 
-    LDA #%11                   \ Default session: players 1 and 2 human
-    STA session_humans         \ (tests enter levels directly with this).
+    LDA #%11                   \ Default session: players 1 and 2 human,
+    STA session_humans         \ on the keyboard (tests enter levels
+    LDA #CONTROL_KEYS          \ directly with this).
+    LDX #MAX_PLAYERS - 1
+.start_session_controls
+    STA session_controls,X
+    DEX
+    BPL start_session_controls
 
     JMP select_players         \ Let players join; then play (flow.asm).
 
@@ -358,7 +364,7 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .saved_sx         SKIP MAX_PLAYERS \ Where each saved background came from.
 .saved_sy         SKIP MAX_PLAYERS
 .sprites_shown    SKIP 1       \ Non-zero while sprites are on screen.
-.player_control   SKIP MAX_PLAYERS \ CONTROL_NONE, _KEYS_A, _KEYS_B, _SCRIPTED.
+.player_control   SKIP MAX_PLAYERS \ CONTROL_NONE, _KEYS, _SCRIPTED or _AI.
 .player_input     SKIP MAX_PLAYERS \ This tick's input byte (see game.asm).
 .player_accumulator SKIP MAX_PLAYERS \ Movement speed accumulator.
 .drawn_facing     SKIP MAX_PLAYERS \ Facing each tank was last drawn with.
@@ -399,7 +405,9 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .random_state     SKIP 1       \ The pseudo-random generator (next_random).
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
 .session_humans   SKIP 1       \ Bit per player slot: played by a human.
-.session_joined   SKIP 1       \ select_players: who has pressed fire.
+.session_joined   SKIP 1       \ select_players: who has pressed fire,
+.session_controls SKIP MAX_PLAYERS \ and with what (CONTROL_KEYS; one day
+                               \ CONTROL_JOYSTICK, for a joystick's fire).
 .session_level    SKIP 1       \ The session's current level.
 .session_points   SKIP MAX_PLAYERS \ Points so far this session.
 .session_seconds  SKIP 1       \ Countdown / pause seconds left.

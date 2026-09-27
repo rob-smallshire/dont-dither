@@ -17,7 +17,7 @@ from dontdither.render import arena_bytes, arena_screen, draw_players
 from dontdither.screen import MODE1_SCREEN_BASE, MODE1_SCREEN_SIZE
 
 LEVEL = load_levels()[0]
-CONTROL_NONE, CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_SCRIPTED = range(4)
+CONTROL_NONE, CONTROL_KEYS, CONTROL_SCRIPTED = 0, 1, 3
 
 
 @pytest.fixture
@@ -108,11 +108,13 @@ def test_screen_shows_the_tanks_where_the_model_puts_them(game):
     assert arena_bytes(actual) == arena_bytes(expected)
 
 
-@pytest.mark.parametrize("player, layout", [(0, "A"), (1, "B")])
+@pytest.mark.parametrize("player", range(4), ids=list("CMYK"))
 @pytest.mark.parametrize("held", [("up",), ("right",), ("down", "left"), ("up", "right")])
-def test_held_keys_drive_the_players(game, player, layout, held):
+def test_held_keys_drive_the_players(game, player, held):
+    """Each player slot drives with its own layout (all four on the keyboard)."""
     bbc, labels, model = game
-    keys = [LAYOUTS[layout][k] for k in held]
+    set_controls(bbc, labels, [CONTROL_KEYS] * 4, model)
+    keys = [LAYOUTS["CMYK"[player]][k] for k in held]
     for key in keys:
         bbc.keyboard.matrix_down(*matrix_position(key))
     step_ticks(bbc, labels, 20)
@@ -129,7 +131,7 @@ def test_held_keys_drive_the_players(game, player, layout, held):
 
 def test_releasing_keys_stops_the_tank(game):
     bbc, labels, _ = game
-    w = matrix_position(LAYOUTS["A"]["right"])
+    w = matrix_position(LAYOUTS["C"]["right"])
     bbc.keyboard.matrix_down(*w)
     step_ticks(bbc, labels, 10)
     bbc.keyboard.matrix_up(*w)

@@ -2,11 +2,15 @@
 \ flow.asm -- player selection, sessions and demo mode
 \
 \ select_players  Level 1 is drawn as a backdrop and the HUD invites players
-\                 to press fire within SELECT_SECONDS: SHIFT joins player 1
-\                 (keyboard layout A), COPY player 2 (layout B). Play starts
-\                 when the time runs out, or as soon as every player who
-\                 can join (both keyboard players) has. Every slot nobody
-\                 joins is played by the computer.
+\                 to press fire within SELECT_SECONDS. Each of the set's
+\                 player slots (C, M in a two-player set; C, M, Y, K in a
+\                 four-player one) has its own keyboard layout (key_layouts),
+\                 and its fire key joins it. How a player joins chooses its
+\                 control (session_controls): today always the keyboard; a
+\                 joystick's fire button will choose the joystick. Play
+\                 starts when the time runs out, or as soon as every slot
+\                 has joined. Every slot nobody joins is played by the
+\                 computer.
 \
 \ The game plays only the level set the loader loaded: all two-player or
 \ all four-player levels.
@@ -20,7 +24,7 @@
 \
 \ Demo (attract) mode: if nobody joins, the computer plays every slot, in
 \ shorter rounds, cycling through the levels for ever -- until any player
-\ key (a direction or fire of either layout) is pressed, which returns to
+\ key (a direction or fire of any layout) is pressed, which returns to
 \ player selection.
 \
 \ Must match tools/dontdither/game.py (round_points).
@@ -33,7 +37,6 @@ SELECT_COUNT_ROW = 10          \ The seconds left to join.
 SELECT_SLOT_ROW  = 12          \ One row per player: "C CPU" or "C YOU".
 POINTS_ROW       = 6           \ "POINTS"/"FINAL", then a row per player.
 FIELDS_PER_SECOND = 50
-JOINABLE_PLAYERS = %11         \ Players who can join: the two keyboard layouts.
 
 \ ----------------------------------------------------------------------------
 \ select_players -- let players join, then start a session. Never returns.
@@ -69,17 +72,22 @@ JOINABLE_PLAYERS = %11         \ Players who can join: the two keyboard layouts.
     JSR OSBYTE
     JSR next_random            \ Stir the generator: how long players take
                                \ to join varies it.
-    LDA #0                     \ SHIFT: player 1 joins.
-    LDX #0
+    LDX #0                     \ Each slot's fire key joins it.
+.select_join_slot
+    JSR layout_offset          \ A = the slot's layout (X preserved).
     JSR select_try_join
-    LDA #KEY_LAYOUT_BYTES      \ COPY: player 2 joins.
-    LDX #1
-    JSR select_try_join
+    LDX zp_player
+    INX
+    CPX level_set_players
+    BNE select_join_slot
     LDA #21                    \ Discard the characters the keys typed.
     LDX #0
     JSR OSBYTE
-    LDA session_joined         \ Everyone who can join has: start now.
-    CMP #JOINABLE_PLAYERS
+    LDX level_set_players      \ Every slot has joined: start now. (The bit
+    LDA player_bits,X          \ above the last slot's, less one, is all of
+    SEC                        \ their bits.)
+    SBC #1
+    CMP session_joined
     BEQ select_start
     DEC session_fields
     BNE select_field
@@ -176,8 +184,9 @@ ARENA_TEXT_COLUMNS = 32
     LDA #3
     JMP pause_seconds          \ Tail call; in demo mode a key may leave.
 
-\ select_try_join: if keyboard layout A (at offset A in key_layouts) has fire
-\ held, player X joins (if not already joined) and shows it.
+\ select_try_join: if the keyboard layout at offset A in key_layouts has
+\ fire held, player X joins (if not already joined), on the keyboard, and
+\ shows it.
 .select_try_join
     STX zp_player
     JSR scan_layout            \ A = input byte.
@@ -189,6 +198,8 @@ ARENA_TEXT_COLUMNS = 32
     BNE select_try_join_done   \ Already joined.
     ORA session_joined
     STA session_joined
+    LDA #CONTROL_KEYS          \ Joined with a fire key: the keyboard.
+    STA session_controls,X
     JSR print_slot_status
 .select_try_join_done
     RTS
@@ -392,14 +403,16 @@ ARENA_TEXT_COLUMNS = 32
 .check_demo_exit
     LDA session_humans
     BNE check_demo_exit_done
-    LDA #0
+    LDX #MAX_PLAYERS - 1       \ Any key of any layout.
+.check_demo_exit_layout
+    STX zp_player
+    JSR layout_offset
     JSR scan_layout
     CMP #NO_DIRECTION
     BNE check_demo_exit_yes
-    LDA #KEY_LAYOUT_BYTES
-    JSR scan_layout
-    CMP #NO_DIRECTION
-    BNE check_demo_exit_yes
+    LDX zp_player
+    DEX
+    BPL check_demo_exit_layout
 .check_demo_exit_done
     RTS
 .check_demo_exit_yes
@@ -409,8 +422,9 @@ ARENA_TEXT_COLUMNS = 32
 \ Data
 \ ----------------------------------------------------------------------------
 
-.player_bits                   \ Player X's bit in session_joined/_humans.
-    EQUB &01, &02, &04, &08
+.player_bits                   \ Player X's bit in session_joined/_humans,
+    EQUB &01, &02, &04, &08    \ and the bit above the last slot's (for a
+    EQUB &10                   \ mask of every slot).
 
 .points_by_rank
     EQUB 3, 2, 1, 0            \ Four players: first..last.
