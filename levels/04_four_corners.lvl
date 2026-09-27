@@ -1,0 +1,18 @@
+# Four Corners: a room in each corner, each opening towards the middle,
+# and a pinwheel of walls round the centre.
+
+NAME Four Corners
+SYMMETRY ROT4
+WALLS C M
+START 16 16 SE
+
+# The top-left room: a wall down from the top and one in from the left,
+# leaving the corner between them open.
+MOVE 9 1
+DRAW 9 5
+MOVE 1 9
+DRAW 5 9
+
+# One blade of the pinwheel.
+MOVE 15 9
+DRAW 15 11

@@ -1,0 +1,17 @@
+# Double Trouble: each player starts in a bunker, open towards the fight,
+# with twin pillars either side of the middle.
+
+NAME Double Trouble
+SYMMETRY ROT2
+WALLS C K
+START 61 12 S
+
+# The bunker's sides.
+MOVE 11 4
+DRAW 11 8
+MOVE 20 4
+DRAW 20 8
+
+# A pillar left of the middle.
+MOVE 5 14
+DRAW 8 14

@@ -1,0 +1,14 @@
+# Give and Take: combs from top and bottom interlock in the middle.
+
+NAME Give and Take
+SYMMETRY ROT2
+WALLS M C
+START 12 8 S
+
+# The comb's teeth, down from the top edge.
+MOVE 8 1
+DRAW 8 9
+MOVE 16 1
+DRAW 16 13
+MOVE 24 1
+DRAW 24 9

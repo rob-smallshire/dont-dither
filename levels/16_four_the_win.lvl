@@ -1,0 +1,19 @@
+# Four the Win: a podium in the very middle, and four long lanes wheeling
+# round it.
+
+NAME Four the Win
+SYMMETRY ROT4
+WALLS C Y
+START 8 8 SE
+
+# The podium: the four middle cells (each quarter turn fills another).
+MOVE 15 15
+DRAW 16 15
+
+# A lane wall.
+MOVE 5 8
+DRAW 12 8
+
+# A stub from the top edge.
+MOVE 20 1
+DRAW 20 4

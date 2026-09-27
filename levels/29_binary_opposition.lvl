@@ -1,0 +1,17 @@
+# Binary Opposition: a 1 and a 0 -- and, turned about, a 1 and a 0 again.
+
+NAME Binary Opposition
+SYMMETRY ROT2
+WALLS K Y
+START 61 12 S
+
+# The 1: a stem with a flag at its top.
+MOVE 6 4
+DRAW 8 4
+DRAW 8 12
+
+# The 0, open at one side.
+MOVE 26 5
+DRAW 22 5
+DRAW 22 12
+DRAW 26 12

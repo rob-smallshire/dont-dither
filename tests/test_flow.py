@@ -8,7 +8,7 @@ import random
 
 import pytest
 
-from conftest import SET_LEVEL_IDS, SET_LEVELS, boot_game, enter_level, load_game, step_ticks
+from conftest import SAMPLE_SET_LEVELS, SAMPLE_SET_LEVEL_IDS, boot_game, enter_level, load_game, step_ticks
 from dontdither.controls import LAYOUTS, matrix_position
 from dontdither.game import (
     DEMO_ROUND_TICKS,
@@ -91,7 +91,7 @@ def test_nobody_joining_starts_a_demo_that_a_key_ends(bbc, game_build):
     bbc.keyboard.matrix_up(*w)
 
 
-@pytest.mark.parametrize("players, level_number", SET_LEVELS, ids=SET_LEVEL_IDS)
+@pytest.mark.parametrize("players, level_number", SAMPLE_SET_LEVELS, ids=SAMPLE_SET_LEVEL_IDS)
 def test_points_are_awarded_by_rank(bbc, game_build, players, level_number):
     boot_game(bbc, game_build, players)
     labels = game_build.labels["DITHER"]

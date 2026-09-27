@@ -284,18 +284,31 @@ move code into the low block, or trim code.
 - **Starts:** `place_players` rotates player 1's start for each further
   player, by (sx, sy) → (122−sy, sx) with facing + 2 per quarter turn.
   Player *k* plays ink *k*.
-- **Level sets:** each set has a fixed header (players, count, then address
-  tables for up to `MAX_LEVELS` = 16 bytecodes and titles), followed by the
-  titles and the bytecode. The game reads levels through
-  `level_code_lo/hi` and `level_title_lo/hi`, which are fixed offsets from
-  `level_area`.
+- **The border** is not stored: `build_wall_map` sets the outermost ring
+  of the wall map itself, before expanding the level.
+- **Bytecode**, compact so that 16 levels fit each set:
+  - a 7-byte header: symmetry, wall core and rim ink bytes, fill state,
+    and player 1's start (sx, sy, facing);
+  - two-byte commands: cx (bit 7 set to DRAW, clear to MOVE), then cy;
+  - `&FF` to end.
+
+  A level costs its title plus 1, plus 8, plus 2 per line: 25–48 bytes.
+- **Level sets:** the player count and the number of levels, then each
+  level in turn: its title (a length byte and the characters), then its
+  bytecode. `select_level` walks to level `zp_level`, setting `level_title`
+  and `zp_level_ptr`.
+- **Previewing:** `uv run dd-preview-levels` draws every level with its
+  tanks onto `build/design/levels_2p.png` and `levels_4p.png`, and
+  reports each set's size.
 - **Reachability:** every open cell must be reachable by a tank with two
   superpixels' clearance on each side, so gaps are at least three wall
   cells wide. `test_levels.py` checks this with a flood fill over tank
   positions from the starts.
-- **Current levels:** Colour Clash and Dithering Fights (four-player), and
-  Mixed Emotions (two-player). The categorised list of 45 titles is in
-  `decisions.md`.
+- **Current levels:** 16 in each set, the most a set holds. The
+  four-player set is Colour Clash, Dithering Fights and 14 of the
+  four-player titles. The two-player set is Mixed Emotions and all 15
+  two-player titles. Each set leaves about 100 bytes of the level area free.
+  The titles are listed in `decisions.md`.
 
 ---
 

@@ -1,0 +1,21 @@
+# Face Off: a rink -- a centre circle with gaps at the sides, face-off
+# spots, and a crease in front of each start.
+
+NAME Face Off
+SYMMETRY ROT2
+WALLS Y M
+START 61 24 S
+
+# The top of the centre circle.
+MOVE 11 12
+DRAW 11 10
+DRAW 20 10
+DRAW 20 12
+
+# The crease.
+MOVE 12 4
+DRAW 19 4
+
+# A face-off spot.
+MOVE 5 8
+DRAW 6 8

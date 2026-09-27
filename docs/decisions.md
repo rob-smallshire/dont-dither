@@ -39,6 +39,26 @@ Decisions taken during development that refine or depart from
   first had one-cell (4-superpixel) gaps into its central room, which no
   6-superpixel tank could enter; they are now three cells.
   test_levels.py checks every level.
+- Each set has 16 levels, the most it holds, in the order of their files.
+  A title's wording suggests its layout: corner rooms in Four Corners,
+  a boxing ring in CMYK.O., a rope across the middle in Tug of War, a 1
+  and a 0 in Binary Opposition. The four-player set uses 14 of the 15
+  four-player titles (all but Four Better or Worse) after Colour Clash and
+  Dithering Fights; the two-player set uses all 15 two-player titles after
+  Mixed Emotions. Wall colourings vary across the 12 pairs.
+- To fit 16 levels in the level area, the level format is compact:
+  - the border is implicit, drawn by the game (it cost every level 6–12
+    bytes);
+  - commands take two bytes, with DRAW or MOVE in the top bit of cx;
+  - the set has no address tables: the game walks to the level it wants.
+  A level costs 25–48 bytes.
+- A session plays every level of its set, so with 16 levels a session is
+  long (16 five-minute rounds). Shorter rounds, or choosing levels, may be
+  wanted later.
+- Emulator tests that simulate hundreds of ticks per level run on a sample
+  (the first, a middle and the last level of each set): the engine is the
+  same on every level, and what differs between levels is checked on every
+  level by cheaper tests.
 
 ## Players and modes
 
@@ -285,9 +305,9 @@ to C than (2,1,1,0), it is a better road and filling station.
   the screen, where it stays: the game never clears or redraws those four
   character rows, so the logo costs no memory.
 - A level set holds only levels of its player count (ROT2 or ROT4); the
-  build generates both from levels/*.lvl. A set has a fixed header
-  (players, count, tables of bytecode and title addresses, up to 16 levels)
-  then the levels. Only player 1's start is stored; the 6502 rotates it for
+  build generates both from levels/*.lvl. A set is the player count and
+  the number of levels (at most 16), then the levels one after another,
+  each its title and its bytecode. Only player 1's start is stored; the 6502 rotates it for
   the other players, as the model does.
 - Joining works the same in both modes: play starts when every slot of the
   set (two or four) has joined, or when the 10 seconds run out.

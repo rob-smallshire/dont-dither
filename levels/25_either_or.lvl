@@ -1,0 +1,17 @@
+# Either Or: from each start the way forks, round a long wall, either
+# left or right.
+
+NAME Either Or
+SYMMETRY ROT2
+WALLS K M
+START 20 8 S
+
+# The fork's wall.
+MOVE 15 4
+DRAW 15 13
+
+# Walls guiding each way.
+MOVE 4 8
+DRAW 9 8
+MOVE 21 12
+DRAW 26 12

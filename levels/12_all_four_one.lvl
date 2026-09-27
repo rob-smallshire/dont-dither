@@ -1,0 +1,16 @@
+# All Four One: a hub in the middle with four wide doors, and a spoke
+# running out from each towards the edges.
+
+NAME All Four One
+SYMMETRY ROT4
+WALLS Y M
+START 8 8 SE
+
+# A corner of the hub.
+MOVE 11 13
+DRAW 11 11
+DRAW 13 11
+
+# A spoke, pointing at the hub's top door.
+MOVE 15 4
+DRAW 15 7

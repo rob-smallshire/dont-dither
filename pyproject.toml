@@ -14,6 +14,7 @@ dd-solve-patterns = "dontdither.solve_patterns:main"
 dd-preview-sprites = "dontdither.preview_sprites:main"
 dd-preview-splats = "dontdither.preview_splats:main"
 dd-render-music = "dontdither.splash_theme:main"
+dd-preview-levels = "dontdither.preview_levels:main"
 
 [dependency-groups]
 test = [

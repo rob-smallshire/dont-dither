@@ -1,0 +1,12 @@
+# Tit for Tat: teeth from each side wall, alternating, so the way zigzags.
+
+NAME Tit for Tat
+SYMMETRY ROT2
+WALLS C Y
+START 61 8 S
+
+# Teeth from the left edge and from the right.
+MOVE 1 6
+DRAW 9 6
+MOVE 30 11
+DRAW 22 11

@@ -79,7 +79,7 @@ a Model B + DFS: Shift-Break to boot the game.
 |---|---|
 | `asm/` | 6502 source (beebasm). `splash.asm` is the title screen (the disc boots it), `main.asm` the game, `testcard.asm` the test card, `tune.asm` the title music alone; the rest are shared modules, among them `music.asm`, the music player. |
 | `art/splash.png` | The logo, converted by the build for the title screen and the HUD. |
-| `levels/` | Level source files (`*.lvl`): symmetric wall layouts, colouring and starts. |
+| `levels/` | Level source files (`*.lvl`): symmetric wall layouts, colouring and starts; 16 in each of the two- and four-player sets. Preview them all with `uv run dd-preview-levels`. |
 | `sprites/` | Player tank and paint splats (`*.spr`, editable ASCII art); preview with `uv run dd-preview-sprites` and `uv run dd-preview-splats`. |
 | `data/ink_patterns.json` | The canonical 2×2 pattern for each of the 35 ink states. Source of truth for the generated 6502 tables. |
 | `tools/dontdither/` | Python: ink model, table generator, build, pattern solver. |

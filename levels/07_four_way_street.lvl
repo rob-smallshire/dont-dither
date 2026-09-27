@@ -1,0 +1,23 @@
+# Four Way Street: city blocks round the edge, streets between them, and
+# an open square in the middle.
+
+NAME Four Way Street
+SYMMETRY ROT4
+WALLS M Y
+START 6 6 E
+
+# A corner block, solid: a spiral fills its 3x3 cells.
+MOVE 4 4
+DRAW 6 4
+DRAW 6 6
+DRAW 4 6
+DRAW 4 5
+DRAW 5 5
+
+# The next block along.
+MOVE 11 4
+DRAW 13 4
+DRAW 13 6
+DRAW 11 6
+DRAW 11 5
+DRAW 12 5

@@ -1,0 +1,18 @@
+# Quarter Past: a clock face -- a ring of hour marks, and hands round the
+# centre pointing a quarter-turn apart.
+
+NAME Quarter Past
+SYMMETRY ROT4
+WALLS K Y
+START 20 20 SE
+
+# The hour marks at twelve and between: short dashes round the face.
+MOVE 15 4
+DRAW 15 6
+MOVE 7 9
+DRAW 7 7
+DRAW 9 7
+
+# The hand: from near the centre out towards twelve.
+MOVE 16 9
+DRAW 16 11

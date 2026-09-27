@@ -73,8 +73,11 @@ wall cell byte-for-byte.
 **Levels** are text files in `levels/` (format in `tools/dontdither/levels.py`),
 compiled in filename order. A level stores one quadrant (`ROT4`) or half
 (`ROT2`) of its walls as MOVE/DRAW lines in wall-cell coordinates, plus its
-colouring, fill state and player 0's START. `asm/level.asm` interprets the
-bytecode once per symmetric copy, rotating each plotted cell ((x, y) ->
+colouring, fill state and player 0's START; the border is implicit (the game
+draws it). The bytecode is compact (a 7-byte header, two-byte commands, &FF
+to end) and a set lists levels one after another, so 16 fit each set;
+`uv run dd-preview-levels` draws them all and reports the sizes.
+`asm/level.asm` interprets the bytecode once per symmetric copy, rotating each plotted cell ((x, y) ->
 (31 - y, x) per quarter turn) into a 128-byte `wall_map` buffer. So symmetry,
 and hence fairness, is structural. `enter_level` in `asm/main.asm` fills the
 arena, builds and draws the walls, and prints the level name.

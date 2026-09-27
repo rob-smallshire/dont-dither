@@ -1,0 +1,13 @@
+# Two's Company: pairs of pillars stand together in the middle, and the
+# edges are open.
+
+NAME Two's Company
+SYMMETRY ROT2
+WALLS M K
+START 61 8 S
+
+# A pair of pillars.
+MOVE 8 12
+DRAW 10 12
+MOVE 14 12
+DRAW 14 14

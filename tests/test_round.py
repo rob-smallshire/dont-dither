@@ -9,7 +9,7 @@ import random
 
 import pytest
 
-from conftest import SET_LEVEL_IDS, SET_LEVELS, align_to_tick, boot_game, enter_level, step_ticks
+from conftest import SAMPLE_SET_LEVELS, SAMPLE_SET_LEVEL_IDS, align_to_tick, boot_game, enter_level, step_ticks
 from dontdither.game import FIRE_BIT, NO_DIRECTION, Game
 from dontdither.hud_font import DIGITS, glyph_bytes
 from dontdither.walls import full_byte
@@ -86,7 +86,7 @@ def test_default_round_is_five_minutes(game):
     assert "5:00" in bbc.video.screen_text().text
 
 
-@pytest.mark.parametrize("players, level_number", SET_LEVELS, ids=SET_LEVEL_IDS)
+@pytest.mark.parametrize("players, level_number", SAMPLE_SET_LEVELS, ids=SAMPLE_SET_LEVEL_IDS)
 def test_the_tally_matches_the_model(launch_bbc, game_build, players, level_number):
     bbc = launch_bbc()
     boot_game(bbc, game_build, players)

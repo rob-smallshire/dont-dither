@@ -1,0 +1,21 @@
+# Four Square: in each quarter a square courtyard, with a gateway in the
+# middle of every side.
+
+NAME Four Square
+SYMMETRY ROT4
+WALLS K C
+START 8 8 SE
+
+# The courtyard's four corners.
+MOVE 5 7
+DRAW 5 5
+DRAW 7 5
+MOVE 11 5
+DRAW 13 5
+DRAW 13 7
+MOVE 13 11
+DRAW 13 13
+DRAW 11 13
+MOVE 7 13
+DRAW 5 13
+DRAW 5 11

@@ -1,0 +1,17 @@
+# Opposites Attract: a horseshoe magnet on each side, facing the other's
+# across the arena.
+
+NAME Opposites Attract
+SYMMETRY ROT2
+WALLS Y K
+START 20 36 E
+
+# The magnet, open to the right.
+MOVE 10 5
+DRAW 4 5
+DRAW 4 13
+DRAW 10 13
+
+# A marker in the middle.
+MOVE 20 14
+DRAW 22 14

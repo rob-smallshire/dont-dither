@@ -1,0 +1,15 @@
+# Tug of War: a rope stretched across the middle, with a flag at its
+# centre and the players pulling from either end.
+
+NAME Tug of War
+SYMMETRY ROT2
+WALLS Y K
+START 61 8 S
+
+# The rope: across the middle, leaving the ends free to go round.
+MOVE 4 15
+DRAW 27 15
+
+# The flag.
+MOVE 15 10
+DRAW 15 11

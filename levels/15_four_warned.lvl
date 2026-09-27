@@ -1,0 +1,17 @@
+# Four Warned: warning chevrons pointing at the middle, where the trouble
+# is.
+
+NAME Four Warned
+SYMMETRY ROT4
+WALLS Y C
+START 8 8 SE
+
+# The outer chevron.
+MOVE 5 9
+DRAW 9 9
+DRAW 9 5
+
+# The inner chevron.
+MOVE 10 13
+DRAW 13 13
+DRAW 13 10

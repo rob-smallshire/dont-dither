@@ -9,7 +9,7 @@ import random
 
 import pytest
 
-from conftest import SET_LEVEL_IDS, SET_LEVELS, align_to_tick, step_ticks
+from conftest import SAMPLE_SET_LEVELS, SAMPLE_SET_LEVEL_IDS, align_to_tick, step_ticks
 from dontdither.controls import LAYOUTS, matrix_position
 from dontdither.game import NO_DIRECTION, Game, input_of_keys
 from dontdither.levels import load_levels
@@ -177,7 +177,7 @@ def test_a_tank_driven_into_a_wall_stops_short_of_it(game):
     assert state(bbc, labels) == model_state(model)
 
 
-@pytest.mark.parametrize("players, level_number", SET_LEVELS, ids=SET_LEVEL_IDS)
+@pytest.mark.parametrize("players, level_number", SAMPLE_SET_LEVELS, ids=SAMPLE_SET_LEVEL_IDS)
 def test_random_driving_never_enters_a_wall(launch_bbc, game_build, players, level_number):
     from conftest import boot_game, enter_level
     from dontdither.game import footprint_wall_cells

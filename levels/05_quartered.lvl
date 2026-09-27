@@ -1,0 +1,17 @@
+# Quartered: a cross divides the arena into quarters, each arm broken by a
+# gap, with a pillar in each quarter.
+
+NAME Quartered
+SYMMETRY ROT4
+WALLS Y K
+START 12 12 SE
+
+# The top arm of the cross, with a gap part-way.
+MOVE 15 1
+DRAW 15 5
+MOVE 15 9
+DRAW 15 12
+
+# A pillar in the quarter.
+MOVE 6 6
+DRAW 8 6

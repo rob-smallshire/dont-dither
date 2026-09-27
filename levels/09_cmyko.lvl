@@ -1,0 +1,15 @@
+# CMYK.O.: a boxing ring in the middle, its ropes broken at the corners,
+# with the corner posts standing clear.
+
+NAME CMYK.O.
+SYMMETRY ROT4
+WALLS M K
+START 12 12 SE
+
+# The top rope of the ring.
+MOVE 13 9
+DRAW 18 9
+
+# A corner post of the ring.
+MOVE 9 9
+DRAW 9 9

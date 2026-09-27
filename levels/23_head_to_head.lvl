@@ -1,0 +1,16 @@
+# Head to Head: a lane runs from each start straight at the other player.
+
+NAME Head to Head
+SYMMETRY ROT2
+WALLS M K
+START 61 12 S
+
+# The lane's walls.
+MOVE 12 4
+DRAW 12 12
+MOVE 19 4
+DRAW 19 12
+
+# Cover out on the flank.
+MOVE 4 10
+DRAW 7 10

@@ -1,0 +1,17 @@
+# Four All: a free-for-all in the open, with four pillars round the middle
+# and stubs of wall along the edges.
+
+NAME Four All
+SYMMETRY ROT4
+WALLS C K
+START 12 12 SE
+
+# A 2x2 pillar near the middle.
+MOVE 12 12
+DRAW 13 12
+DRAW 13 13
+DRAW 12 13
+
+# A stub from the top edge.
+MOVE 8 1
+DRAW 8 3

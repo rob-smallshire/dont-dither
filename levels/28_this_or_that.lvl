@@ -1,0 +1,19 @@
+# This or That: two rooms in each half, either side of the start, each with
+# a door towards the middle.
+
+NAME This or That
+SYMMETRY ROT2
+WALLS Y C
+START 61 8 S
+
+# The left room.
+MOVE 4 11
+DRAW 4 4
+DRAW 11 4
+DRAW 11 7
+
+# The right room.
+MOVE 27 11
+DRAW 27 4
+DRAW 20 4
+DRAW 20 7

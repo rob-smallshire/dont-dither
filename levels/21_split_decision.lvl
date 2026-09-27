@@ -1,0 +1,14 @@
+# Split Decision: a wall down the middle splits the arena, with doors near
+# each end.
+
+NAME Split Decision
+SYMMETRY ROT2
+WALLS K C
+START 20 12 S
+
+# The divide, top part: from the top edge, then from the door to the
+# middle.
+MOVE 15 1
+DRAW 15 5
+MOVE 15 10
+DRAW 15 15

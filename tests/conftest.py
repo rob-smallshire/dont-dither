@@ -30,6 +30,13 @@ from dontdither.levels import PLAYER_COUNTS, level_set
 # cover both sets; the game must be loaded with that many players.
 SET_LEVELS = [(players, index) for players in (4, 2) for index in range(len(level_set(players)))]
 SET_LEVEL_IDS = [f"{players}p-{level_set(players)[index].name}" for players, index in SET_LEVELS]
+# Emulator tests that simulate hundreds of ticks per level run on a sample --
+# the first, a middle and the last level of each set -- as the engine is the
+# same on every level; what differs (walls, starts, reachability) is checked
+# on every level by cheaper tests.
+SAMPLE_SET_LEVELS = [(players, index) for players in (4, 2)
+                     for index in sorted({0, len(level_set(players)) // 2, len(level_set(players)) - 1})]
+SAMPLE_SET_LEVEL_IDS = [f"{players}p-{level_set(players)[index].name}" for players, index in SAMPLE_SET_LEVELS]
 
 DEFAULT_PRESET = "model-b-disc"   # Model B, Acorn 1770 FDC, DFS 2.26 in slot 14
 BOOT_TIMEOUT_EMULATED_SECONDS = 20.0

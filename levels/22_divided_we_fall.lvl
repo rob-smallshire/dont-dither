@@ -1,0 +1,17 @@
+# Divided We Fall: a barrier across the middle, broken by gaps, and baffles
+# before it.
+
+NAME Divided We Fall
+SYMMETRY ROT2
+WALLS C M
+START 61 8 S
+
+# The barrier's left part and middle part.
+MOVE 1 15
+DRAW 6 15
+MOVE 10 15
+DRAW 20 15
+
+# A baffle.
+MOVE 8 8
+DRAW 12 8

@@ -1,0 +1,13 @@
+# Two Tone: long walls split the arena into bands, with a wide gap in the
+# middle of each.
+
+NAME Two Tone
+SYMMETRY ROT2
+WALLS M Y
+START 61 8 S
+
+# The band wall, in two parts.
+MOVE 4 10
+DRAW 12 10
+MOVE 19 10
+DRAW 27 10

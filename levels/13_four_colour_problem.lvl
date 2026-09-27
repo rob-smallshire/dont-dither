@@ -1,0 +1,20 @@
+# Four Colour Problem: borders between countries, like a map needing four
+# colours -- a staircase frontier cuts off each corner, and a broken ring
+# of borders surrounds a middle country.
+
+NAME Four Colour Problem
+SYMMETRY ROT4
+WALLS K Y
+START 8 8 SE
+
+# The frontier, from the left edge up towards the top, with a pass at the
+# top.
+MOVE 1 12
+DRAW 5 12
+DRAW 5 8
+DRAW 11 8
+DRAW 11 4
+
+# A side of the middle country's border.
+MOVE 13 12
+DRAW 13 14

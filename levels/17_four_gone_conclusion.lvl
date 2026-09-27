@@ -1,0 +1,17 @@
+# Four Gone Conclusion: a spiralling labyrinth -- long walls wheel in
+# towards the middle, and the way through is never direct.
+
+NAME Four Gone Conclusion
+SYMMETRY ROT4
+WALLS K M
+START 8 8 SE
+
+# A long spiral arm, from the left side in and up.
+MOVE 4 18
+DRAW 4 5
+DRAW 9 5
+
+# An inner arm.
+MOVE 9 9
+DRAW 9 13
+DRAW 13 13

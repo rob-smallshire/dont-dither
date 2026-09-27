@@ -1,0 +1,19 @@
+# Four Play: toys scattered over the floor -- a T and a staircase in each
+# quarter.
+
+NAME Four Play
+SYMMETRY ROT4
+WALLS M C
+START 12 12 SE
+
+# A T.
+MOVE 5 10
+DRAW 9 10
+MOVE 7 11
+DRAW 7 12
+
+# A staircase.
+MOVE 11 4
+DRAW 11 6
+DRAW 13 6
+DRAW 13 8

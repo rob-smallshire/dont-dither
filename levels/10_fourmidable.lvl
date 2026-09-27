@@ -1,0 +1,16 @@
+# Fourmidable: a fortress in the middle, entered through four gates, with
+# bastions at its corners.
+
+NAME Fourmidable
+SYMMETRY ROT4
+WALLS K M
+START 8 8 SE
+
+# The fortress's top wall, from a corner bastion to the gate.
+MOVE 9 11
+DRAW 9 9
+DRAW 13 9
+
+# A redoubt outside the walls.
+MOVE 4 15
+DRAW 6 15
