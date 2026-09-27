@@ -185,6 +185,13 @@ class Player:
             self.ai_direction = self.facing
 
 
+def victim_step(index: int, players: int) -> int:
+    """The direction player `index` goes round the victims (see paint.py):
+    -1 for the second player of a two-player game, which mirrors the first
+    under the two-player symmetry; +1 otherwise."""
+    return -1 if players == 2 and index == 1 else 1
+
+
 def footprints_overlap(ax: int, ay: int, bx: int, by: int) -> bool:
     return abs(ax - bx) < FOOTPRINT and abs(ay - by) < FOOTPRINT
 
@@ -289,7 +296,7 @@ class Game:
             return
         player.reservoir -= 1
         trees = _trees()[FACINGS_[player.facing]]
-        painter = Painter(INKS.index(player.ink), player.last_victim)
+        painter = Painter(INKS.index(player.ink), player.last_victim, victim_step(index, len(self.players)))
         apply_splat(self.cells, painter, trees[player.variant], origin=(player.sx, player.sy))
         player.last_victim = painter.last_victim
         player.variant = (player.variant + 1) % len(trees)

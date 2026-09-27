@@ -12,8 +12,11 @@
 \   the shooter's ink count in the cell goes up by one, and one other ink
 \   present goes down by one: the victim, chosen round-robin per player
 \   (the first ink with a non-zero count after the player's last victim,
-\   skipping the player's own). A cell already solidly the shooter's ink is
-\   left alone and does not advance the round-robin.
+\   skipping the player's own, going round C, M, Y, K forwards -- or, for
+\   the second player of a two-player game, backwards, which mirrors the
+\   first player's rule under the two-player symmetry; docs/fairness.md).
+\   A cell already solidly the shooter's ink is left alone and does not
+\   advance the round-robin.
 \
 \ The arena is the screen, except under the tanks: a cell inside a tank's
 \ drawn footprint is read and painted in that tank's save buffer, which
@@ -97,6 +100,8 @@
     STA zp_painter_ink
     LDA player_last_victim,X
     STA zp_last_victim
+    LDA player_victim_step,X   \ Which way it goes round the victims.
+    STA victim_step
     LDA player_sx,X
     STA zp_shot_x
     LDA player_sy,X
@@ -404,12 +409,15 @@
     CMP #4
     BEQ paint_cell_done
 
-    \ Victim: the next ink after the last victim that is not the painter's
-    \ and has a non-zero count. (One exists: the painter's count is not 4.)
+    \ Victim: the next ink after the last victim -- going round C, M, Y, K
+    \ forwards (victim_step 1) or backwards (&FF, the second player of a
+    \ two-player game: see place_players) -- that is not the painter's and
+    \ has a non-zero count. (One exists: the painter's count is not 4.)
     LDY zp_last_victim
 .paint_cell_victim
-    INY
     TYA
+    CLC
+    ADC victim_step
     AND #3
     TAY
     CPY zp_painter_ink

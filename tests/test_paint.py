@@ -103,3 +103,57 @@ def test_wall_shadows_only_the_cells_behind_it():
     shadowed = set(splat) - painted - {wall}
     assert 0 < len(painted) < 16
     assert all(x > wall[0] for x, _ in shadowed), "only cells beyond the wall are shadowed"
+
+
+# ---- The victim rule is fair under each game's symmetry (docs/fairness.md) ---
+
+def _states():
+    from dontdither.inks import all_states
+    return all_states()
+
+
+def _relabel(state, mapping):
+    """The state with ink i's count moved to ink mapping[i]."""
+    out = [0] * 4
+    for ink, count in enumerate(state):
+        out[mapping[ink]] = count
+    return tuple(out)
+
+
+def test_two_player_rule_is_mirrored_under_the_two_player_symmetry():
+    """The half turn of a two-player arena swaps C with M and Y with K: the
+    second player's rule must be exactly the first player's, relabelled."""
+    from dontdither.game import victim_step
+
+    swap = {0: 1, 1: 0, 2: 3, 3: 2}
+    for state in _states():
+        for last in range(4):
+            new, victim = paint_cell(state, 0, last, victim_step(0, 2))
+            mirrored, mirrored_victim = paint_cell(_relabel(state, swap), 1, swap[last], victim_step(1, 2))
+            assert mirrored == _relabel(new, swap), (state, last)
+            assert mirrored_victim == swap[victim], (state, last)
+
+
+def test_four_player_rule_is_the_same_under_the_colour_cycle():
+    """A four-player arena's quarter turn cycles C -> M -> Y -> K: each
+    player's rule must be the previous player's, relabelled."""
+    from dontdither.game import victim_step
+
+    cycle = {0: 1, 1: 2, 2: 3, 3: 0}
+    for painter in range(4):
+        for state in _states():
+            for last in range(4):
+                new, victim = paint_cell(state, painter, last, victim_step(painter, 4))
+                turned, turned_victim = paint_cell(_relabel(state, cycle), cycle[painter], cycle[last],
+                                                   victim_step(cycle[painter], 4))
+                assert turned == _relabel(new, cycle) and turned_victim == cycle[victim]
+
+
+def test_every_player_starts_just_after_its_own_ink():
+    """First victims on the grey start: C takes M; in a two-player game M,
+    going round the other way, takes C -- each its opponent first."""
+    from dontdither.game import victim_step
+
+    grey = (1, 1, 1, 1)
+    assert paint_cell(grey, 0, 0, victim_step(0, 2))[1] == 1
+    assert paint_cell(grey, 1, 1, victim_step(1, 2))[1] == 0

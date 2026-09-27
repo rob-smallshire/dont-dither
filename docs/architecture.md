@@ -420,7 +420,10 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
 - **The rule** (`paint.py` / `paint.asm`): the painter's ink count goes up
   by one. One other ink present goes down by one: the next after the
   painter's last victim, skipping the painter and absent inks
-  (round-robin, per player). An already solid cell doesn't change.
+  (round-robin, per player). Players go round C, M, Y, K forwards, except
+  the second player of a two-player game, which goes backwards
+  (`player_victim_step`): the mirror image under the two-player symmetry
+  (`fairness.md`). An already solid cell doesn't change.
   - **Implementation:** the 6502 finds the new state through
     `state_index_of` (C·25 + M·5 + Y) plus `ink_weight[painter]` minus
     `ink_weight[victim]`, then looks up `state_of_counts`.

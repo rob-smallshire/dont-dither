@@ -101,7 +101,16 @@ MAX_PLAYERS = 4
     STA ai_direction,X         \ An AI starts heading the way it faces.
     TXA
     STA player_ink,X           \ Player k plays in ink k...
-    STA player_last_victim,X   \ ...and its round-robin starts after it.
+    STA player_last_victim,X   \ ...and its round-robin starts after it,
+    LDA #1                     \ going round forwards -- except the second
+    CPX #1                     \ player of a two-player game, which goes
+    BNE place_players_step     \ backwards: under the two-player symmetry
+    LDY player_count           \ (C with M, Y with K) that mirrors the
+    CPY #2                     \ first player's rule (docs/fairness.md).
+    BNE place_players_step
+    LDA #&FF
+.place_players_step
+    STA player_victim_step,X
 
     LDA player_bits,X          \ A human in this session, or the computer?
     AND session_humans

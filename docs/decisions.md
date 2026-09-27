@@ -78,13 +78,17 @@ Decisions taken during development that refine or depart from
 ## Fairness
 
 - docs/fairness.md explains the fairness measures, the round-robin victim
-  rule in particular, and records their measured effect. In two-player
-  games the cyclic victim rotation isn't symmetric under the two-player
-  symmetry (C swapped with M, Y with K). From a perfectly symmetric start
-  it gives cyan +1.6% of the arena on average. But with the AIs' random
-  facings its effect is below measurement (+0.12% ± 0.14 over 128
-  games), so the rule is unchanged; a rotation mirrored for the second
-  player would remove it.
+  rule in particular, and records their measured effect.
+- In two-player games the second player goes round the victims backwards
+  (K, Y, M, C), mirroring the first player under the two-player symmetry
+  (C swapped with M, Y with K).
+  - The first version used the same cyclic order for both players. From a
+    perfectly symmetric start, that gave cyan +1.6% of the arena on
+    average.
+  - With random AI facings the effect was below measurement. But a
+    fairness rule should be right in principle.
+  - Four-player games keep the cyclic order, which is exactly symmetric
+    for them.
 
 ## Players and modes
 

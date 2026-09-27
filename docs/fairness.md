@@ -29,13 +29,17 @@ Each player keeps a *last victim*. To paint a cell (`paint.py`,
    happens, and the last victim stays as it is.
 2. Otherwise, starting at the ink after the last victim and going round
    C → M → Y → K → C, take the first ink that isn't the painter's own
-   and has at least one quantum in the cell.
+   and has at least one quantum in the cell. In a two-player game, the
+   second player goes round the other way, K → Y → M → C → K (see below
+   for why).
 3. Move one quantum from it to the painter, and remember it as the last
    victim.
 
 - **The starting point:** a player starts with their own ink as the last
-  victim, so the first victim is the next ink round: cyan's first is
-  magenta, magenta's is yellow, yellow's is black, black's is cyan.
+  victim, so the first victim is the next ink round. In a four-player
+  game, cyan's first is magenta, magenta's is yellow, yellow's is black,
+  and black's is cyan. In a two-player game, cyan's first is magenta and
+  magenta's is cyan: each hits its opponent first.
 - **Per player, not per cell:** the last victim belongs to the painter,
   not the cell. A splat paints its cells in a fixed order (its ray tree's),
   so a single shot's 16 cells pass the rotation along. Consecutive cells
@@ -78,7 +82,7 @@ Each player keeps a *last victim*. To paint a cell (`paint.py`,
   the screen doesn't have room to hold (the pattern *is* the cell's
   entire state).
 
-### A flaw in two-player games
+### Two-player games: the second player goes round the other way
 
 A two-player game (C against M) starts from the same grey as four-player,
 so yellow and black are present as **neutral** inks. They are victims like
@@ -86,57 +90,59 @@ any other ink, so they can only lose ground, and the scores count only the
 players' inks.
 
 Four-player arenas are symmetric under the colour cycle (C→M→Y→K), which
-is exactly the symmetry the rotation respects. A two-player arena's
-symmetry is different: the half turn swaps C with M, and Y with K. The
-cyclic rotation is **not** symmetric under that swap:
+is exactly the symmetry the forwards rotation respects. A two-player
+arena's symmetry is different: the half turn swaps C with M, and Y with K.
+The first version of the rule used the same cyclic order for both players,
+and that isn't symmetric under the swap:
 
-| Player | Rotation | Its opponent's place |
+| Player | First version | Mirrored (the rule now) |
 |---|---|---|
-| Cyan | M, Y, K | first |
-| Magenta | Y, K, C | last |
+| Cyan | M, Y, K (opponent first) | M, Y, K (opponent first) |
+| Magenta | Y, K, C (opponent last) | C, K, Y (opponent first) |
 
-The mirror image of cyan's rule, under that swap, would be C, K, Y for
-magenta: its opponent first, going round the other way.
-
-It looks as if only the order differs, but the order matters. It was
-measured with two identical AIs playing a full five-minute round on every
-two-player level. They used the level's own facings, so the arena and the
-starts were perfectly symmetric, and the only difference between the
-sides was the victim rule:
+**Measuring it.** Two identical AIs played a full five-minute round on
+every two-player level. They used the level's own facings, so the arena
+and the starts were perfectly symmetric, and the only difference between
+the sides was the victim rule:
 
 | Victim rotation | Cyan − magenta, mean over the 16 levels | Cyan ahead on |
 |---|---|---|
-| cyclic (the game's rule today) | +910 quanta (about 1.6% of the arena) | 11 of 16 levels (up to 38% against 32%) |
-| mirrored for the second player | −123 quanta | 7 of 16; 6 levels end exactly level |
+| cyclic (the first version) | +910 quanta (about 1.6% of the arena) | 11 of 16 levels (up to 38% against 32%) |
+| mirrored for the second player (the rule now) | −123 quanta | 7 of 16; 5 levels end exactly level |
 
-That experiment isolates the rule, but real games aren't that symmetric:
-each computer player starts facing a random direction (and humans play
-however they play). The same comparison was repeated with random facings:
-128 two-minute games, 8 seeds on each of the 16 levels:
+In real games each computer player starts facing a random direction (and
+humans play however they play). The same comparison was repeated with
+random facings: 128 two-minute games, 8 seeds on each of the 16 levels:
 
 | Victim rotation | Cyan − magenta, mean | Cyan ahead in |
 |---|---|---|
-| cyclic (today's rule) | +0.12% of the arena (standard error 0.14) | 68 of 128 games |
-| mirrored for the second player | −0.04% (standard error 0.13) | 46 of 128 games |
+| cyclic (the first version) | +0.12% of the arena (standard error 0.14) | 68 of 128 games |
+| mirrored (the rule now) | −0.04% (standard error 0.13) | 46 of 128 games |
 
 So:
-- **The rule is asymmetric in two-player games.** A perfectly symmetric
-  start exposes it clearly, as the same favourable phase repeats every
-  time.
-- **In play, the effect is lost in the noise.** It's well under half a
-  percent of the arena, if it's there at all, against a game-to-game
-  standard deviation of about 1.5%.
+- **The first version was asymmetric.** A perfectly symmetric start
+  exposed it clearly, as the same favourable phase repeated every time.
+- **In play its effect was lost in the noise:** well under half a percent
+  of the arena against a game-to-game standard deviation of about 1.5%.
+- **The rest of the game** accounts for the remaining swings in the
+  symmetric experiment: once tanks meet, small differences, such as the
+  alternating first mover, play out differently.
 
-The remaining swings in the symmetric experiment come from the rest of
-the game: once tanks meet, small differences, such as the alternating
-first mover, play out differently.
+**The fix, adopted:** in two-player games the second player goes round the
+rotation the other way (`game.victim_step`; `player_victim_step` on the
+6502). That's the true mirror image under the two-player symmetry.
+Four-player games keep the forwards rotation, which is exactly symmetric
+for them. The effect in games with random facings was below measurement,
+but a fairness rule should be right in principle, not merely close.
 
-**A possible fix, not adopted:** in two-player games, the second player
-would go round the rotation the other way. That's the true mirror image
-under the two-player symmetry. Four-player games would keep the cyclic
-rule, which is already exactly symmetric for them. It would be cheap, but
-its practical effect is below what can be measured, so for now this note
-records the asymmetry rather than changing the game.
+Tests in `test_paint.py` check the property directly, for every state and
+last victim:
+- in a two-player game, relabelling by the swap turns the second player's
+  rule into exactly the first player's;
+- in a four-player game, relabelling by the cycle turns each player's rule
+  into the next player's.
+
+The first version broke the two-player property in 52 of those 140 cases.
 
 ## 2. The game's other fairness measures
 
@@ -168,8 +174,8 @@ records the asymmetry rather than changing the game.
     Yellow and black win more of the diverging levels (5 and 3 of 10),
     but that's within what 16 levels can tell apart.
 
-  In two-player arenas, the victim rule itself gives cyan an edge from a
-  perfectly symmetric start, though too small to detect in games with
-  random facings: see section 1;
+  in two-player arenas, the first version of the victim rule gave cyan
+  an edge from a perfectly symmetric start (see section 1), and the rule
+  is now mirrored for the second player;
 - the 6502 must match the model tick for tick, so what the model proves
   fair, the machine plays fair.

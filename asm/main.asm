@@ -370,7 +370,9 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .tick_count       SKIP 2       \ Ticks since the level started.
 .player_cooldown  SKIP MAX_PLAYERS \ Ticks until the player may fire again.
 .player_variant   SKIP MAX_PLAYERS \ The player's next splat variant.
-.player_last_victim SKIP MAX_PLAYERS \ Round-robin: last ink painted over.
+.player_last_victim SKIP MAX_PLAYERS \ Round-robin: last ink painted over,
+.player_victim_step SKIP MAX_PLAYERS \ and the way round: 1 or -1 (&FF).
+.victim_step      SKIP 1       \ fire_splat: the shooter's way round.
 .player_repaint   SKIP MAX_PLAYERS \ Non-zero: redraw the tank (the arena
                                \ under it was painted).
 .player_reservoir SKIP MAX_PLAYERS \ Ink: whole splats (0..RESERVOIR_SPLATS)...
