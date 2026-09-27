@@ -177,7 +177,8 @@ BAR_FRAMES_PER_STEP = 1        \ Vertical syncs per two lines of growth.
 \ ----------------------------------------------------------------------------
 \ end_of_round -- stop play, tally the territory and reveal the result
 \
-\ Never returns: idles at round_over when the reveal is complete.
+\ Never returns: goes on to after_round (flow.asm) via round_over, where
+\ tests stop once the reveal is complete.
 \ ----------------------------------------------------------------------------
 
 .end_of_round
@@ -185,8 +186,8 @@ BAR_FRAMES_PER_STEP = 1        \ Vertical syncs per two lines of growth.
     JSR count_territory
     JSR compute_scores
     JSR reveal_scores
-.round_over
-    JMP round_over             \ Tests stop here.
+.round_over                    \ Tests stop here.
+    JMP after_round            \ Points, totals, and on (flow.asm).
 
 \ ----------------------------------------------------------------------------
 \ count_territory -- histogram of the ink states of every open arena cell

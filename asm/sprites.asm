@@ -56,7 +56,8 @@ MAX_PLAYERS = 4
 \
 \ On exit:  player_count and each player's position, facing and ink set from
 \           the level's level_players record; control sources set (player 1
-\           keyboard layout A, player 2 layout B, the rest the computer); inputs,
+\           keyboard layout A, player 2 layout B, for humans in the session
+\           (session_humans); the computer otherwise); inputs,
 \           accumulators and the tick count cleared; no sprites shown
 \           A, X, Y corrupted
 \ ----------------------------------------------------------------------------
@@ -85,7 +86,14 @@ MAX_PLAYERS = 4
     STA player_facing,Y
     LDA level_players+4,X
     STA player_ink,Y
-    LDA default_controls,Y     \ Keyboard for the first two players.
+    LDA player_bits,Y          \ A human in this session, or the computer?
+    AND session_humans
+    BEQ place_players_ai
+    LDA human_controls,Y       \ The player's keyboard layout.
+    JMP place_players_control
+.place_players_ai
+    LDA #CONTROL_AI
+.place_players_control
     STA player_control,Y
     LDA #NO_DIRECTION
     STA player_input,Y
@@ -114,8 +122,8 @@ MAX_PLAYERS = 4
     STA tick_count+1
     RTS
 
-.default_controls
-    EQUB CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_AI, CONTROL_AI
+.human_controls                \ Each slot's control when a human plays it.
+    EQUB CONTROL_KEYS_A, CONTROL_KEYS_B, CONTROL_NONE, CONTROL_NONE
 
 \ ----------------------------------------------------------------------------
 \ show_sprites -- save the background under, then draw, each player in order

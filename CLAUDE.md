@@ -139,9 +139,11 @@ tests; they must stay consistent):
 
 **Beebium fixtures** (`tests/conftest.py`):
 - `testcard` is like `booted_game` but `*RUN`s TCARD from the BASIC prompt.
-- `boot_game` stops just before level 0's first tick, at `main_loop`, with
-  the screen displayed (`show_display` parks the CPU in `hold_display`), so
-  AI tanks have not moved. `Game.start` gives players 3 and 4 to the AI, as
+- The game boots into `select_players` (asm/flow.asm). `boot_game` stops
+  there and enters level 0 directly (default session: players 1 and 2
+  human), stopping just before its first tick, at `main_loop`, with the
+  screen displayed (`show_display` parks the CPU in `hold_display`), so AI
+  tanks have not moved. Set `round_length_ticks` *before* entering a level. `Game.start` gives players 3 and 4 to the AI, as
   the game does; tests scripting every player set `player.ai = False`.
 - The game runs a 25 Hz main loop. `align_to_tick` stops it at `tick_done`
   (between ticks, tanks drawn) and `step_ticks` runs whole ticks; between

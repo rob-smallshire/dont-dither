@@ -41,6 +41,12 @@ is set to FIRE_PERIOD - 1, so holding fire shoots every FIRE_PERIOD ticks
 (FIRE_PERIOD is even, so the parity rule never delays a held fire).
 Cells under tanks are painted like any other.
 
+Sessions: a session plays every level in turn. After each round each
+player scores points by rank -- 3, 2, 1, 0 for first to last with four
+players; 3 and 0 with two -- and points accumulate across the session.
+Tied players share the better rank (competition ranking): two players tied
+for first both score 3 and the next is third.
+
 Rounds: a round lasts round_ticks ticks (ROUND_SECONDS at 25 Hz by
 default); after the last tick nothing moves or fires. Scoring happens only
 at the end: each player's quanta are the counts of their ink summed over
@@ -75,8 +81,20 @@ MAX_POSITION = 128 - FOOTPRINT      # 122
 HUMAN_PLAYERS = 2          # players 1 and 2 are on the keyboard; the rest are AI
 
 TICKS_PER_SECOND = 25
+DEMO_ROUND_SECONDS = 60    # demo (attract) rounds, with no human players
+SELECT_SECONDS = 10        # time to press fire and join, before a session
 ROUND_SECONDS = 300        # five minutes
 ROUND_TICKS = ROUND_SECONDS * TICKS_PER_SECOND
+DEMO_ROUND_TICKS = DEMO_ROUND_SECONDS * TICKS_PER_SECOND
+
+POINTS_BY_RANK = {4: (3, 2, 1, 0), 2: (3, 0)}
+
+
+def round_points(percentages: list[int]) -> list[int]:
+    """Points for each player from their shares: by rank, ties sharing the
+    better rank."""
+    table = POINTS_BY_RANK[len(percentages)]
+    return [table[sum(1 for other in percentages if other > mine)] for mine in percentages]
 
 FIRE_PERIOD = 6            # ticks between shots while fire is held (4 per second);
                            # must be even (see the firing parity rule)

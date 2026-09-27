@@ -176,6 +176,24 @@ Decisions taken during development that refine or depart from
 - With identical AIs in a symmetric arena, shares come out equal, a useful
   check on fairness.
 
+## Player selection, sessions and demo
+
+- At boot, and after every session, players join by pressing fire within a
+  10-second window (SHIFT for player 1, COPY for player 2), shown over a
+  backdrop of level 1. Every slot nobody joins is played by the computer.
+- A session plays every level in turn. After each round, points by rank:
+  3, 2, 1, 0 for first to last with four players; 3 and 0 with two. Ties
+  are ties: tied players share the better rank (two tied for first both
+  score 3; the next is third). Running totals show in the HUD after each
+  reveal; after the last level they are shown as final, then it is back to
+  player selection.
+- If nobody joins, the computer plays a demo (attract mode) in 1-minute
+  rounds, cycling the levels for ever; any player key (a direction or
+  fire) returns to player selection.
+- Player slot k always plays in ink k (C, M, Y, K), so colours are
+  consistent across a session; two-player levels are played by slots 1 and
+  2 (C and M). (Supersedes the earlier "C against Y" default.)
+
 ## Rounds and scoring
 
 - No running scores. As in Splatoon's Turf War, the HUD shows only a

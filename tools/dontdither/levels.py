@@ -109,10 +109,10 @@ class Level:
         return [rotate_start(self.start, k * self.symmetry.value) for k in range(self.symmetry.copies)]
 
     def player_inks(self) -> list[str]:
-        """Each player's ink. Four players take C, M, Y, K; two players take
-        C and Y (player k takes the ink of the quarter turns it is rotated
-        by), leaving M and K as neutral territory."""
-        return [INKS[k * self.symmetry.value] for k in range(self.symmetry.copies)]
+        """Each player's ink: player slot k always takes ink k (C, M, Y, K),
+        so players keep their colours across a session. A two-player level
+        is played by slots 0 and 1 (C and M), leaving Y and K neutral."""
+        return [INKS[k] for k in range(self.symmetry.copies)]
 
     # ---- Bytecode ----------------------------------------------------------------
 

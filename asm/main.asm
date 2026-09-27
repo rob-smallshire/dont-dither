@@ -5,10 +5,12 @@
 \ why INCLUDE paths are relative to the root). The disc's !BOOT runs this
 \ program, saved as DITHER.
 \
-\ CURRENT STAGE: a playable round. Tanks, driven by the keyboard (players 1
-\ and 2) or the computer (the rest) and blocked by walls and each other,
-\ fire splats that paint the arena until the five-minute clock runs out;
-\ then the territory is tallied and revealed as a bar chart in the HUD. The program
+\ CURRENT STAGE: a playable game. Players join by pressing fire (flow.asm);
+\ a session plays every level, each a round in which tanks, driven by the
+\ keyboard or the computer and blocked by walls and each other, fire splats
+\ that paint the arena until the clock runs out; the territory is then
+\ tallied, revealed as a bar chart, and points awarded by rank. With no
+\ players the computer plays a demo until a key is pressed. The program
 \   1. selects MODE 1, hides the cursor, programs the CMYK palette and makes
 \      the cursor keys plain keys,
 \   2. enters level 0 (see enter_level): fills the arena with the level's
@@ -75,21 +77,37 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     LDA #HI(ROUND_TICKS)
     STA round_length_ticks+1
 
-    LDA #0                     \ Start with the first level.
-    STA zp_level
-    \ Fall through into enter_level.
+    LDA #%11                   \ Default session: players 1 and 2 human
+    STA session_humans         \ (tests enter levels directly with this).
+
+    JMP select_players         \ Let players join; then play (flow.asm).
 
 \ ----------------------------------------------------------------------------
 \ enter_level -- draw level zp_level and start playing it
 \
-\ On entry:  zp_level = level number (0..LEVEL_COUNT-1); display initialised
+\ On entry:  zp_level = level number (0..LEVEL_COUNT-1); session_humans and
+\            round_length_ticks set; display initialised
 \ Never returns: sets zp_boot_status to BOOT_READY and runs the main loop.
 \ ----------------------------------------------------------------------------
 
 .enter_level
     LDA #0                     \ Not ready while drawing (matters when a test
     STA zp_boot_status         \ jumps here to draw another level).
+    JSR draw_level
+    JSR start_round            \ Set and show the round clock.
+    LDA #BOOT_READY            \ Tell the harness we have finished setting
+    STA zp_boot_status         \ up.
+    JMP main_loop
 
+\ ----------------------------------------------------------------------------
+\ draw_level -- draw level zp_level with its tanks at their starts
+\
+\ Clears the HUD, fills the arena, builds and draws the walls, shows the
+\ title and level name, and places and draws the players.
+\ ----------------------------------------------------------------------------
+
+.draw_level
+    JSR clear_hud
     JSR select_level           \ zp_level_ptr -> the level's bytecode.
 
     \ Fill every arena superpixel with the level's initial ink state.
@@ -120,19 +138,43 @@ GUARD MODE1_SCREEN_BASE        \ Assembly fails if code, data or buffers
     \ Put each player's tank at its start and draw it, saving the arena
     \ beneath.
     JSR place_players
-    JSR show_sprites
-    JSR start_round            \ Set and show the round clock.
+    JMP show_sprites           \ Tail call.
 
-    \ Tell the harness we have finished setting up.
-    LDA #BOOT_READY
-    STA zp_boot_status
-    \ Fall through into the main loop.
+\ ----------------------------------------------------------------------------
+\ clear_hud -- blank the HUD (byte columns 64..79 of every character row)
+\ ----------------------------------------------------------------------------
+
+.clear_hud
+    LDA #LO(MODE1_SCREEN_BASE + 64 * 8)
+    STA zp_screen_ptr
+    LDA #HI(MODE1_SCREEN_BASE + 64 * 8)
+    STA zp_screen_ptr+1
+    LDX #MODE1_CHAR_ROWS
+.clear_hud_row
+    LDA #0
+    LDY #127                   \ 16 byte columns x 8 lines = 128 bytes.
+.clear_hud_byte
+    STA (zp_screen_ptr),Y
+    DEY
+    BPL clear_hud_byte
+    LDA zp_screen_ptr          \ Next character row, 640 bytes on.
+    CLC
+    ADC #LO(MODE1_ROW_BYTES)
+    STA zp_screen_ptr
+    LDA zp_screen_ptr+1
+    ADC #HI(MODE1_ROW_BYTES)
+    STA zp_screen_ptr+1
+    DEX
+    BNE clear_hud_row
+    RTS
 
 \ ----------------------------------------------------------------------------
 \ main_loop -- one 25 Hz tick per iteration (see game.asm)
 \ ----------------------------------------------------------------------------
 
 .main_loop
+    JSR check_demo_exit        \ In demo mode, a player key returns to
+                               \ player selection.
     JSR wait_for_tick          \ Two vertical syncs...
     JSR start_beam_timer       \ ...then time the beam from here.
     JSR read_inputs            \ player_input from keyboard or script.
@@ -213,6 +255,7 @@ INCLUDE "asm/game.asm"
 INCLUDE "asm/paint.asm"
 INCLUDE "asm/hud.asm"
 INCLUDE "asm/ai.asm"
+INCLUDE "asm/flow.asm"
 INCLUDE "build/generated/ink_tables.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
@@ -289,6 +332,12 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .ai_direction     SKIP MAX_PLAYERS \ Each AI's current direction.
 .ai_last_input    SKIP MAX_PLAYERS \ Each AI's last decision.
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
+.session_humans   SKIP 1       \ Bit per player slot: played by a human.
+.session_joined   SKIP 1       \ select_players: who has pressed fire.
+.session_level    SKIP 1       \ The session's current level.
+.session_points   SKIP MAX_PLAYERS \ Points so far this session.
+.session_seconds  SKIP 1       \ Countdown / pause seconds left.
+.session_fields   SKIP 1       \ Fields left in the current second.
 
 \ Working variables of the round clock and tally (hud.asm). Used rarely, so
 \ kept out of zero page.

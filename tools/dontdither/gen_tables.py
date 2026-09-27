@@ -451,7 +451,9 @@ def generate_game_data() -> str:
     from dontdither.game import (
         AXIAL_SPEED,
         DIAGONAL_SPEED,
+        DEMO_ROUND_TICKS,
         ROUND_TICKS,
+        SELECT_SECONDS,
         TICKS_PER_SECOND,
         DIRECTION_DX,
         DIRECTION_DY,
@@ -483,6 +485,8 @@ def generate_game_data() -> str:
         "\\ Rounds.",
         f"TICKS_PER_SECOND = {TICKS_PER_SECOND}",
         f"ROUND_TICKS      = {ROUND_TICKS}   \\ default round length ({ROUND_TICKS // TICKS_PER_SECOND} s)",
+        f"DEMO_ROUND_TICKS = {DEMO_ROUND_TICKS}   \\ demo mode rounds ({DEMO_ROUND_TICKS // TICKS_PER_SECOND} s)",
+        f"SELECT_SECONDS   = {SELECT_SECONDS}   \\ time to join before a session",
         "",
         "\\ Player control sources.",
         "CONTROL_NONE     = 0   \\ no input (stationary)",

@@ -229,3 +229,13 @@ def test_the_grey_start_gives_every_player_a_quarter():
     assert game.percentages() == [25, 25, 25, 25]
     total = 4 * len(game.cells)
     assert game.ink_quanta() == [total // 4] * 4
+
+
+def test_round_points_by_rank():
+    from dontdither.game import round_points
+    assert round_points([30, 20, 25, 25]) == [3, 0, 2, 2]      # joint second both score 2
+    assert round_points([40, 20, 25, 15]) == [3, 1, 2, 0]
+    assert round_points([25, 25, 25, 25]) == [3, 3, 3, 3]
+    assert round_points([30, 30, 20, 20]) == [3, 3, 1, 1]
+    assert round_points([60, 40]) == [3, 0]
+    assert round_points([50, 50]) == [3, 3]

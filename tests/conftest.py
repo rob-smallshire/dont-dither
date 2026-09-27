@@ -182,12 +182,19 @@ def show_display(bbc: Beebium, labels: dict[str, int], seconds: float = SETTLE_E
 
 
 def boot_game(bbc: Beebium, game_build: BuildResult) -> None:
-    """Shift-Break boot the game disc and stop just before level 0's first
-    tick, at main_loop, with the screen displayed. No game time has passed,
-    so a Game.start model is exactly in step."""
+    """Shift-Break boot the game disc, skip player selection, and stop just
+    before level 0's first tick, at main_loop, with the screen displayed.
+
+    The game boots into select_players; this stops there and enters level 0
+    directly, with the default session (players 1 and 2 human, the rest the
+    computer) and the default round length. No game time has passed, so a
+    Game.start model is exactly in step."""
     labels = game_build.labels["DITHER"]
     bbc.boot_disc(game_build.disc_filepath)
-    bbc.debugger.run_to(labels["main_loop"], timeout=60)
+    bbc.debugger.run_to(labels["select_players"], timeout=60)
+    bbc.cpu.pc = labels["enter_level"]          # zp_level is 0 at boot
+    bbc.memory.address.bus[labels["zp_level"]] = 0
+    bbc.debugger.run_to(labels["main_loop"])
     show_display(bbc, labels)
 
 

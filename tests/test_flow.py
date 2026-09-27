@@ -1,0 +1,147 @@
+"""Player selection, sessions, points and demo mode (asm/flow.asm).
+
+The join window is shortened by writing session_seconds once the countdown
+has started.
+"""
+
+import random
+
+import pytest
+
+from conftest import boot_game, enter_level, step_ticks
+from dontdither.controls import LAYOUTS, matrix_position
+from dontdither.game import (
+    DEMO_ROUND_TICKS,
+    FIRE_BIT,
+    NO_DIRECTION,
+    ROUND_TICKS,
+    Game,
+    round_points,
+)
+from dontdither.levels import load_levels
+
+CONTROL_KEYS_A, CONTROL_SCRIPTED, CONTROL_AI = 1, 3, 4
+
+
+@pytest.fixture
+def bbc(launch_bbc):
+    return launch_bbc()
+
+
+def to_player_select(bbc, game_build):
+    labels = game_build.labels["DITHER"]
+    bbc.boot_disc(game_build.disc_filepath)
+    bbc.debugger.run_to(labels["select_players"], timeout=60)
+    bbc.debugger.run_to(labels["select_field"])          # the countdown has begun
+    return labels
+
+
+def shorten_window(bbc, labels, seconds=1):
+    bbc.memory.address.bus[labels["session_seconds"]] = seconds
+
+
+def controls(bbc, labels):
+    return [bbc.memory.address.peek[labels["player_control"] + p] for p in range(4)]
+
+
+def test_player_select_screen_invites_players_to_join(bbc, game_build):
+    labels = to_player_select(bbc, game_build)
+    bbc.run_for_emulated_seconds(0.2)
+    text = bbc.video.screen_text().text
+    for words in ("PRESS", "FIRE TO", "JOIN", "C CPU", "M CPU"):
+        assert words in text
+
+
+def test_pressing_fire_joins_player_one(bbc, game_build):
+    labels = to_player_select(bbc, game_build)
+    shift = matrix_position(LAYOUTS["A"]["fire"])
+    bbc.keyboard.matrix_down(*shift)
+    bbc.run_for_emulated_seconds(0.2)
+    bbc.keyboard.matrix_up(*shift)
+    assert "C YOU" in bbc.video.screen_text().text
+    shorten_window(bbc, labels)
+    bbc.debugger.run_to(labels["main_loop"], timeout=60)
+    peek = bbc.memory.address.peek
+    assert peek[labels["session_humans"]] == 0b0001
+    assert controls(bbc, labels) == [CONTROL_KEYS_A, CONTROL_AI, CONTROL_AI, CONTROL_AI]
+    assert peek.word(labels["round_length_ticks"]) == ROUND_TICKS
+
+
+def test_nobody_joining_starts_a_demo_that_a_key_ends(bbc, game_build):
+    labels = to_player_select(bbc, game_build)
+    shorten_window(bbc, labels)
+    bbc.debugger.run_to(labels["main_loop"], timeout=60)
+    peek = bbc.memory.address.peek
+    assert peek[labels["session_humans"]] == 0
+    assert controls(bbc, labels) == [CONTROL_AI] * 4
+    assert peek.word(labels["round_length_ticks"]) == DEMO_ROUND_TICKS
+
+    step_ticks(bbc, labels, 20)                           # the demo plays
+    w = matrix_position(LAYOUTS["A"]["up"])
+    bbc.keyboard.matrix_down(*w)
+    bbc.debugger.step(1)
+    bbc.debugger.run_to(labels["select_players"], timeout=10)
+    bbc.keyboard.matrix_up(*w)
+
+
+@pytest.mark.parametrize("level_number", [0, 2])
+def test_points_are_awarded_by_rank(bbc, game_build, level_number):
+    boot_game(bbc, game_build)
+    labels = game_build.labels["DITHER"]
+    bus = bbc.memory.address.bus
+    ticks = 100
+    bus[labels["round_length_ticks"]] = ticks
+    bus[labels["round_length_ticks"] + 1] = 0
+    for p in range(4):
+        bus[labels["session_points"] + p] = 10 * p       # points from earlier levels
+    bus[labels["session_level"]] = level_number
+    enter_level(bbc, labels, level_number)
+    model = Game.start(load_levels()[level_number])
+    model.round_ticks_left = ticks
+    count = len(model.players)
+    for p in range(count):
+        bus[labels["player_control"] + p] = CONTROL_SCRIPTED
+        model.players[p].ai = False
+    rng = random.Random(level_number)
+    inputs = [rng.randrange(8) | FIRE_BIT for _ in range(count)]
+    for p, byte in enumerate(inputs):
+        bus[labels["player_input"] + p] = byte
+    step_ticks(bbc, labels, ticks - 1)
+    for _ in range(ticks):
+        model.tick(inputs)
+    bbc.debugger.step(1)
+    bbc.debugger.run_to(labels["points_awarded"], timeout=120)
+
+    points = round_points(model.percentages())
+    peek = bbc.memory.address.peek
+    assert [peek[labels["session_points"] + p] for p in range(4)] == \
+        [10 * p + (points[p] if p < count else 0) for p in range(4)]
+
+
+def test_a_session_moves_to_the_next_level_then_back_to_player_select(bbc, game_build):
+    boot_game(bbc, game_build)
+    labels = game_build.labels["DITHER"]
+    bus = bbc.memory.address.bus
+    bus[labels["round_length_ticks"]] = 30     # must be set before entering a level
+    bus[labels["round_length_ticks"] + 1] = 0
+    bus[labels["session_level"]] = 0
+    enter_level(bbc, labels, 0)
+    step_ticks(bbc, labels, 29)
+    bbc.debugger.step(1)
+    bbc.debugger.run_to(labels["points_awarded"], timeout=120)
+    bbc.debugger.run_to(labels["main_loop"], timeout=60)      # after the pause
+    peek = bbc.memory.address.peek
+    assert peek[labels["zp_level"]] == 1 and peek[labels["session_level"]] == 1
+
+    # The last level ends the session: final totals, then player selection.
+    last = len(load_levels()) - 1
+    bus[labels["session_level"]] = last
+    enter_level(bbc, labels, last)
+    step_ticks(bbc, labels, 29)
+    bbc.debugger.step(1)
+    bbc.debugger.run_to(labels["points_awarded"], timeout=120)
+    bbc.debugger.run_to(labels["show_totals"])
+    bbc.debugger.run_to(labels["pause_seconds"])
+    bbc.run_for_emulated_seconds(0.1)
+    assert "FINAL" in bbc.video.screen_text().text
+    bbc.debugger.run_to(labels["select_players"], timeout=60)
