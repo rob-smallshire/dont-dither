@@ -75,6 +75,14 @@ Decisions taken during development that refine or depart from
   same on every level, and what differs between levels is checked on every
   level by cheaper tests.
 
+## Fairness
+
+- docs/fairness.md explains the fairness measures, the round-robin victim
+  rule in particular, and records their measured effect. In two-player
+  games, the cyclic victim rotation gives cyan a small systematic edge
+  (+1.6% of the arena on average across the 16 two-player levels). A
+  rotation mirrored for the second player removes it.
+
 ## Players and modes
 
 - Players keep consistent ink colours across levels.
