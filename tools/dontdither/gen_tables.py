@@ -735,6 +735,13 @@ def key_name_lines() -> list[str]:
 INK_NAMES = {"C": "Cyan", "M": "Magenta", "Y": "Yellow", "K": "Black"}
 
 
+def version_text() -> str:
+    """The version as the title screen shows it: "v0.1.0"."""
+    from dontdither._version import __version__
+
+    return f"v{__version__}"
+
+
 def key_line(ink: str) -> str:
     """How player `ink` plays: e.g. "Cyan: W A S D, SHIFT fires"."""
     from dontdither.controls import LAYOUTS
@@ -801,6 +808,12 @@ def generate_splash(dirpath) -> None:
         *(f"    EQUB " + ", ".join(f"&{c:02X}" for c in [*map(ord, name[:-1]), ord(name[-1]) | 0x80])
           + f"    \\ {name}" for name in INK_NAMES.values()),
         f"KEY_LINE_LENGTH = {KEY_LINE_LENGTH}",
+        "\\ The version, right-aligned in the top row (the logo leaves its right",
+        "\\ end black), in yellow.",
+        ".splash_version",
+        f"    EQUB 17, 3, 31, {40 - len(version_text())}, 0",
+        f'    EQUS "{version_text()}"',
+        ".splash_version_end",
         "\\ The cursor keys' codes, as a layout holds its directions: up, left,",
         "\\ down, right. A layout of exactly these shows as \"cursor keys\".",
         f"ESCAPE_CODE = &{inkey_code('ESCAPE'):02X}   \\ never a player's key",

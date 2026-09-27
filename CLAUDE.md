@@ -19,6 +19,7 @@ uv run --group solver dd-solve-patterns           # re-solve data/ink_patterns.j
 uv run dd-preview-sprites                         # render sprites/tank.spr to build/design/sprites.png
 uv run dd-preview-splats                          # render sprites/splats.spr to build/design/splats.png
 uv run dd-render-music                            # the title theme -> build/music/splash_theme.wav
+uvx bump-my-version bump patch                    # release: bump, commit, tag v* (the user pushes)
 ```
 
 Screenshots from emulator tests land in `build/screenshots/` (`boot.png`,

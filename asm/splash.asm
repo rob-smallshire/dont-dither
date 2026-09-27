@@ -69,6 +69,10 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     LDA #splash_guide_end - splash_guide
     JSR splash_vdu
     JSR print_all_keys         \ Each player's keys.
+    LDX #LO(splash_version)    \ The version, top right.
+    LDY #HI(splash_version)
+    LDA #splash_version_end - splash_version
+    JSR splash_vdu
     LDX #LO(splash_prompt)     \ Ask for two or four players.
     LDY #HI(splash_prompt)
     LDA #splash_prompt_end - splash_prompt

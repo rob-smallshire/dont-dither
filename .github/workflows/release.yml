@@ -1,0 +1,78 @@
+name: Release
+
+# Triggered by a version tag (v0.1.1, ...), which `uvx bump-my-version bump
+# patch` makes (see .bumpversion.toml). Runs the whole test suite first; only
+# if it passes does it build the disc and publish a GitHub release with the
+# game's disc image, ready to run: Shift-Break to boot.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Publish the release
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      BEEBASM_VERSION: v1.10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache beebasm
+        id: beebasm-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/beebasm/bin
+          key: beebasm-${{ env.BEEBASM_VERSION }}-${{ runner.os }}
+
+      - name: Build beebasm
+        if: steps.beebasm-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "$BEEBASM_VERSION" https://github.com/stardot/beebasm.git ~/beebasm/src
+          make -C ~/beebasm/src/src code
+          mkdir -p ~/beebasm/bin
+          cp "$(find ~/beebasm/src -maxdepth 2 -type f -name beebasm -perm -u+x | head -1)" ~/beebasm/bin/
+
+      - name: Put beebasm on the PATH
+        run: echo "$HOME/beebasm/bin" >> "$GITHUB_PATH"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: uv sync --locked --no-default-groups
+
+      - name: Check the tag matches the version
+        run: |
+          version="$(uv run python -c 'from dontdither._version import __version__; print(__version__)')"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match the version ${version}" >&2
+            exit 1
+          fi
+
+      - name: Build the disc
+        run: |
+          uv run dd-build
+          cp build/dont-dither.ssd "dont-dither-${GITHUB_REF_NAME}.ssd"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" "dont-dither-${GITHUB_REF_NAME}.ssd" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "Don't Dither! ${GITHUB_REF_NAME}" \
+            --notes "The game on a DFS disc image for a BBC Micro Model B (or an emulator of one): insert it and press Shift-Break to boot. Choose two or four players on the title screen."

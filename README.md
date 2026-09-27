@@ -1,5 +1,7 @@
 # Don't Dither!
 
+[![CI](https://github.com/rob-smallshire/dont-dither/actions/workflows/ci.yml/badge.svg)](https://github.com/rob-smallshire/dont-dither/actions/workflows/ci.yml)
+
 A four-colour territory game for the BBC Micro Model B, written in 6502
 assembly (beebasm) and tested in the [Beebium](https://github.com/rob-smallshire/beebium)
 emulator from Python with pytest.
@@ -20,7 +22,10 @@ magenta, yellow and black. See [the design](docs/dont_dither_game_design.md),
 
 ## Playing
 
-Boot the disc (Shift-Break) on a Model B with DFS.
+Download the disc image (`dont-dither-vX.Y.Z.ssd`) from the
+[latest release](https://github.com/rob-smallshire/dont-dither/releases/latest),
+or build it yourself (below). Boot it (Shift-Break) on a Model B with DFS,
+or in an emulator of one.
 
 - **Two or four players:** the title screen asks; press 2 or 4. Each mode
   has its own set of levels.
@@ -119,6 +124,21 @@ translation): see `tools/dontdither/solve_patterns.py`.
 
 This supersedes the table in `docs/dont_dither_35_minimal_churn_patterns.md`,
 which is the unconstrained churn optimum.
+
+## Releasing
+
+The version lives in `.bumpversion.toml` (with `pyproject.toml`,
+`tools/dontdither/_version.py` and `uv.lock` kept equal to it), and the
+title screen shows it.
+
+```bash
+uvx bump-my-version bump patch     # e.g. 0.1.0 -> 0.1.1: edits, commits and tags v0.1.1
+git push --follow-tags             # push the commit and the tag
+```
+
+The tag triggers the release workflow: it runs the whole test suite, then
+publishes a GitHub release with the game's disc image. CI builds the disc
+and runs the tests on every push to master and every pull request.
 
 ## Licence
 

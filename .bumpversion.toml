@@ -1,0 +1,49 @@
+# Single source of truth for the Don't Dither! version, managed by
+# bump-my-version. A release bumps the version, then commits and tags:
+#
+#   uvx bump-my-version bump patch      # 0.1.0 -> 0.1.1, edits files, commit + tag
+#   git push --follow-tags              # push the commit AND the v* tag
+#
+# The v* tag triggers .github/workflows/release.yml, which runs the tests and
+# publishes a GitHub release with the game's disc image (.ssd).
+#
+# Validate first with:
+#   uvx bump-my-version bump --dry-run --verbose patch
+#
+# current_version below is authoritative; the files listed are kept equal to it.
+
+[tool.bumpversion]
+current_version = "0.1.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+ignore_missing_files = false
+allow_dirty = false
+commit = true
+tag = true
+tag_name = "v{new_version}"
+tag_message = "Release v{new_version}"
+message = "Release v{new_version}"
+
+# The Python project's version.
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+# The version the build puts on the title screen.
+[[tool.bumpversion.files]]
+filename = "tools/dontdither/_version.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+# uv's lock file records the project's own version; anchor on the name so only
+# this package's entry matches, never a dependency's.
+[[tool.bumpversion.files]]
+filename = "uv.lock"
+regex = true
+search = 'name = "dont-dither"\nversion = "{current_version}"'
+replace = 'name = "dont-dither"\nversion = "{new_version}"'

@@ -205,13 +205,18 @@ def test_the_title_screen_shows_the_logo_a_guide_and_asks_for_players(bbc, game_
     bbc.boot_disc(game_build.disc_filepath)
     bbc.debugger.run_to(splash["splash_key"], timeout=60)
     bbc.run_for_emulated_seconds(0.1)
+    from dontdither.gen_tables import version_text
+
     rows, band = logo_band()
     start = 0x3000 + LOGO_TOP_ROW * MODE1_ROW_BYTES
-    assert bytes(bbc.memory.address.peek[start:start + len(band)]) == band
+    shown = bytearray(bbc.memory.address.peek[start:start + len(band)])
+    version_start = (40 - len(version_text())) * 16          # its cells in row 0
+    shown[version_start:640] = band[version_start:640]        # (checked as text below)
+    assert bytes(shown) == band
     text = bbc.video.screen_text().text
     assert "for two players" in text and "for four players" in text
-    from dontdither.gen_tables import key_line
-    for guide in ("Paint as much as you can!", *(key_line(ink) for ink in "CMYK"),
+    from dontdither.gen_tables import key_line, version_text
+    for guide in ("Paint as much as you can!", version_text(), *(key_line(ink) for ink in "CMYK"),
                   "Firing uses ink. Release fire on", "your own colour to refill and",
                   "speed up; more saturated, faster."):
         assert guide in text, guide

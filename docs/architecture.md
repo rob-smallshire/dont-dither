@@ -106,6 +106,18 @@ uv run dd-render-music                    # build/music/splash_theme.wav
 
 Disc files: `SPLASH`, `DITHER`, `TCARD`, `LOGO`, `TUNE`, `LEVELS2`, `LEVELS4`.
 
+**Versions and releases:** the version is kept in `.bumpversion.toml`;
+bump-my-version keeps `pyproject.toml`, `tools/dontdither/_version.py`
+and `uv.lock` equal to it.
+- `generate_splash` puts the version (for example "v0.1.0") in the title
+  screen's top-right corner, where the logo leaves the screen black.
+- `uvx bump-my-version bump patch` commits and tags `vX.Y.Z`.
+- The tag triggers `.github/workflows/release.yml`. It runs the tests
+  through `ci.yml`, checks the tag matches the version, builds the disc and
+  publishes it as `dont-dither-vX.Y.Z.ssd` on a GitHub release.
+- `ci.yml` builds beebasm 1.10 from source (cached) and runs the whole
+  suite on Ubuntu 24.04. Beebium's Linux server wheel brings the ROMs.
+
 Zero-page variables are declared with `ORG`/`SKIP`, not `=`, so that they
 appear in the labels. beebasm exports labels, not `=` constants.
 
