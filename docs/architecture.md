@@ -192,15 +192,17 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &0900–&0CDF | **buffers** (uninitialised): superpixel row address tables (built at start-up), wall map, player state, sprite save buffers, tally and session variables |
 | &0CE0–&0CF5 | **key handoff**: the four key layouts, magic and checksum, left by `SPLASH` (`asm/handoff.asm`); kept across BREAK |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
-| &0E00–&2D08 | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
-| &2D09–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
+| &0E00–&2D1B | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
+| &2D1C–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
 | &3000–&7FFF | MODE 1 screen (the loader and level set pass through here while loading) |
 
-At the last build (with random AI facings): the level area is 759 bytes;
-56 bytes free in the low block; about 190 in the buffers. Building the superpixel row tables at start-up
+At the last build (with four keyboard players and resident keys): the
+level area is 740 bytes; 66 bytes free in the low block; about 150
+in the buffers below the key handoff block. `SPLASH`, at &1900, has plenty
+of room up to the screen. Building the superpixel row tables at start-up
 freed 256 bytes of the main block, which the reservoir then used. A level
 costs about 40–55 bytes plus its title, and a set's header 66 bytes, so
-759 bytes hold about 14 levels. Candidates for more room: store sprite
+740 bytes hold about 14 levels. Candidates for more room: store sprite
 frames at one alignment and shift at draw time (saves about 768 bytes),
 move code into the low block, or trim code.
 
@@ -506,7 +508,11 @@ screen memory and state against them:
 - **Launching:** `launch_bbc` is a factory fixture (the design proposed as
   Beebium #105), using the `model-b-disc` preset.
 - **Loading:** `load_game(bbc, build, players)` boots the disc, answers the
-  title screen and stops at `select_players`.
+  title screen and stops at `select_players`. A fresh machine's RAM is
+  clear, so `SPLASH` puts the default keys in the handoff block.
+  `test_keys.py` reboots with `keyboard.shift_break()` (a soft reset, RAM
+  kept) to test keys surviving BREAK, and presses keys through the
+  keyboard matrix to redefine them.
 - **Booting into play:** `boot_game` then enters level 0 directly and stops
   at `main_loop`, before the first tick, with the screen displayed. The
   default session has players 1 and 2 human.
@@ -552,13 +558,17 @@ screen memory and state against them:
 ## 15. Status and open items
 
 - **Done:** everything described above, including the title screen and HUD
-  logo, the ink reservoir with its framed gauges, and random AI starting
-  directions. Playability is much improved by the last two.
+  logo, the ink reservoir with its framed gauges, random AI starting
+  directions (playability is much improved by these two), up to four
+  players on one keyboard, and key layouts shown, redefined and kept
+  across BREAK by the title screen.
 - **Tuning:** the reservoir's size, refill rates and ground speeds, and the
   AI's refill threshold, are constants in `game.py` and `ai.py`.
 - **Next:**
-  - more levels, from the categorised titles. The 759-byte level area
+  - more levels, from the categorised titles. The 740-byte level area
     holds about 14 per set; 15 needs a little more memory (§5);
-  - SPItFIRE four-joystick support, once Beebium can emulate it;
+  - joysticks, including SPItFIRE four-joystick support, once Beebium can
+    emulate them: a player joining with a joystick's fire button gets
+    `CONTROL_JOYSTICK` (reserved), and `read_inputs` reads it;
   - sound (&0800 is reserved for it);
   - a faster suite once Beebium snapshots (#107) exist.

@@ -91,6 +91,14 @@ flagged for redraw. `tools/dontdither/game.py` models all of it; tests
 compare every arena byte with `render.arena_screen(level, model.cells)`
 plus tanks.
 
+**Keys** (`controls.py`, `asm/handoff.asm`): each player slot (C, M, Y, K)
+has its own keyboard layout; any slot joins with its fire key, recording
+its control in `session_controls` (`CONTROL_JOYSTICK` is reserved for
+joining with a joystick's fire). The layouts are not in the game: SPLASH
+fills a sealed block at &0CE0 (defaults, or a block kept across BREAK),
+shows them, lets f1-f4 redefine them, and the game reads `key_layouts`
+there. `test_keys.py` covers it.
+
 **Ink reservoir** (`game.py`, `game.asm`, `hud.asm`): each shot uses a
 splat from a 128-splat reservoir. With fire released, the tank's ground level
 (own quanta over its footprint's centre four superpixels, DIV 4) sets its

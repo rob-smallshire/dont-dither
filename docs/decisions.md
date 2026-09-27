@@ -134,8 +134,8 @@ Decisions taken during development that refine or depart from
   inputs, hide sprites, update players on the bare arena, show sprites.
   tick_done marks the point between ticks where tests stop and step.
 - Each player's per-tick input is a direction (0-7 or none) plus fire, from
-  a control source: keyboard layout A, keyboard layout B, scripted (tests,
-  later AI) or none. The simulation never sees where input came from.
+  a control source: the keyboard (the slot's own layout), the AI, scripted
+  (tests) or none; a joystick later. The simulation never sees where input came from.
 - Movement is in whole superpixels. A direction input sets the facing at
   once. An 8-bit accumulator per player adds the speed each tick (axial 200,
   diagonal 141 = 200/sqrt 2, in 1/256 superpixel per tick) and a carry means
@@ -289,8 +289,8 @@ to C than (2,1,1,0), it is a better road and filling station.
   (players, count, tables of bytecode and title addresses, up to 16 levels)
   then the levels. Only player 1's start is stored; the 6502 rotates it for
   the other players, as the model does.
-- Joining works the same in both modes: play starts when every player who
-  can join (both keyboard players) has, or when the 10 seconds run out.
+- Joining works the same in both modes: play starts when every slot of the
+  set (two or four) has joined, or when the 10 seconds run out.
   Everyone else is the computer; computer against computer is the demo.
 
 ## Player selection, sessions and demo
