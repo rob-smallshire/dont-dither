@@ -104,6 +104,12 @@ uv run dd-render-music                    # build/music/splash_theme.wav
    labels, then generates and assembles `LEVELS2` and `LEVELS4` to run
    there, saved with a load address of `LEVEL_TEMP` (&6000).
 
+4. **Expand the disc.** beebasm writes the image only as far as its last
+   file. `expand_disc` pads it with empty sectors to the 800 of an
+   80-track single-sided disc (204,800 bytes), which is what its catalogue
+   records. It uses `oaknut-dfs`, the library behind `disc dfs expand`.
+   Some emulators and tools don't recognise a truncated image.
+
 Disc files: `SPLASH`, `DITHER`, `TCARD`, `LOGO`, `TUNE`, `LEVELS2`, `LEVELS4`.
 
 **Versions and releases:** the version is kept in `.bumpversion.toml`;

@@ -8,6 +8,11 @@ Then the level sets LEVELS2 and LEVELS4, which the game's loader loads (one
 of them, as the player chooses), are generated for the game's level area and
 added. Each file's labels are written to build/labels/<NAME>.txt.
 
+beebasm truncates a disc image after its last file, so the image is finally
+expanded to its full size, 80 tracks of 10 sectors (204,800 bytes, the size
+its own catalogue records), with oaknut-dfs: some emulators and tools do not
+recognise a truncated image.
+
     uv run dd-build
 """
 
@@ -118,7 +123,24 @@ def build() -> BuildResult:
         size = labels[name]["level_set_end"] - labels[name]["level_set_start"]
         if LEVEL_TEMP + size > 0x7C00:
             raise RuntimeError(f"{name} ({size} bytes) would reach MODE 7 screen memory when loaded")
+
+    expand_disc(DISC_FILEPATH)
     return BuildResult(DISC_FILEPATH, labels)
+
+
+def expand_disc(disc_filepath: Path) -> None:
+    """Pad the disc image with empty sectors to its full size.
+
+    beebasm writes an image only as far as its last file. A real 80-track
+    single-sided DFS disc is 800 sectors of 256 bytes, and the catalogue
+    beebasm writes says so; some emulators and tools only recognise an image
+    of that size. oaknut-dfs appends the missing sectors, zero-filled,
+    leaving everything before them untouched.
+    """
+    from oaknut.dfs.dfs import expand
+    from oaknut.dfs.formats import ACORN_DFS_80T_SINGLE_SIDED
+
+    expand(disc_filepath, ACORN_DFS_80T_SINGLE_SIDED)
 
 
 def main() -> None:

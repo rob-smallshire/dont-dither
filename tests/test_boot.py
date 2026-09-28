@@ -139,3 +139,12 @@ def test_superpixel_row_tables_are_built_at_start_up(booted_game, game_build):
     lo = bytes(peek[labels["superpixel_row_lo"]:labels["superpixel_row_lo"] + 128])
     hi = bytes(peek[labels["superpixel_row_hi"]:labels["superpixel_row_hi"] + 128])
     assert [l | h << 8 for l, h in zip(lo, hi)] == [superpixel_address(0, sy) for sy in range(128)]
+
+
+def test_the_disc_image_is_full_size(game_build):
+    """beebasm truncates an image after its last file; the build pads it to
+    the 800 sectors of an 80-track single-sided disc, as its catalogue says,
+    since some emulators and tools do not recognise a truncated image."""
+    image = game_build.disc_filepath.read_bytes()
+    catalogue_sectors = (image[0x106] & 0x03) << 8 | image[0x107]
+    assert len(image) == 800 * 256 == catalogue_sectors * 256
