@@ -13,11 +13,24 @@ from dontdither.joysticks import (
     SWITCH_RIGHT,
     SWITCH_UP,
     input_of_switch_byte,
+    FLAG_MESSAGES,
+    SPITFIRE_TEXT,
     joystick_marker,
-    joysticks_available,
     spitfire_line,
+    stick_slots,
     switch_channel,
     switch_direction,
+)
+from spitfire_config import (
+    BITSTIK,
+    DUAL,
+    KIND_POSITION,
+    SINGLE,
+    TWIN,
+    XY_READINGS,
+    Joystick,
+    SpitfireConfig,
+    twins,
 )
 
 N, NE, E, SE, S, SW, W, NW = range(8)
@@ -70,49 +83,53 @@ def test_the_channel_map_is_spitfires():
     assert [switch_channel(slot) for slot in range(4)] == [(12, 0), (12, 1), (28, 0), (28, 1)]
 
 
-TWIN, SINGLE, DUAL = 4, 1, 2           # port types
-PORT_B = 0x80
+def line(config: SpitfireConfig) -> str:
+    return spitfire_line(config.identify(), config.summary(), config.keyword)
 
 
-def block(signature=0x53, joysticks=4, flags=0, sticks=None):
-    """An OSWORD &3F block as it comes back; sticks: joysticks 1-4's bytes
-    (port and type), by default two Delta 3B Twins."""
-    if sticks is None:
-        sticks = [TWIN, TWIN, PORT_B | TWIN, PORT_B | TWIN][:joysticks]
-    b = bytearray(16)
-    b[0], b[4], b[10] = signature, joysticks, flags
-    b[6:10] = bytes(sticks) + bytes([0xFF] * (4 - len(sticks)))
-    return bytes(b)
+def slots(config: SpitfireConfig) -> int:
+    return stick_slots(config.identify(), config.summary(), config.describe)
 
 
-def test_detection():
-    assert joysticks_available(block()) == 4
-    assert joysticks_available(block(joysticks=2)) == 2
-    assert joysticks_available(block(signature=0)) == 0          # no SPItFIRE: unchanged
-    assert joysticks_available(block(flags=1)) == 0              # needs Ctrl-Break
-    assert joysticks_available(block(flags=2)) == 0              # hardware not answering
+def test_the_sticks_are_the_joysticks_a_game_plays_with():
+    assert slots(SpitfireConfig()) == 0b1111
+    assert slots(SpitfireConfig(joysticks=twins(2))) == 0b0011
+    assert slots(SpitfireConfig(present=False)) == 0               # no SPItFIRE
+    for flag in (1, 2, 4, 8):                                       # not ready
+        assert slots(SpitfireConfig(flags=flag)) == 0
+    position = Joystick(port=0, handset=0, type=BITSTIK, kind=KIND_POSITION, capabilities=XY_READINGS)
+    assert slots(SpitfireConfig(joysticks=[position, *twins(2)[1:]])) == 0b0010
+    no_directions = Joystick(port=0, handset=0, type=TWIN, capabilities=XY_READINGS)
+    assert slots(SpitfireConfig(joysticks=[no_directions])) == 0
 
 
-@pytest.mark.parametrize("found, line", [
-    (block(signature=0), ""),     # not mentioned at all
-    (block(), "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4"),
-    (block(joysticks=2), "SPItFIRE: A 3BT J1 J2"),
-    (block(joysticks=3, sticks=[TWIN, TWIN, PORT_B | SINGLE]), "SPItFIRE: A 3BT J1 J2, B SINGLE J3"),
-    (block(joysticks=1, sticks=[PORT_B | SINGLE]), "SPItFIRE: B SINGLE J1"),
-    (block(joysticks=0), "SPItFIRE: no joysticks"),
-    (block(joysticks=0, flags=1), "SPItFIRE: press Ctrl-Break to start"),
-    (block(joysticks=0, flags=2), "SPItFIRE: hardware not responding"),
-    (block(joysticks=0, flags=3), "SPItFIRE: press Ctrl-Break to start"),
-], ids=["absent", "two-twins", "one-twin", "twin-and-single", "port-b-only", "none",
-        "ctrl-break", "not-answering", "both-flags"])
-def test_the_title_screen_says_what_spitfire_gave(found, line):
-    assert spitfire_line(found) == line
+@pytest.mark.parametrize("config, expected", [
+    (SpitfireConfig(present=False), ""),                            # not mentioned at all
+    (SpitfireConfig(), "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4"),
+    (SpitfireConfig(joysticks=twins(2)), "SPItFIRE: A 3BT J1 J2"),
+    (SpitfireConfig(joysticks=[*twins(2), Joystick(1, 0, SINGLE)]), "SPItFIRE: A 3BT J1 J2, B SINGLE J3"),
+    (SpitfireConfig(joysticks=[Joystick(1, 0, SINGLE)]), "SPItFIRE: B SINGLE J1"),
+    (SpitfireConfig(joysticks=[]), "SPItFIRE: no joysticks"),
+    (SpitfireConfig(joysticks=[Joystick(0, 0, 40)]), "SPItFIRE: A ? J1"),
+    (SpitfireConfig(flags=1), "SPItFIRE: press Ctrl-Break to start"),
+    (SpitfireConfig(flags=2), "SPItFIRE: hardware not responding"),
+    (SpitfireConfig(flags=4), "SPItFIRE: type *SPITFIRE JOYSTICK ON"),
+    (SpitfireConfig(flags=8), "SPItFIRE: stopped: type *FX16,4"),
+    (SpitfireConfig(flags=3), "SPItFIRE: press Ctrl-Break to start"),
+    (SpitfireConfig(flags=12), "SPItFIRE: type *SPITFIRE JOYSTICK ON"),
+], ids=["absent", "two-twins", "one-twin", "twin-and-single", "port-b-only", "none", "unknown-type",
+        "ctrl-break", "not-answering", "handling-off", "updates-stopped", "flags-1-2", "flags-4-8"])
+def test_the_title_screen_says_what_spitfire_gave(config, expected):
+    assert line(config) == expected
 
 
 def test_the_longest_spitfire_line_fits_from_column_4_to_the_last():
-    line = spitfire_line(block(sticks=[DUAL, DUAL, PORT_B | DUAL, PORT_B | DUAL]))
-    assert line == "SPItFIRE: A DUAL J1 J2, B DUAL J3 J4"
-    assert 4 + len(line) <= 40
+    duals = [Joystick(j // 2, j % 2, DUAL) for j in range(4)]
+    text = line(SpitfireConfig(joysticks=duals))
+    assert text == "SPItFIRE: A DUAL J1 J2, B DUAL J3 J4"
+    assert 4 + len(text) <= 40
+    for _, message in FLAG_MESSAGES:
+        assert 4 + len(SPITFIRE_TEXT + message) <= 40, message
 
 
 def test_players_keys_are_marked_with_their_joystick():

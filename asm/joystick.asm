@@ -28,22 +28,22 @@
 \ a copy of another one.
 \
 \ Requires: os.asm, game_data.asm (JOYSTICK_* and switch_direction),
-\ spitfire.asm, and joysticks_available, joystick_switches and
-\ spitfire_block defined by the program.
+\ spitfire.asm, and joystick_slots, joystick_switches, spitfire_block,
+\ spitfire_sticks and spitfire_j defined by the program.
 \ ============================================================================
 
 \ ----------------------------------------------------------------------------
-\ detect_joysticks -- set joysticks_available (0-4) from SPItFIRE, if fitted
+\ detect_joysticks -- set joystick_slots from SPItFIRE, if fitted
 \
 \ On entry:  spitfire_block free (only at start-up: see main.asm)
-\ On exit:   joysticks_available set, joystick_switches all 0 (nothing
+\ On exit:   joystick_slots set (bit j-1: slot j-1 may play on joystick
+\            j; see find_sticks), joystick_switches all 0 (nothing
 \            pressed); A, X, Y corrupted
 \ ----------------------------------------------------------------------------
 
 .detect_joysticks
-    JSR ask_spitfire           \ Fills spitfire_block...
-    JSR count_joysticks        \ ...X = the joysticks we can use.
-    STX joysticks_available
+    JSR find_sticks            \ A = the slots with a stick.
+    STA joystick_slots
     LDA #0                     \ Nothing pressed until they are read.
     LDX #SPITFIRE_MAX_JOYSTICKS - 1
 .detect_joysticks_clear
@@ -56,24 +56,24 @@
 \ read_switches -- read every joystick's switch byte into joystick_switches
 \
 \ Call before joystick_input or joystick_fire, once per tick or field. Reads
-\ nothing without joysticks; reads joysticks 3 and 4 only if there are more
-\ than two.
+\ nothing without joysticks; reads joysticks 3 and 4 only if one of them is
+\ played with.
 \
-\ On exit:   joystick_switches[0..joysticks_available-1] fresh; A, X, Y
+\ On exit:   joystick_switches fresh for the slots in joystick_slots; A, X, Y
 \            corrupted
 \ ----------------------------------------------------------------------------
 
 .read_switches
-    LDA joysticks_available
-    BEQ read_switches_done     \ No SPItFIRE (or none ready): nothing to read.
+    LDA joystick_slots
+    BEQ read_switches_done     \ No SPItFIRE (or no sticks): nothing to read.
     LDA #&80                   \ OSBYTE &80: ADVAL. Joysticks 1 and 2...
     LDX #JOYSTICK_SWITCHES_12
     JSR OSBYTE
     STX joystick_switches      \ ...in X (low byte)...
     STY joystick_switches + 1  \ ...and Y (high byte).
-    LDA joysticks_available
-    CMP #3
-    BCC read_switches_done     \ No joystick 3 or 4.
+    LDA joystick_slots
+    AND #%1100
+    BEQ read_switches_done     \ No joystick 3 or 4 to play with.
     LDA #&80                   \ Joysticks 3 and 4.
     LDX #JOYSTICK_SWITCHES_34
     JSR OSBYTE
@@ -85,7 +85,7 @@
 \ ----------------------------------------------------------------------------
 \ joystick_input -- the input byte from player slot X's joystick
 \
-\ On entry:  X = slot (below joysticks_available); read_switches done
+\ On entry:  X = slot (in joystick_slots); read_switches done
 \ On exit:   A = input byte (direction | FIRE_BIT); X corrupted
 \ ----------------------------------------------------------------------------
 
@@ -109,7 +109,7 @@
 \ ----------------------------------------------------------------------------
 \ joystick_fire -- is player slot X's joystick fire button held?
 \
-\ On entry:  X = slot (below joysticks_available); read_switches done
+\ On entry:  X = slot (in joystick_slots); read_switches done
 \ On exit:   A = non-zero (Z clear) if held, 0 if not; X, Y preserved
 \ ----------------------------------------------------------------------------
 

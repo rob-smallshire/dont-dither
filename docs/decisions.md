@@ -431,16 +431,24 @@ to C than (2,1,1,0), it is a better road and filling station.
   own sideways ROM giving up to four analogue joysticks (the SPItFIRE
   repository's docs/joystick-programming.md). The game uses only the ROM's
   documented interface (tools/dontdither/joysticks.py, asm/joystick.asm):
-  - at start-up, OSWORD &3F says whether SPItFIRE is fitted and ready and
-    how many joysticks it allocated. Without it the game is keyboard only,
-    as before, and still runs on a Model B;
+  - at start-up, OSWORD &3F asks SPItFIRE whether it is fitted and ready
+    (reason 0's status flags), how many joysticks it has (reason 1) and
+    what each one is (reason 2). Player slot j may play on joystick j if
+    SPItFIRE describes it as a stick (kind 1) whose switch byte carries
+    directions, so devices that are not sticks are left out without the
+    game knowing any of SPItFIRE's type numbers. Without SPItFIRE, or with
+    it not ready, the game is keyboard only, as before, and still runs on a
+    Model B;
   - with SPItFIRE fitted, the title screen says what it found, above the
-    keys: why it is not ready (Ctrl-Break needed, or the hardware not
-    responding), or its joysticks grouped by port with the
-    port's type ("SPItFIRE: A 3BT J1 J2, B 3BT J3 J4", the type keywords
-    of *SPITFIRE JOYSTICK PORT). Each player's key line is marked "J1"-"J4"
-    in the margin, in the player's colours, for the joystick that player
-    may use instead (joysticks.spitfire_line, asm/splash.asm show_spitfire).
+    keys: why it is not ready (the first status flag, with the guide's
+    advice: Ctrl-Break, the hardware not responding, *SPITFIRE JOYSTICK
+    ON, or *FX16,4), or its joysticks grouped by port with the port's type
+    as SPItFIRE names it (reason 3's keyword; "?" if it has none):
+    "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4". The game holds no table of type
+    names (SPItFIRE added reasons 1-3 for this, issue #3). Each player's
+    key line is marked "J1"-"J4" in the margin, in the player's colours,
+    for the stick that player may use instead (joysticks.spitfire_line,
+    joysticks.stick_slots, asm/splash.asm show_spitfire).
     Without SPItFIRE it says nothing about it: to a player who has never
     heard of SPItFIRE, a message about its absence only confuses;
   - joystick j plays player slot j (C, M, Y, K); with two Delta 3B Twins,

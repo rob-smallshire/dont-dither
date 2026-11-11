@@ -402,11 +402,13 @@ check_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   Y: F C V B and SPACE, K: cursor keys and \), a joystick
   (`CONTROL_JOYSTICK`, below), AI, scripted (tests) or none.
   - **Joysticks** come through SPItFIRE's ROM on a Master Compact.
-    `detect_joysticks` (at `start`) asks SPItFIRE through `spitfire.asm`
-    (OSWORD &3F, using the sprite save buffers as the block) and sets
-    `joysticks_available`. SPLASH asks it the same way and, in
-    `show_spitfire`, says on the title screen what it found and marks each
-    player's keys "J1"-"J4" for their joystick.
+    `detect_joysticks` (at `start`) asks SPItFIRE through `spitfire.asm`'s
+    `find_sticks` (OSWORD &3F reasons 0-2, using the sprite save buffers as
+    the block) and sets `joystick_slots`, a bit per slot whose joystick is
+    a stick with directions. SPLASH asks it the same way and, in
+    `show_spitfire`, says on the title screen what it found (reasons 0 and
+    1, with port types named by reason 3) and marks each player's keys
+    "J1"-"J4" for their stick.
     `read_switches` (at the start of `read_inputs`, each select field and
     each demo exit check) reads every joystick's switch byte with OSBYTE
     &80, channels 12 (joysticks 1, 2) and 28 (3, 4), into
@@ -414,7 +416,8 @@ check_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
     byte: its direction bits (4-7) index `switch_direction`, made from the
     keys' direction table, and bit 0 is fire. Slot j joins with joystick
     j's fire (`select_join`). `tests/test_joysticks.py` runs all this against
-    a fake SPItFIRE in RAM.
+    a fake SPItFIRE: a sideways ROM in slot 13 answering OSWORD &3F, its
+    configuration and an OSBYTE hook in RAM.
   - Keys are read with OSBYTE &81 (negative INKEY codes).
   - `*FX4,1` stops the cursor keys and Copy doing cursor editing.
   - The keyboard buffer is flushed every tick.

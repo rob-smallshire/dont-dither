@@ -253,10 +253,12 @@ tests; they must stay consistent):
   `tools/dontdither/joysticks.py` models both; the interface is in
   `~/Code/spitfire/docs/joystick-programming.md`). Without SPItFIRE the game
   is keyboard only, so it still runs on a Model B. Beebium emulates neither
-  the Compact nor SPItFIRE: `tests/test_joysticks.py` installs a fake of the
-  ROM's interface (`tests/fake_spitfire.asm`, at &0880 in the printer
-  buffer) through `to_title`/`load_game`/`boot_game`'s `at_title`, called
-  as SPLASH starts.
+  the Compact nor SPItFIRE: `tests/test_joysticks.py` launches machines
+  with a fake SPItFIRE ROM in sideways slot 13 (`tests/fake_spitfire.asm`;
+  it claims OSWORD &3F reasons 0-3 by service call 8) and writes its
+  configuration (`tests/spitfire_config.py`) and an OSBYTE &80 hook into
+  &0880 (the printer buffer) through `to_title`/`load_game`/`boot_game`'s
+  `at_title`, called as SPLASH starts.
 - b2 (`/Applications/b2 Debug.app`) emulates a Master Compact: launch it with
   `-c "Master Compact (MOS 5.00)" -0 build/dont-dither.adl -b`. Only the
   debug build has the HTTP API's peek/poke/paste (port 48075, window `b2`,

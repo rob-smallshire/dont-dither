@@ -412,18 +412,25 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 \ Asks SPItFIRE (spitfire.asm). Without it, says nothing: a player who has
 \ never heard of SPItFIRE need not read about it. With it, says in yellow
 \ on SPITFIRE_ROW, as tools/dontdither/joysticks.py's spitfire_line does,
-\ "SPItFIRE: " and why it is not ready (Ctrl-Break needed, or the
-\ hardware not answering); or its joysticks, grouped by
-\ port with the port's type -- "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4" -- or
-\ "no joysticks". The line stops at SPITFIRE_LINE_LENGTH characters.
+\ "SPItFIRE: " and why it is not ready (reason 0's first status flag, with
+\ the guide's advice), or its joysticks (reason 1), grouped by port with
+\ the port's type as SPItFIRE names it (reason 3's keyword) -- "SPItFIRE: A
+\ 3BT J1 J2, B 3BT J3 J4" -- or "no joysticks". The line stops at
+\ SPITFIRE_LINE_LENGTH characters.
 \
-\ Then each player slot with a joystick the game will use (count_joysticks,
-\ as the game counts them: joystick j is slot j's) gets "J<j>" in the margin
-\ by its keys, in the player's colours. A, X, Y corrupted.
+\ Then each player slot whose joystick the game will play with (find_sticks:
+\ joystick j is slot j's, if it is a stick) gets "J<j>" in the margin by its
+\ keys, in the player's colours. A, X, Y corrupted.
 \ ----------------------------------------------------------------------------
 
 .show_spitfire
-    JSR ask_spitfire           \ spitfire_block: what SPItFIRE has.
+    LDA #SPITFIRE_IDENTIFY     \ Is SPItFIRE there?
+    JSR spitfire_call
+    BEQ show_spitfire_present
+    RTS                        \ No: say nothing, mark nothing (its row
+                               \ stays blank).
+
+.show_spitfire_present
     LDA #17                    \ Yellow (logical colour 3), on its row.
     JSR OSWRCH
     LDA #3
@@ -436,41 +443,58 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     JSR OSWRCH
     LDA #SPITFIRE_LINE_LENGTH  \ key_char keeps the line to its length.
     STA line_room
-
-    LDA spitfire_block         \ Did SPItFIRE answer?
-    CMP #SPITFIRE_SIGNATURE
-    BEQ show_spitfire_present
-    RTS                        \ No: say nothing, mark nothing (its row
-                               \ stays blank).
-
-.show_spitfire_present
     LDX #LO(spitfire_text)     \ "SPItFIRE: "
     LDY #HI(spitfire_text)
     JSR print_text
+
     LDA spitfire_block + SPITFIRE_FLAGS
-    ASSERT SPITFIRE_NO_WORKSPACE = 1 AND SPITFIRE_NOT_ANSWERING = 2
-    LSR A                      \ Bit 0 (no workspace) into carry: the user
-    BCC show_spitfire_not_break   \ must press Ctrl-Break.
-    LDX #LO(ctrl_break_text)
-    LDY #HI(ctrl_break_text)
-    JMP print_text             \ Tail call.
-.show_spitfire_not_break
-    LSR A                      \ Bit 1: the hardware did not answer.
-    BCC show_spitfire_ready
-    LDX #LO(not_answering_text)
-    LDY #HI(not_answering_text)
-    JMP print_text             \ Tail call.
+    BEQ show_spitfire_ready
+    LDX #0                     \ Not ready: the first flag set says why.
+.show_spitfire_flag
+    LSR A
+    BCS show_spitfire_why
+    INX
+    CPX #SPITFIRE_FLAG_TEXTS
+    BNE show_spitfire_flag
+    DEX                        \ (Only reserved bits: say the last.)
+.show_spitfire_why
+    LDA #LO(flag_texts)
+    STA NAME_POINTER
+    LDA #HI(flag_texts)
+    STA NAME_POINTER+1
+    JMP print_nth_name         \ Tail call: no joysticks to mark.
 
 .show_spitfire_ready
+    LDA #SPITFIRE_SUMMARY      \ Its joysticks.
+    JSR spitfire_call          \ (Z set if it answered.)
+    BEQ show_spitfire_summary
+    LDX #0                     \ It did not: none to list.
+    BEQ show_spitfire_count    \ (Always.)
+.show_spitfire_summary
+    LDX spitfire_block + SPITFIRE_COUNT
+    CPX #SPITFIRE_MAX_JOYSTICKS + 1
+    BCC show_spitfire_count
+    LDX #SPITFIRE_MAX_JOYSTICKS
+.show_spitfire_count
+    STX spitfire_count
+    LDX #3                     \ Keep the joysticks' bytes: naming a type
+.show_spitfire_keep            \ calls SPItFIRE again.
+    LDA spitfire_block + SPITFIRE_JOYSTICKS,X
+    STA spitfire_joysticks,X
+    DEX
+    BPL show_spitfire_keep
+
     LDA #&FF                   \ No port's group started yet (a port is
     STA spitfire_port          \ 0 or &80).
     LDX #0
 .show_spitfire_joystick
+    CPX spitfire_count
+    BCS show_spitfire_listed
     STX key_index              \ Joystick key_index + 1:
-    LDA spitfire_block + SPITFIRE_JOYSTICKS,X
+    LDA spitfire_joysticks,X
     CMP #SPITFIRE_NOT_ALLOCATED
     BEQ show_spitfire_next     \ not there.
-    AND #&80                   \ Its port (bit 7): the same as the last
+    AND #SPITFIRE_PORT_B       \ Its port (bit 7): the same as the last
     CMP spitfire_port          \ joystick's, so in its group?
     BEQ show_spitfire_number
     LDY spitfire_port          \ A new group: after another, a comma.
@@ -490,15 +514,10 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     JSR key_char
     LDA #' '
     JSR key_char
-    LDA #LO(port_type_names)   \ ...and its type's name (bits 0-2).
-    STA NAME_POINTER
-    LDA #HI(port_type_names)
-    STA NAME_POINTER+1
-    LDX key_index
-    LDA spitfire_block + SPITFIRE_JOYSTICKS,X
-    AND #7
-    TAX
-    JSR print_nth_name
+    LDX key_index              \ ...and its type, named by SPItFIRE.
+    LDA spitfire_joysticks,X
+    AND #SPITFIRE_TYPE_MASK
+    JSR print_type_name
 .show_spitfire_number
     LDA #' '                   \ " J<n>"
     JSR key_char
@@ -511,8 +530,8 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 .show_spitfire_next
     LDX key_index
     INX
-    CPX #SPITFIRE_MAX_JOYSTICKS
-    BNE show_spitfire_joystick
+    BNE show_spitfire_joystick \ (Always.)
+.show_spitfire_listed
     LDA spitfire_port          \ No joystick at all?
     CMP #&FF
     BNE show_spitfire_marks
@@ -521,13 +540,14 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     JSR print_text
 
 .show_spitfire_marks
-    JSR count_joysticks        \ X = the joysticks the game will use.
-    STX spitfire_joysticks
+    JSR find_sticks            \ A = the slots the game will play with.
+    STA spitfire_sticks
     LDX #0
 .show_spitfire_mark
-    CPX spitfire_joysticks
-    BCS show_spitfire_done
-    STX key_slot               \ Slot key_slot plays joystick key_slot + 1:
+    STX key_slot
+    LDA stick_bits,X           \ Slot key_slot plays joystick key_slot + 1?
+    AND spitfire_sticks
+    BEQ show_spitfire_mark_next
     LDA #MARKER_COLUMN         \ "J<n>" in its colours, in the margin.
     JSR key_line_at
     LDA #'J'
@@ -536,11 +556,52 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     CLC
     ADC #'1'
     JSR OSWRCH
+.show_spitfire_mark_next
     LDX key_slot
     INX
-    BNE show_spitfire_mark     \ (Always.)
-.show_spitfire_done
+    CPX #SPITFIRE_MAX_JOYSTICKS
+    BNE show_spitfire_mark
     JMP background_black       \ Tail call.
+
+\ print_type_name: print port type A's keyword, as SPItFIRE names it
+\ (OSWORD &3F reason 3, into type_name), or "?" if it has none. Uses
+\ name_block. A, X, Y corrupted.
+.print_type_name
+    STA name_block + SPITFIRE_NAME_TYPE
+    LDA #SPITFIRE_NAME
+    STA name_block
+    LDA #SPITFIRE_KEYWORD
+    STA name_block + SPITFIRE_NAME_WHICH
+    LDA #LO(type_name)
+    STA name_block + SPITFIRE_NAME_BUFFER
+    LDA #HI(type_name)
+    STA name_block + SPITFIRE_NAME_BUFFER + 1
+    LDA #SPITFIRE_NAME_BYTES
+    STA name_block + SPITFIRE_NAME_SIZE
+    LDA #OSWORD_SPITFIRE
+    LDX #LO(name_block)
+    LDY #HI(name_block)
+    JSR OSWORD
+    LDA name_block
+    CMP #SPITFIRE_SIGNATURE
+    BNE print_type_name_unknown
+    LDA name_block + SPITFIRE_NAME_COPIED
+    BEQ print_type_name_unknown
+    LDY #0
+.print_type_name_char
+    LDA type_name,Y
+    CMP #13                    \ CR ends it.
+    BEQ print_type_name_done
+    JSR key_char               \ (Y preserved.)
+    INY
+    CPY #SPITFIRE_NAME_BYTES
+    BNE print_type_name_char
+.print_type_name_done
+    RTS
+.print_type_name_unknown
+    LDX #LO(unknown_type_text)
+    LDY #HI(unknown_type_text)
+    JMP print_text             \ Tail call.
 
 \ ----------------------------------------------------------------------------
 \ redefine_keys -- let player key_slot choose its keys
@@ -730,9 +791,14 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 .key_index        EQUB 0       \ The direction being shown.
 .key_code         EQUB 0       \ print_key_name: the key sought.
 .line_room        EQUB 0       \ Characters the line has room for.
-.spitfire_port    EQUB 0       \ show_spitfire: the port being listed.
-.spitfire_joysticks EQUB 0     \ show_spitfire: joysticks the game will use.
+.spitfire_port    EQUB 0       \ show_spitfire: the port being listed...
+.spitfire_count   EQUB 0       \ ...the joysticks to list...
+.spitfire_joysticks SKIP SPITFIRE_MAX_JOYSTICKS   \ ...and their bytes.
+.spitfire_sticks  EQUB 0       \ find_sticks: the slots with a stick...
+.spitfire_j       EQUB 0       \ ...and the joystick being described.
 .spitfire_block   SKIP SPITFIRE_BLOCK_BYTES   \ OSWORD &3F's (spitfire.asm).
+.name_block       SKIP SPITFIRE_BLOCK_BYTES   \ print_type_name's OSWORD &3F...
+.type_name        SKIP SPITFIRE_NAME_BYTES    \ ...and the name it gets.
 
 .ink_text_colours              \ Each player's text and background colours:
     EQUB 1, 2, 3, 0            \ its ink on black, but for K black on yellow,

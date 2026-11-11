@@ -93,8 +93,9 @@ FIELDS_PER_SECOND = 50
     JSR select_join
 .select_join_stick
     LDX zp_player
-    CPX joysticks_available
-    BCS select_join_next
+    LDA player_bits,X          \ (X preserved.)
+    AND joystick_slots
+    BEQ select_join_next
     JSR joystick_fire          \ Z clear if its fire button is held.
     BEQ select_join_next
     LDA #CONTROL_JOYSTICK
@@ -465,16 +466,13 @@ ARENA_TEXT_COLUMNS = 32
     LDX zp_player
     DEX
     BPL check_demo_exit_layout
-    JSR read_switches          \ Or any joystick's fire button.
-    LDX joysticks_available
+    JSR read_switches          \ Or any joystick's fire button. (A switch
+    LDX #SPITFIRE_MAX_JOYSTICKS - 1   \ byte not read stays 0.)
 .check_demo_exit_stick
-    DEX
-    BMI check_demo_exit_done
-    STX zp_player
-    JSR joystick_fire
+    JSR joystick_fire          \ (X preserved.)
     BNE check_demo_exit_yes
-    LDX zp_player
-    JMP check_demo_exit_stick
+    DEX
+    BPL check_demo_exit_stick
 .check_demo_exit_done
     RTS
 .check_demo_exit_yes

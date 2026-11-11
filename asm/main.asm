@@ -411,8 +411,10 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .ai_last_input    SKIP MAX_PLAYERS \ Each AI's last decision.
 .ai_refilling     SKIP MAX_PLAYERS \ Non-zero: the AI is seeking ink.
 .random_state     SKIP 1       \ The pseudo-random generator (next_random).
-.joysticks_available SKIP 1    \ Joysticks SPItFIRE gives us (0-4): slot j
-                               \ may join with joystick j+1 if j is below.
+.joystick_slots   SKIP 1       \ Bit j set: slot j may join with joystick
+                               \ j+1, a stick (find_sticks).
+.spitfire_sticks  SKIP 1       \ find_sticks: the mask so far...
+.spitfire_j       SKIP 1       \ ...and the joystick being described.
 .joystick_switches SKIP 4     \ read_switches: joysticks 1-4's switch
                                \ bytes (fire bit 0, directions bits 4-7).
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
