@@ -3,52 +3,71 @@
 
 import pytest
 
-from dontdither.game import FIRE_BIT, NO_DIRECTION
+from dontdither.controls import LAYOUT_KEYS
+from dontdither.game import FIRE_BIT, NO_DIRECTION, direction_of_keys
 from dontdither.joysticks import (
-    FIRE_CHANNELS,
-    FIRE_MASKS,
-    X_CHANNELS,
-    Y_CHANNELS,
-    input_of_joystick,
+    SWITCH_CHANNELS,
+    SWITCH_DOWN,
+    SWITCH_FIRE,
+    SWITCH_LEFT,
+    SWITCH_RIGHT,
+    SWITCH_UP,
+    input_of_switch_byte,
     joystick_marker,
     joysticks_available,
     spitfire_line,
+    switch_channel,
+    switch_direction,
 )
 
-CENTRE, FULL = 0x8000, 0xFFFF
 N, NE, E, SE, S, SW, W, NW = range(8)
 
 
-@pytest.mark.parametrize("x, y, direction", [
-    (CENTRE, CENTRE, NO_DIRECTION),
-    (CENTRE, FULL, N),            # Y high is up
-    (CENTRE, 0, S),
-    (FULL, CENTRE, W),            # X high is left
-    (0, CENTRE, E),
-    (0, FULL, NE),
-    (0, 0, SE),
-    (FULL, 0, SW),
-    (FULL, FULL, NW),
+@pytest.mark.parametrize("switches, direction", [
+    (0, NO_DIRECTION),
+    (SWITCH_UP, N),
+    (SWITCH_UP | SWITCH_RIGHT, NE),
+    (SWITCH_RIGHT, E),
+    (SWITCH_DOWN | SWITCH_RIGHT, SE),
+    (SWITCH_DOWN, S),
+    (SWITCH_DOWN | SWITCH_LEFT, SW),
+    (SWITCH_LEFT, W),
+    (SWITCH_UP | SWITCH_LEFT, NW),
 ])
-def test_stick_positions_give_directions(x, y, direction):
-    assert input_of_joystick(x, y, False) == direction
+def test_switch_bytes_give_directions(switches, direction):
+    assert input_of_switch_byte(switches) == direction
 
 
-def test_a_quarter_of_full_scale_from_the_centre_is_the_threshold():
-    assert input_of_joystick(CENTRE, 0xBFFF, False) == NO_DIRECTION      # just short of up
-    assert input_of_joystick(CENTRE, 0xC000, False) == N
-    assert input_of_joystick(CENTRE, 0x4000, False) == NO_DIRECTION      # just short of down
-    assert input_of_joystick(CENTRE, 0x3FFF, False) == S
+def test_the_switch_bits_are_spitfires():
+    """Fire in bit 0; left, down, up, right in bits 4-7 (the guide's
+    "Switch bytes")."""
+    assert (SWITCH_FIRE, SWITCH_LEFT, SWITCH_DOWN, SWITCH_UP, SWITCH_RIGHT) == (1, 16, 32, 64, 128)
 
 
 def test_fire_adds_the_fire_bit():
-    assert input_of_joystick(CENTRE, CENTRE, True) == NO_DIRECTION | FIRE_BIT
-    assert input_of_joystick(0, CENTRE, True) == E | FIRE_BIT
+    assert input_of_switch_byte(SWITCH_FIRE) == NO_DIRECTION | FIRE_BIT
+    assert input_of_switch_byte(SWITCH_RIGHT | SWITCH_FIRE) == E | FIRE_BIT
+
+
+def test_a_joystick_steers_as_the_keys_do():
+    """Each switch direction bit means what the matching key does, so any
+    combination -- even opposite directions -- gives the keys' direction."""
+    key_bit = {name: 1 << i for i, name in enumerate(LAYOUT_KEYS[:4])}     # the keys' mask
+    switch_bit = {"up": SWITCH_UP, "down": SWITCH_DOWN, "left": SWITCH_LEFT, "right": SWITCH_RIGHT}
+    for mask in range(16):
+        switches = sum(switch_bit[k] for k in key_bit if mask & key_bit[k])
+        assert input_of_switch_byte(switches) == direction_of_keys(mask)
+        assert switch_direction()[switches >> 4] == direction_of_keys(mask)
+
+
+def test_bits_1_to_3_are_ignored():
+    for bits in (2, 4, 8, 14):
+        assert input_of_switch_byte(SWITCH_UP | bits) == N
 
 
 def test_the_channel_map_is_spitfires():
-    assert X_CHANNELS == (1, 3, 17, 19) and Y_CHANNELS == (2, 4, 18, 20)
-    assert FIRE_CHANNELS == (0, 0, 16, 16) and FIRE_MASKS == (1, 2, 1, 2)
+    assert SWITCH_CHANNELS == (12, 28)
+    assert [switch_channel(slot) for slot in range(4)] == [(12, 0), (12, 1), (28, 0), (28, 1)]
 
 
 TWIN, SINGLE, DUAL = 4, 1, 2           # port types

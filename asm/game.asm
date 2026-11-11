@@ -109,6 +109,7 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
 \ ----------------------------------------------------------------------------
 
 .read_inputs
+    JSR read_switches          \ SPItFIRE's joysticks, if any (joystick.asm).
     LDX #0
 .read_inputs_loop
     CPX player_count

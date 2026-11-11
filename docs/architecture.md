@@ -407,11 +407,13 @@ check_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
     `joysticks_available`. SPLASH asks it the same way and, in
     `show_spitfire`, says on the title screen what it found and marks each
     player's keys "J1"-"J4" for their joystick.
-    `joystick_input` reads slot j's X and Y with OSBYTE &80 (only the high
-    bytes matter: &C0 or more is left or up, below &40 right or down) and
-    its fire bit, and builds the keys' four direction bits, so
-    `key_direction` gives the direction. Slot j joins with joystick j's
-    fire (`select_join`). `tests/test_joysticks.py` runs all this against
+    `read_switches` (at the start of `read_inputs`, each select field and
+    each demo exit check) reads every joystick's switch byte with OSBYTE
+    &80, channels 12 (joysticks 1, 2) and 28 (3, 4), into
+    `joystick_switches`. `joystick_input` turns slot j's into an input
+    byte: its direction bits (4-7) index `switch_direction`, made from the
+    keys' direction table, and bit 0 is fire. Slot j joins with joystick
+    j's fire (`select_join`). `tests/test_joysticks.py` runs all this against
     a fake SPItFIRE in RAM.
   - Keys are read with OSBYTE &81 (negative INKEY codes).
   - `*FX4,1` stops the cursor keys and Copy doing cursor editing.
@@ -702,8 +704,8 @@ screen memory and state against them:
   - session length: 16 five-minute rounds is long, so shorter rounds or
     choosing levels may be wanted;
   - teaching the AI to use tunnels;
-  - tuning the joysticks' dead zone, perhaps using the sticks' analogue
-    readings (they work on a real Compact with SPItFIRE);
+  - perhaps using the sticks' analogue readings (the joysticks work on a
+    real Compact with SPItFIRE, through its switch bytes);
   - plain BBC Micro joysticks on a Model B, when the SPItFIRE ROM is more
     general;
   - in-game sound effects (&0800 is reserved for the MOS's sound; memory

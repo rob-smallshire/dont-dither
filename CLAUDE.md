@@ -249,7 +249,7 @@ tests; they must stay consistent):
 - 25 Hz game tick.
 - Joysticks only through SPItFIRE, on a Master Compact (`asm/spitfire.asm`
   asks it, shared by SPLASH, which lists the joysticks on the title screen,
-  and DITHER; `asm/joystick.asm` reads them;
+  and DITHER; `asm/joystick.asm` reads their switch bytes, ADVAL 12 and 28;
   `tools/dontdither/joysticks.py` models both; the interface is in
   `~/Code/spitfire/docs/joystick-programming.md`). Without SPItFIRE the game
   is keyboard only, so it still runs on a Model B. Beebium emulates neither

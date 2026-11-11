@@ -3,9 +3,10 @@
 Beebium emulates neither the Master Compact nor SPItFIRE, so these tests run
 the game on a Model B with a fake SPItFIRE (tests/fake_spitfire.asm)
 standing in for its ROM's documented interface: OSWORD &3F to detect it,
-OSBYTE &80 to read the sticks. The tests install it at the title screen,
-before the game starts and looks for joysticks, then move the sticks and
-press the buttons by poking its tables.
+OSBYTE &80 on channels 12 and 28 to read the joysticks' switch bytes. The
+tests install it as the title screen starts, before anything looks for
+joysticks, then move the sticks and press the buttons by poking the switch
+bytes into its tables.
 """
 
 import random
@@ -15,22 +16,24 @@ import pytest
 
 from conftest import boot_game, load_game, step_ticks, to_title
 from dontdither.build import BUILD_DIRPATH, PROJECT_DIRPATH, find_beebasm, parse_labels
-from dontdither.game import FIRE_BIT, NO_DIRECTION, Game
+from dontdither.game import Game
 from dontdither.gen_tables import key_line
 from dontdither.joysticks import (
-    FIRE_CHANNELS,
-    FIRE_MASKS,
-    X_CHANNELS,
-    Y_CHANNELS,
-    input_of_joystick,
+    SWITCH_DOWN,
+    SWITCH_FIRE,
+    SWITCH_LEFT,
+    SWITCH_RIGHT,
+    SWITCH_UP,
+    input_of_switch_byte,
     joystick_marker,
     spitfire_line,
+    switch_channel,
 )
 from dontdither.levels import level_set
 
 CONTROL_KEYS, CONTROL_JOYSTICK, CONTROL_SCRIPTED = 1, 2, 3
 BYTEV, WORDV = 0x020A, 0x020C
-CENTRE = 0x8000
+FAKE_CHANNELS = 29
 FAKE_SOURCE_FILEPATH = PROJECT_DIRPATH / "tests" / "fake_spitfire.asm"
 FAKE_BINARY_FILEPATH = BUILD_DIRPATH / "fake_spitfire.bin"
 FAKE_LABELS_FILEPATH = BUILD_DIRPATH / "labels" / "FAKE_SPITFIRE.txt"
@@ -58,17 +61,19 @@ class FakeSpitfire:
         bus[self.labels["fake_lo"] + channel] = value & 0xFF
         bus[self.labels["fake_hi"] + channel] = value >> 8
 
-    def stick(self, joystick: int, x: int, y: int) -> None:
-        """Joystick 0-3's position (16-bit readings: X high is left, Y high
-        is up)."""
-        self.set_channel(X_CHANNELS[joystick], x)
-        self.set_channel(Y_CHANNELS[joystick], y)
+    def address(self, joystick: int) -> int:
+        """Where joystick 0-3's switch byte is in the fake's tables."""
+        channel, high = switch_channel(joystick)
+        return self.labels["fake_hi" if high else "fake_lo"] + channel
+
+    def switches(self, joystick: int, value: int) -> None:
+        """Joystick 0-3's switch byte (fire bit 0, directions bits 4-7)."""
+        self.bbc.memory.address.bus[self.address(joystick)] = value
 
     def fire(self, joystick: int, held: bool) -> None:
-        channel, mask = FIRE_CHANNELS[joystick], FIRE_MASKS[joystick]
-        address = self.labels["fake_lo"] + channel
+        address = self.address(joystick)
         bus, peek = self.bbc.memory.address.bus, self.bbc.memory.address.peek
-        bus[address] = (peek[address] | mask) if held else (peek[address] & ~mask & 0xFF)
+        bus[address] = (peek[address] | SWITCH_FIRE) if held else (peek[address] & ~SWITCH_FIRE & 0xFF)
 
 
 TWIN, SINGLE = 4, 1                # SPItFIRE port types
@@ -88,7 +93,7 @@ def spitfire_block(joysticks=4, flags=0, signature=0x53, sticks=None) -> bytes:
 
 def installer(fake, joysticks=4, flags=0, signature=0x53, sticks=None):
     """A function installing the fake SPItFIRE (describing `joysticks`
-    joysticks, sticks centred, buttons up) into a machine; for to_title's,
+    joysticks, sticks centred and buttons up: switch bytes 0) into a machine; for to_title's,
     load_game's and boot_game's at_title."""
     code, labels = fake
     block = spitfire_block(joysticks, flags, signature, sticks)
@@ -98,10 +103,8 @@ def installer(fake, joysticks=4, flags=0, signature=0x53, sticks=None):
         bus[labels["fake_block"]:labels["fake_block"] + len(code)] = code
         bus[labels["fake_block"]:labels["fake_block"] + 11] = block
         stick = FakeSpitfire(bbc, labels)
-        for channel in range(21):
+        for channel in range(FAKE_CHANNELS):
             stick.set_channel(channel, 0)
-        for j in range(joysticks):
-            stick.stick(j, CENTRE, CENTRE)
         bus[labels["old_bytev"]:labels["old_bytev"] + 2] = bytes(peek[BYTEV:BYTEV + 2])
         bus[labels["old_wordv"]:labels["old_wordv"] + 2] = bytes(peek[WORDV:WORDV + 2])
         bus[BYTEV:BYTEV + 2] = labels["byte_hook"].to_bytes(2, "little")
@@ -245,9 +248,13 @@ def test_a_joystick_fire_button_ends_the_demo(bbc, game_build, fake):
 
 # ---- Playing -----------------------------------------------------------------------
 
+DIRECTIONS = [0, SWITCH_UP, SWITCH_UP | SWITCH_RIGHT, SWITCH_RIGHT, SWITCH_DOWN | SWITCH_RIGHT,
+              SWITCH_DOWN, SWITCH_DOWN | SWITCH_LEFT, SWITCH_LEFT, SWITCH_UP | SWITCH_LEFT]
+
+
 def test_joysticks_drive_and_fire_exactly_as_the_model_says(bbc, game_build, fake):
-    """Four players on joysticks, random stick positions and buttons: the
-    tanks, reservoirs and arena follow the model fed the same readings."""
+    """Four players on joysticks, random directions and buttons: the tanks,
+    reservoirs and input bytes follow the model fed the same switch bytes."""
     boot_game(bbc, game_build, at_title=installer(fake))
     labels = game_build.labels["DITHER"]
     stick = FakeSpitfire(bbc, fake[1])
@@ -258,33 +265,47 @@ def test_joysticks_drive_and_fire_exactly_as_the_model_says(bbc, game_build, fak
         bus[labels["player_control"] + p] = CONTROL_JOYSTICK
         player.ai = False
     rng = random.Random(5)
-    readings = [(CENTRE, CENTRE, False)] * 4
+    switches = [0] * 4
     for tick in range(200):
         if tick % 10 == 0:
-            readings = [(rng.choice([0x0000, 0x3FFF, 0x4000, CENTRE, 0xBFFF, 0xC000, 0xFFFF]),
-                         rng.choice([0x0000, 0x3FFF, 0x4000, CENTRE, 0xBFFF, 0xC000, 0xFFFF]),
-                         rng.random() < 0.5) for _ in range(4)]
-            for j, (x, y, fire) in enumerate(readings):
-                stick.stick(j, x, y)
-                stick.fire(j, fire)
+            switches = [rng.choice(DIRECTIONS) | (SWITCH_FIRE if rng.random() < 0.5 else 0)
+                        for _ in range(4)]
+            for j, value in enumerate(switches):
+                stick.switches(j, value)
         step_ticks(bbc, labels)
-        model.tick([input_of_joystick(*r) for r in readings])
+        model.tick([input_of_switch_byte(value) for value in switches])
         fields = ("player_sx", "player_sy", "player_facing", "player_reservoir")
         actual = [tuple(peek[labels[f] + p] for f in fields) for p in range(4)]
         expected = [(p.sx, p.sy, p.facing, p.reservoir) for p in model.players]
         assert actual == expected, f"tick {tick}"
         assert [peek[labels["player_input"] + p] for p in range(4)] == \
-            [input_of_joystick(*r) for r in readings], f"tick {tick}"
+            [input_of_switch_byte(value) for value in switches], f"tick {tick}"
+
+
+def test_every_switch_byte_gives_the_models_input(bbc, game_build, fake):
+    """Every combination of direction bits, with and without fire -- even
+    those SPItFIRE never sends (opposite directions; bits 1-3, which are
+    always 0) -- decodes as the model says."""
+    boot_game(bbc, game_build, at_title=installer(fake))
+    labels = game_build.labels["DITHER"]
+    bus, peek = bbc.memory.address.bus, bbc.memory.address.peek
+    bus[labels["player_control"] + 1] = CONTROL_JOYSTICK
+    stick = FakeSpitfire(bbc, fake[1])
+    values = [nibble << 4 | fire for nibble in range(16) for fire in (0, SWITCH_FIRE)] + [0x0E, 0xFF]
+    for value in values:
+        stick.switches(1, value)
+        step_ticks(bbc, labels)
+        assert peek[labels["player_input"] + 1] == input_of_switch_byte(value), hex(value)
 
 
 def test_the_game_keeps_25_hz_with_four_joysticks(bbc, game_build, fake):
     boot_game(bbc, game_build, at_title=installer(fake))
     labels = game_build.labels["DITHER"]
     stick = FakeSpitfire(bbc, fake[1])
-    for p, (x, y) in enumerate([(0, 0), (0xFFFF, 0), (0xFFFF, 0xFFFF), (0, 0xFFFF)]):
+    for p, value in enumerate([SWITCH_DOWN | SWITCH_RIGHT, SWITCH_DOWN | SWITCH_LEFT,
+                               SWITCH_UP | SWITCH_LEFT, SWITCH_UP | SWITCH_RIGHT]):
         bbc.memory.address.bus[labels["player_control"] + p] = CONTROL_JOYSTICK
-        stick.stick(p, x, y)
-        stick.fire(p, True)
+        stick.switches(p, value | SWITCH_FIRE)
     peek = bbc.memory.address.peek
     start = peek.word(labels["tick_count"])
     bbc.run_for_emulated_seconds(2.0)

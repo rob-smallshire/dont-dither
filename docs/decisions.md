@@ -448,11 +448,18 @@ to C than (2,1,1,0), it is a better road and filling station.
     fire button (joystick), so keyboards and joysticks mix freely; the
     select screen shows "JOY" for a joystick player. A joystick's fire
     also ends the demo;
-  - OSBYTE &80 reads each stick's X and Y once a tick. A stick past a
-    quarter of full scale from the centre on an axis (the threshold
-    SPItFIRE uses for its direction bits) points that way; both axes give
-    a diagonal. The four direction bits go through the keys' direction
-    table. The analogue readings may be used more fully later.
+  - the game reads each joystick's *switch byte*, which SPItFIRE's
+    firmware builds (fire in bit 0; left, down, up, right in bits 4-7,
+    each set past a quarter of full scale from the centre): ADVAL(12)
+    holds joysticks 1 and 2, ADVAL(28) joysticks 3 and 4, so four
+    joysticks take two OSBYTE &80 calls a tick, and the firmware alone
+    decides what counts as "up". (SPItFIRE added the switch bytes for
+    this, issue #2; before them the game read X, Y and fire separately,
+    twelve calls a tick, with its own threshold.) The direction bits go
+    through a table made from the keys' direction table, so a joystick
+    steers as the keys do. The game needs a SPItFIRE ROM with switch
+    bytes: both are ours and unreleased, so there is no version check or
+    fallback. The analogue readings may be used more fully later;
 - Plain BBC Micro joysticks on a Model B's analogue port are not supported
   yet: the SPItFIRE ROM is Compact-only for now, and this version of the
   game targets the Compact for joysticks. It can be made more general when

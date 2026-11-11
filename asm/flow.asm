@@ -79,6 +79,7 @@ FIELDS_PER_SECOND = 50
 .select_field
     LDA #19                    \ Wait a field.
     JSR OSBYTE
+    JSR read_switches          \ The joysticks' fire buttons, if any.
     JSR next_random            \ Stir the generator: how long players take
                                \ to join varies it.
     LDX #0                     \ Each slot's fire key joins it, on the
@@ -464,7 +465,8 @@ ARENA_TEXT_COLUMNS = 32
     LDX zp_player
     DEX
     BPL check_demo_exit_layout
-    LDX joysticks_available    \ Or any joystick's fire button.
+    JSR read_switches          \ Or any joystick's fire button.
+    LDX joysticks_available
 .check_demo_exit_stick
     DEX
     BMI check_demo_exit_done

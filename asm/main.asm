@@ -413,8 +413,8 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .random_state     SKIP 1       \ The pseudo-random generator (next_random).
 .joysticks_available SKIP 1    \ Joysticks SPItFIRE gives us (0-4): slot j
                                \ may join with joystick j+1 if j is below.
-.joystick_slot    SKIP 1       \ joystick_input: the slot being read.
-.joystick_buttons SKIP 1       \ joystick_fire: the channel's button bits.
+.joystick_switches SKIP 4     \ read_switches: joysticks 1-4's switch
+                               \ bytes (fire bit 0, directions bits 4-7).
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
 .session_humans   SKIP 1       \ Bit per player slot: played by a human.
 .session_joined   SKIP 1       \ select_players: who has pressed fire,

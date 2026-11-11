@@ -2,120 +2,118 @@
 \ joystick.asm -- joysticks through SPItFIRE
 \
 \ SPItFIRE (a Master Compact peripheral, with its own sideways ROM) provides
-\ up to four analogue joysticks. This module uses only the ROM's documented
-\ interface (the SPItFIRE repository's docs/joystick-programming.md); it
-\ must match tools/dontdither/joysticks.py.
+\ up to four joysticks. This module uses only the ROM's documented interface
+\ (the SPItFIRE repository's docs/joystick-programming.md); it must match
+\ tools/dontdither/joysticks.py.
 \
 \ Detection, once at start-up, asks SPItFIRE through spitfire.asm (shared
 \ with SPLASH, which shows what it found). Without SPItFIRE, or with it not
 \ ready, there are no joysticks and the game is played on the keyboard alone.
 \
-\ Reading: OSBYTE &80 (ADVAL) with X = a channel returns its 16-bit value in
-\ X (low) and Y (high). Joystick j (slot j-1: C, M, Y, K) has X and Y on
-\ channels joystick_x_channels and _y_channels, and its fire button in the
-\ low byte of channel joystick_fire_channels under joystick_fire_masks.
-\ The ROM refreshes the values 50 times a second; reading them costs only
-\ the call.
+\ Reading: every joystick has a switch byte, which SPItFIRE's firmware
+\ builds from the stick and its button -- fire in bit 0, and left, down, up
+\ and right in bits 4-7, a direction set when the stick is more than a
+\ quarter of full scale from the centre (two adjacent ones: a diagonal).
+\ OSBYTE &80 (ADVAL) on channel JOYSTICK_SWITCHES_12 returns joysticks 1
+\ and 2's switch bytes in X and Y; on JOYSTICK_SWITCHES_34, joysticks 3 and
+\ 4's. An unallocated joystick's is 0. read_switches reads them all into
+\ joystick_switches, two calls for four joysticks; the ROM refreshes them
+\ 50 times a second. Joystick j is slot j-1's (C, M, Y, K).
 \
-\ A stick points in a direction when it is more than a quarter of full
-\ scale from the centre on that axis -- the high byte of the reading is
-\ &C0 or more (X: left; Y: up) or below &40 (X: right; Y: down) -- so only
-\ Y, the high byte, is looked at. The four direction bits are turned into a
-\ direction through the keys' own table (key_direction).
+\ A switch byte's direction bits are turned into a direction through
+\ switch_direction, made from the keys' own table, so a joystick steers as
+\ the keys do.
 \
-\ Requires: os.asm, zeropage.asm, game_data.asm (the channel tables and
-\ key_direction), spitfire.asm, and joysticks_available, joystick_slot,
-\ joystick_buttons and spitfire_block defined by the program.
+\ Without SPItFIRE nothing is read: MOS 5 would answer these channels with
+\ a copy of another one.
+\
+\ Requires: os.asm, game_data.asm (JOYSTICK_* and switch_direction),
+\ spitfire.asm, and joysticks_available, joystick_switches and
+\ spitfire_block defined by the program.
 \ ============================================================================
 
 \ ----------------------------------------------------------------------------
 \ detect_joysticks -- set joysticks_available (0-4) from SPItFIRE, if fitted
 \
 \ On entry:  spitfire_block free (only at start-up: see main.asm)
-\ On exit:   A, X, Y corrupted
+\ On exit:   joysticks_available set, joystick_switches all 0 (nothing
+\            pressed); A, X, Y corrupted
 \ ----------------------------------------------------------------------------
 
 .detect_joysticks
     JSR ask_spitfire           \ Fills spitfire_block...
     JSR count_joysticks        \ ...X = the joysticks we can use.
     STX joysticks_available
+    LDA #0                     \ Nothing pressed until they are read.
+    LDX #SPITFIRE_MAX_JOYSTICKS - 1
+.detect_joysticks_clear
+    STA joystick_switches,X
+    DEX
+    BPL detect_joysticks_clear
+    RTS
+
+\ ----------------------------------------------------------------------------
+\ read_switches -- read every joystick's switch byte into joystick_switches
+\
+\ Call before joystick_input or joystick_fire, once per tick or field. Reads
+\ nothing without joysticks; reads joysticks 3 and 4 only if there are more
+\ than two.
+\
+\ On exit:   joystick_switches[0..joysticks_available-1] fresh; A, X, Y
+\            corrupted
+\ ----------------------------------------------------------------------------
+
+.read_switches
+    LDA joysticks_available
+    BEQ read_switches_done     \ No SPItFIRE (or none ready): nothing to read.
+    LDA #&80                   \ OSBYTE &80: ADVAL. Joysticks 1 and 2...
+    LDX #JOYSTICK_SWITCHES_12
+    JSR OSBYTE
+    STX joystick_switches      \ ...in X (low byte)...
+    STY joystick_switches + 1  \ ...and Y (high byte).
+    LDA joysticks_available
+    CMP #3
+    BCC read_switches_done     \ No joystick 3 or 4.
+    LDA #&80                   \ Joysticks 3 and 4.
+    LDX #JOYSTICK_SWITCHES_34
+    JSR OSBYTE
+    STX joystick_switches + 2
+    STY joystick_switches + 3
+.read_switches_done
     RTS
 
 \ ----------------------------------------------------------------------------
 \ joystick_input -- the input byte from player slot X's joystick
 \
-\ On entry:  X = slot (below joysticks_available)
-\ On exit:   A = input byte (direction | FIRE_BIT); X, Y corrupted;
-\            zp_keys corrupted
+\ On entry:  X = slot (below joysticks_available); read_switches done
+\ On exit:   A = input byte (direction | FIRE_BIT); X corrupted
 \ ----------------------------------------------------------------------------
 
 .joystick_input
-    STX joystick_slot
-    LDA #0                     \ The direction bits: up 1, down 2, left 4,
-    STA zp_keys                \ right 8, as the keys'.
-
-    LDA joystick_y_channels,X  \ Y: up (high) or down (low)?
-    JSR joystick_high_byte
-    CMP #JOYSTICK_HIGH
-    BCC joystick_input_not_up
-    LDA #JOYSTICK_UP
-    BNE joystick_input_y       \ (Always.)
-.joystick_input_not_up
-    CMP #JOYSTICK_LOW
-    BCS joystick_input_x       \ Near the centre: neither.
-    LDA #JOYSTICK_DOWN
-.joystick_input_y
-    STA zp_keys
-
-.joystick_input_x
-    LDX joystick_slot          \ X: left (high) or right (low)?
-    LDA joystick_x_channels,X
-    JSR joystick_high_byte
-    CMP #JOYSTICK_HIGH
-    BCC joystick_input_not_left
-    LDA #JOYSTICK_LEFT
-    BNE joystick_input_add_x   \ (Always.)
-.joystick_input_not_left
-    CMP #JOYSTICK_LOW
-    BCS joystick_input_fire
-    LDA #JOYSTICK_RIGHT
-.joystick_input_add_x
-    ORA zp_keys
-    STA zp_keys
-
-.joystick_input_fire
-    LDX joystick_slot
-    JSR joystick_fire          \ Z clear if fire is held.
-    BEQ joystick_input_direction
-    LDA #FIRE_BIT
-.joystick_input_direction
-    LDX zp_keys                \ Direction from the keys' table, plus fire.
-    ORA key_direction,X
-    RTS
-
-\ joystick_high_byte: A = the high byte of ADVAL channel A. X, Y corrupted.
-.joystick_high_byte
+    LDA joystick_switches,X
+    PHA
+    LSR A                      \ The direction bits (4-7) down to 0-3: an
+    LSR A                      \ index into switch_direction.
+    LSR A
+    LSR A
     TAX
-    LDA #&80                   \ OSBYTE &80: read the channel; Y = high byte.
-    JSR OSBYTE
-    TYA
+    PLA
+    ASSERT JOYSTICK_FIRE = 1
+    LSR A                      \ Fire (bit 0) into carry.
+    LDA switch_direction,X     \ (Carry kept.)
+    BCC joystick_input_done
+    ORA #FIRE_BIT
+.joystick_input_done
     RTS
 
 \ ----------------------------------------------------------------------------
 \ joystick_fire -- is player slot X's joystick fire button held?
 \
-\ On entry:  X = slot (below joysticks_available)
-\ On exit:   A = non-zero (Z clear) if held, 0 if not; X, Y corrupted
+\ On entry:  X = slot (below joysticks_available); read_switches done
+\ On exit:   A = non-zero (Z clear) if held, 0 if not; X, Y preserved
 \ ----------------------------------------------------------------------------
 
 .joystick_fire
-    LDA joystick_fire_masks,X
-    PHA
-    LDA joystick_fire_channels,X
-    TAX
-    LDA #&80                   \ OSBYTE &80: the buttons are in X, the low
-    JSR OSBYTE                 \ byte (the high byte is not a button).
-    PLA
-    STX joystick_buttons
-    AND joystick_buttons
+    LDA joystick_switches,X
+    AND #JOYSTICK_FIRE
     RTS

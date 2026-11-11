@@ -10,8 +10,9 @@
 \               if fake_block's byte 0 is 0, passes the call on, as a
 \               machine without SPItFIRE does (the block comes back
 \               unchanged);
-\   OSBYTE &80  with X = channel 0-20 returns fake_lo/fake_hi for it in X
-\               (low) and Y (high); other channels and calls pass on.
+\   OSBYTE &80  with X = channel 0-28 returns fake_lo/fake_hi for it in X
+\               (low) and Y (high); other channels and calls pass on. (The
+\               game reads only channels 12 and 28, the switch bytes.)
 \
 \ Everything else goes to the previous handlers, kept in old_bytev and
 \ old_wordv. The tests poke the code in, set old_bytev/old_wordv to BYTEV
@@ -31,15 +32,16 @@ GUARD &0900
 
 .fake_block   SKIP 11          \ OSWORD &3F's answer: &53, version, port
                                \ types, count, keypads, joysticks, flags.
-.fake_lo      SKIP 21          \ ADVAL channels 0-20: low bytes...
-.fake_hi      SKIP 21          \ ...and high bytes.
+FAKE_CHANNELS = 29
+.fake_lo      SKIP FAKE_CHANNELS   \ ADVAL channels 0-28: low bytes...
+.fake_hi      SKIP FAKE_CHANNELS   \ ...and high bytes.
 .old_bytev    SKIP 2           \ The handlers before ours.
 .old_wordv    SKIP 2
 
 .byte_hook
     CMP #&80                   \ OSBYTE &80 on one of our channels?
     BNE byte_pass
-    CPX #21
+    CPX #FAKE_CHANNELS
     BCS byte_pass              \ (Negative channels too: they are >= &80.)
     LDY fake_hi,X
     LDA fake_lo,X
