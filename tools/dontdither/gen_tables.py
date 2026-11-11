@@ -479,7 +479,7 @@ def generate_sprite_data() -> str:
 # ---------------------------------------------------------------------------
 
 def generate_game_data() -> str:
-    from dontdither import ai
+    from dontdither import ai, joysticks
     from dontdither.controls import LAYOUT_KEYS, LAYOUTS, inkey_code
     from dontdither.game import (
         DEMO_ROUND_TICKS,
@@ -531,6 +531,24 @@ def generate_game_data() -> str:
         "                       \\ fire button (Beebium cannot emulate one yet)",
         "CONTROL_SCRIPTED = 3   \\ player_input written by someone else (tests)",
         "CONTROL_AI       = 4   \\ the computer (ai.asm)",
+        "",
+        "\\ Joysticks through SPItFIRE (see tools/dontdither/joysticks.py).",
+        f"OSWORD_SPITFIRE    = &3F   \\ describe the joysticks",
+        f"SPITFIRE_SIGNATURE = &{joysticks.SPITFIRE_SIGNATURE:02X}   \\ OSWORD &3F block byte 0 when SPItFIRE answers",
+        "SPITFIRE_COUNT     = 4     \\ block byte: joysticks allocated",
+        "SPITFIRE_FLAGS     = 10    \\ block byte: non-zero if not ready",
+        f"JOYSTICK_HIGH      = &{joysticks.HIGH_THRESHOLD:02X}   \\ high byte at or above: left (X), up (Y)",
+        f"JOYSTICK_LOW       = &{joysticks.LOW_THRESHOLD:02X}   \\ high byte below: right (X), down (Y)",
+        f"JOYSTICK_UP = {joysticks.UP}: JOYSTICK_DOWN = {joysticks.DOWN}: JOYSTICK_LEFT = {joysticks.LEFT}: JOYSTICK_RIGHT = {joysticks.RIGHT}",
+        "\\ By player slot (joystick 1-4): ADVAL channels and fire button masks.",
+        ".joystick_x_channels",
+        "    EQUB " + ", ".join(str(c) for c in joysticks.X_CHANNELS),
+        ".joystick_y_channels",
+        "    EQUB " + ", ".join(str(c) for c in joysticks.Y_CHANNELS),
+        ".joystick_fire_channels",
+        "    EQUB " + ", ".join(str(c) for c in joysticks.FIRE_CHANNELS),
+        ".joystick_fire_masks",
+        "    EQUB " + ", ".join(str(c) for c in joysticks.FIRE_MASKS),
         "",
         "\\ AI (see tools/dontdither/ai.py).",
         f"AI_PERIOD      = {ai.AI_PERIOD}   \\ ticks between decisions (a power of two)",

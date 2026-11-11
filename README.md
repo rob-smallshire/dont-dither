@@ -47,6 +47,11 @@ or in an emulator of one.
   demo until you press a key. (The BBC keyboard has no diodes, so some
   combinations of three or more held keys can make another key appear
   pressed.)
+- **Joysticks:** on a Master Compact with SPItFIRE, up to four analogue
+  joysticks: joystick 1 is cyan, 2 magenta, 3 yellow and 4 black. Join by
+  pressing your joystick's fire button instead of your fire key; the
+  select screen then shows JOY rather than YOU. Keyboards and joysticks
+  mix freely.
 - **A session** plays every level of the set, each a 5-minute round. Each
   shot splats paint that moves the cells it hits a step towards your ink.
   When time runs out the territory is tallied, and points are awarded by

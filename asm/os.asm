@@ -14,6 +14,8 @@ OSRDCH = &FFE0          \ Read a character from the input stream into A;
                         \ carry set on Escape.
 OSWRCH = &FFEE          \ Write the character in A to the VDU stream.
                         \ Preserves A, X and Y.
+OSWORD = &FFF1          \ Miscellaneous OS call selected by A, parameter
+                        \ block at X (low), Y (high).
 OSBYTE = &FFF4          \ Miscellaneous OS call selected by A, arguments
                         \ in X and Y.
 OSCLI  = &FFF7          \ Execute the * command at X (low), Y (high),

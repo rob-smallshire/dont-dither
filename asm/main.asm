@@ -100,6 +100,7 @@ INCLUDE "build/generated/ink_tables.asm"
     JSR fill_arena_with_state
     SEND_VDU palette_vdu_bytes, palette_vdu_bytes_end
 .start_screen_done
+    JSR detect_joysticks       \ SPItFIRE's joysticks, if it is fitted.
     JSR init_keyboard          \ Cursor keys and COPY as plain keys; no
                                \ Escape.
     JSR init_beam_timer        \ User VIA timer 2 as a beam clock.
@@ -297,6 +298,7 @@ INCLUDE "asm/game.asm"
 INCLUDE "asm/paint.asm"
 INCLUDE "asm/hud.asm"
 INCLUDE "asm/ai.asm"
+INCLUDE "asm/joystick.asm"
 INCLUDE "asm/flow.asm"
 INCLUDE "build/generated/screen_tables.asm"
 INCLUDE "build/generated/wall_tiles.asm"
@@ -407,6 +409,10 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .ai_last_input    SKIP MAX_PLAYERS \ Each AI's last decision.
 .ai_refilling     SKIP MAX_PLAYERS \ Non-zero: the AI is seeking ink.
 .random_state     SKIP 1       \ The pseudo-random generator (next_random).
+.joysticks_available SKIP 1    \ Joysticks SPItFIRE gives us (0-4): slot j
+                               \ may join with joystick j+1 if j is below.
+.joystick_slot    SKIP 1       \ joystick_input: the slot being read.
+.joystick_buttons SKIP 1       \ joystick_fire: the channel's button bits.
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
 .session_humans   SKIP 1       \ Bit per player slot: played by a human.
 .session_joined   SKIP 1       \ select_players: who has pressed fire,

@@ -104,8 +104,8 @@ plus tanks.
 
 **Keys** (`controls.py`, `asm/handoff.asm`): each player slot (C, M, Y, K)
 has its own keyboard layout; any slot joins with its fire key, recording
-its control in `session_controls` (`CONTROL_JOYSTICK` is reserved for
-joining with a joystick's fire). The layouts are not in the game: SPLASH
+its control in `session_controls` (`CONTROL_KEYS`, or `CONTROL_JOYSTICK` when
+it joins with SPItFIRE joystick j's fire). The layouts are not in the game: SPLASH
 fills a sealed block at &0CE0 (defaults, or a block kept across BREAK),
 shows them, lets f1-f4 redefine them, and the game reads `key_layouts`
 there. `test_keys.py` covers it.
@@ -247,8 +247,17 @@ tests; they must stay consistent):
   column 39): the MOS would scroll the screen and move it in memory.
 - User zero page is &70-&8F.
 - 25 Hz game tick.
-- Keyboard input only for now: Beebium has no joystick/ADC emulation, and the
-  SPItFIRE four-joystick interface comes later.
+- Joysticks only through SPItFIRE, on a Master Compact (`asm/joystick.asm`,
+  `tools/dontdither/joysticks.py`; the interface is in
+  `~/Code/spitfire/docs/joystick-programming.md`). Without SPItFIRE the game
+  is keyboard only, so it still runs on a Model B. Beebium emulates neither
+  the Compact nor SPItFIRE: `tests/test_joysticks.py` installs a fake of the
+  ROM's interface (`tests/fake_spitfire.asm`, at &0880 in the printer
+  buffer) through `load_game`/`boot_game`'s `at_title`.
+- b2 (`/Applications/b2 Debug.app`) emulates a Master Compact: launch it with
+  `-c "Master Compact (MOS 5.00)" -0 build/dont-dither.adl -b`. Only the
+  debug build has the HTTP API's peek/poke/paste (port 48075, window `b2`,
+  e.g. `/peek/b2/70/71`); the release build has only `launch`.
 
 ## Beebium help
 

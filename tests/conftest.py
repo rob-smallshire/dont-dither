@@ -198,19 +198,27 @@ def show_display(bbc: Beebium, labels: dict[str, int], seconds: float = SETTLE_E
     bbc.cpu.pc = resume
 
 
-def load_game(bbc: Beebium, game_build: BuildResult, players: int = 4) -> dict[str, int]:
+def load_game(bbc: Beebium, game_build: BuildResult, players: int = 4,
+              at_title: Callable[[Beebium], None] | None = None) -> dict[str, int]:
     """Shift-Break boot the game disc, answer the title screen (SPLASH) with
     the number of players (2 or 4, choosing that level set), and stop at the
-    start of the game's player selection. Returns the game's labels."""
+    start of the game's player selection. Returns the game's labels.
+
+    at_title, if given, is called at the title screen, before the game is
+    loaded and starts (and so before it looks for SPItFIRE's joysticks): to
+    install a fake SPItFIRE, say (test_joysticks.py)."""
     labels = game_build.labels["DITHER"]
     bbc.boot_disc(game_build.disc_filepath)
     bbc.debugger.run_to(game_build.labels["SPLASH"]["splash_key"], timeout=60)
+    if at_title is not None:
+        at_title(bbc)
     bbc.keyboard.type(str(players))
     bbc.debugger.run_to(labels["select_players"], timeout=60)
     return labels
 
 
-def boot_game(bbc: Beebium, game_build: BuildResult, players: int = 4) -> None:
+def boot_game(bbc: Beebium, game_build: BuildResult, players: int = 4,
+              at_title: Callable[[Beebium], None] | None = None) -> None:
     """Load the game with a level set, skip player selection, and stop just
     before the set's first level's first tick, at main_loop, with the screen
     displayed.
@@ -219,7 +227,7 @@ def boot_game(bbc: Beebium, game_build: BuildResult, players: int = 4) -> None:
     human, the rest the computer) and the default round length. No game time
     has passed, so a Game.start model is exactly in step (the random
     generator is set to DEFAULT_RANDOM_STATE, as Game.start assumes)."""
-    labels = load_game(bbc, game_build, players)
+    labels = load_game(bbc, game_build, players, at_title)
     bbc.cpu.pc = labels["enter_level"]
     bbc.memory.address.bus[labels["zp_level"]] = 0
     bbc.memory.address.bus[labels["random_state"]] = DEFAULT_RANDOM_STATE

@@ -13,6 +13,10 @@ expanded to its full size, 80 tracks of 10 sectors (204,800 bytes, the size
 its own catalogue records), with oaknut-dfs: some emulators and tools do not
 recognise a truncated image.
 
+The same files are then copied onto an ADFS L (640 KB) image,
+build/dont-dither.adl, for the Master Compact, whose own filing system is
+ADFS: it boots the same way (*EXEC !BOOT, which runs SPLASH).
+
     uv run dd-build
 """
 
@@ -33,6 +37,7 @@ from dontdither.levels import PLAYER_COUNTS
 BUILD_DIRPATH = PROJECT_DIRPATH / "build"
 GENERATED_DIRPATH = BUILD_DIRPATH / "generated"
 DISC_FILEPATH = BUILD_DIRPATH / "dont-dither.ssd"
+ADFS_DISC_FILEPATH = BUILD_DIRPATH / "dont-dither.adl"
 LABELS_DIRPATH = BUILD_DIRPATH / "labels"
 ASM_DIRPATH = PROJECT_DIRPATH / "asm"
 
@@ -125,6 +130,7 @@ def build() -> BuildResult:
             raise RuntimeError(f"{name} ({size} bytes) would reach MODE 7 screen memory when loaded")
 
     expand_disc(DISC_FILEPATH)
+    make_adfs_disc(DISC_FILEPATH, ADFS_DISC_FILEPATH)
     return BuildResult(DISC_FILEPATH, labels)
 
 
@@ -141,6 +147,25 @@ def expand_disc(disc_filepath: Path) -> None:
     from oaknut.dfs.formats import ACORN_DFS_80T_SINGLE_SIDED
 
     expand(disc_filepath, ACORN_DFS_80T_SINGLE_SIDED)
+
+
+def make_adfs_disc(dfs_disc_filepath: Path, adfs_disc_filepath: Path) -> None:
+    """Copy every file of the DFS disc, with its load and execution
+    addresses, onto a new ADFS L (640 KB, the Master Compact's 3.5-inch
+    format) disc with the same title and boot option, for machines whose
+    filing system is ADFS."""
+    from oaknut.adfs import ADFS, ADFS_L
+    from oaknut.dfs.dfs import DFS
+
+    adfs_disc_filepath.unlink(missing_ok=True)
+    with DFS.from_file(dfs_disc_filepath, read_only=True) as dfs:
+        with ADFS.create_file(adfs_disc_filepath, ADFS_L, title=dfs.title,
+                              boot_option=dfs.boot_option) as adfs:
+            for source in (dfs.root / "$").iterdir():
+                stat = source.stat()
+                (adfs.root / source.path.split(".", 1)[1]).write_bytes(
+                    source.read_bytes(), load_address=stat.load_address,
+                    exec_address=stat.exec_address)
 
 
 def main() -> None:

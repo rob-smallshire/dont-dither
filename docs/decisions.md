@@ -354,8 +354,8 @@ to C than (2,1,1,0), it is a better road and filling station.
   be joined, and play starts early once all have. Every slot nobody joins is
   played by the computer.
 - How a player joins chooses their control (session_controls): a fire key
-  means the keyboard. When joysticks can be read, joining with a joystick's
-  fire button will choose the joystick (CONTROL_JOYSTICK is reserved).
+  means the keyboard; a joystick's fire button means the joystick
+  (CONTROL_JOYSTICK; see Input).
 - A session plays every level in turn. After each round, points by rank:
   3, 2, 1, 0 for first to last with four players; 3 and 0 with two. Ties
   are ties: tied players share the better rank (two tied for first both
@@ -403,8 +403,33 @@ to C than (2,1,1,0), it is a better road and filling station.
 
 ## Input
 
-- Keyboard only for now. Beebium does not yet emulate joysticks, and the
-  SPItFIRE four-joystick interface comes later.
+- Joysticks come through SPItFIRE, a Master Compact peripheral with its
+  own sideways ROM giving up to four analogue joysticks (the SPItFIRE
+  repository's docs/joystick-programming.md). The game uses only the ROM's
+  documented interface (tools/dontdither/joysticks.py, asm/joystick.asm):
+  - at start-up, OSWORD &3F says whether SPItFIRE is fitted and ready and
+    how many joysticks it allocated. Without it the game is keyboard only,
+    as before, and still runs on a Model B;
+  - joystick j plays player slot j (C, M, Y, K); with two Delta 3B Twins,
+    port A's left and right handsets are cyan and magenta, port B's yellow
+    and black;
+  - a player joins with their fire key (keyboard) or their joystick's
+    fire button (joystick), so keyboards and joysticks mix freely; the
+    select screen shows "JOY" for a joystick player. A joystick's fire
+    also ends the demo;
+  - OSBYTE &80 reads each stick's X and Y once a tick. A stick past a
+    quarter of full scale from the centre on an axis (the threshold
+    SPItFIRE uses for its direction bits) points that way; both axes give
+    a diagonal. The four direction bits go through the keys' direction
+    table. The analogue readings may be used more fully later.
+- Plain BBC Micro joysticks on a Model B's analogue port are not supported
+  yet: the SPItFIRE ROM is Compact-only for now, and this version of the
+  game targets the Compact for joysticks. It can be made more general when
+  the ROM is.
+- The game runs on a Master Compact: checked in b2 (as a Compact, MOS
+  5.00, without SPItFIRE), from an ADFS copy of the disc the build also
+  makes (build/dont-dither.adl). A real Compact with Acorn DFS can use the
+  .ssd.
 - Each player slot has its own keyboard layout, so up to four people can
   play on one keyboard (tools/dontdither/controls.py):
 

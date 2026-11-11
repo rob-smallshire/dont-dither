@@ -131,8 +131,15 @@ TICK_MIN_UNITS = BEAM_FIELD_UNITS * 3 DIV 2   \ 1.5 fields, in beam units.
     JMP read_inputs_next
 
 .read_inputs_keys
-    \ The keyboard (CONTROL_KEYS): the slot's own layout. (CONTROL_JOYSTICK
-    \ is reserved for when a joystick can be read.)
+    CMP #CONTROL_JOYSTICK      \ The slot's joystick (joystick.asm).
+    BNE read_inputs_keyboard
+    STX zp_player
+    JSR joystick_input
+    LDX zp_player
+    STA player_input,X
+    JMP read_inputs_next
+.read_inputs_keyboard
+    \ The keyboard (CONTROL_KEYS): the slot's own layout.
     STX zp_player
     JSR layout_offset          \ A = X * KEY_LAYOUT_BYTES.
     JSR scan_layout            \ A = input byte for this layout's keys.

@@ -72,10 +72,24 @@ FIELDS_PER_SECOND = 50
     JSR OSBYTE
     JSR next_random            \ Stir the generator: how long players take
                                \ to join varies it.
-    LDX #0                     \ Each slot's fire key joins it.
-.select_join_slot
+    LDX #0                     \ Each slot's fire key joins it, on the
+.select_join_slot              \ keyboard; its joystick's fire button, if
+    STX zp_player              \ SPItFIRE gives it one, on the joystick.
     JSR layout_offset          \ A = the slot's layout (X preserved).
-    JSR select_try_join
+    JSR scan_layout            \ A = input byte.
+    AND #FIRE_BIT
+    BEQ select_join_stick
+    LDA #CONTROL_KEYS
+    JSR select_join
+.select_join_stick
+    LDX zp_player
+    CPX joysticks_available
+    BCS select_join_next
+    JSR joystick_fire          \ Z clear if its fire button is held.
+    BEQ select_join_next
+    LDA #CONTROL_JOYSTICK
+    JSR select_join
+.select_join_next
     LDX zp_player
     INX
     CPX level_set_players
@@ -184,24 +198,21 @@ ARENA_TEXT_COLUMNS = 32
     LDA #3
     JMP pause_seconds          \ Tail call; in demo mode a key may leave.
 
-\ select_try_join: if the keyboard layout at offset A in key_layouts has
-\ fire held, player X joins (if not already joined), on the keyboard, and
-\ shows it.
-.select_try_join
-    STX zp_player
-    JSR scan_layout            \ A = input byte.
-    AND #FIRE_BIT
-    BEQ select_try_join_done
+\ select_join: player zp_player joins (if not already joined), with control
+\ A (CONTROL_KEYS or CONTROL_JOYSTICK, as it pressed fire), and shows it.
+.select_join
     LDX zp_player
+    PHA
     LDA player_bits,X          \ This player's bit in session_joined.
     BIT session_joined
-    BNE select_try_join_done   \ Already joined.
+    BNE select_join_already    \ Already joined: the first fire chose.
     ORA session_joined
     STA session_joined
-    LDA #CONTROL_KEYS          \ Joined with a fire key: the keyboard.
+    PLA
     STA session_controls,X
-    JSR print_slot_status
-.select_try_join_done
+    JMP print_slot_status      \ Tail call.
+.select_join_already
+    PLA
     RTS
 
 \ print_slot_status: "C CPU" or "C YOU" for player zp_player, in its colour.
@@ -224,7 +235,13 @@ ARENA_TEXT_COLUMNS = 32
     LDA player_bits,X
     AND session_joined
     BEQ print_slot_cpu
+    LDA session_controls,X     \ "YOU" on the keyboard, "JOY" on a joystick.
+    CMP #CONTROL_JOYSTICK
+    BEQ print_slot_joystick
     SEND_VDU you_text, you_text_end
+    RTS
+.print_slot_joystick
+    SEND_VDU joy_text, joy_text_end
     RTS
 .print_slot_cpu
     SEND_VDU cpu_text, cpu_text_end
@@ -413,6 +430,15 @@ ARENA_TEXT_COLUMNS = 32
     LDX zp_player
     DEX
     BPL check_demo_exit_layout
+    LDX joysticks_available    \ Or any joystick's fire button.
+.check_demo_exit_stick
+    DEX
+    BMI check_demo_exit_done
+    STX zp_player
+    JSR joystick_fire
+    BNE check_demo_exit_yes
+    LDX zp_player
+    JMP check_demo_exit_stick
 .check_demo_exit_done
     RTS
 .check_demo_exit_yes
@@ -451,6 +477,9 @@ ARENA_TEXT_COLUMNS = 32
 .you_text
     EQUS "YOU"
 .you_text_end
+.joy_text
+    EQUS "JOY"
+.joy_text_end
 .points_text
     EQUS "POINTS"
 .final_text

@@ -130,6 +130,7 @@ version = "0.1.3"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
+    { name = "oaknut-adfs" },
     { name = "oaknut-dfs" },
     { name = "pillow" },
 ]
@@ -154,7 +155,8 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "numpy", specifier = ">=2.5.3" },
-    { name = "oaknut-dfs", specifier = ">=12.18.2" },
+    { name = "oaknut-adfs", specifier = ">=13.6.1" },
+    { name = "oaknut-dfs", specifier = ">=13.6.1" },
     { name = "pillow", specifier = ">=10" },
 ]
 
@@ -346,8 +348,24 @@ wheels = [
 ]
 
 [[package]]
+name = "oaknut-adfs"
+version = "13.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "oaknut-basic" },
+    { name = "oaknut-discimage" },
+    { name = "oaknut-file" },
+    { name = "oaknut-filesystem" },
+    { name = "typename" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/aa/66b3d7ca1d9db8bf8d3a8ba5c4ea468424d599c273160f3b0e527f73fa78/oaknut_adfs-13.6.1.tar.gz", hash = "sha256:c51597d039f96ef98d83cd2548964e13d8d47646154e5a3e49b88130e53a5c0e", size = 143819, upload-time = "2026-11-07T14:23:00.551Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/46/3b1602ea765fd913846cfa4fd1ad3372b7e41b11eeeb25b6071709993550/oaknut_adfs-13.6.1-py3-none-any.whl", hash = "sha256:b4ee9ce2bbc9953f7fa413343067658b78983fb14c6875d7a4a395109f5a4b88", size = 87001, upload-time = "2026-11-07T14:22:38.671Z" },
+]
+
+[[package]]
 name = "oaknut-basic"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asyoulikeit" },
@@ -356,9 +374,9 @@ dependencies = [
     { name = "oaknut-codecs" },
     { name = "oaknut-exception" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/37/fa7e913473eeec974082ebe5e82f08241be22c06ed0ae4429fbb7339df6a/oaknut_basic-12.18.2.tar.gz", hash = "sha256:90cb629bef1fb0e52760c80adbc5b98fe4498f1c1e793b9836f01e87a921615f", size = 68300, upload-time = "2026-09-18T09:24:24.649Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/52/fa2e004a65079147b487ed3280d72d9ece25cf74a4cac17880a6ec9321f2/oaknut_basic-13.6.1.tar.gz", hash = "sha256:aec899dc71c53c64166276ef60e16b1c6742fb70578a6b0b42ecab281d36c570", size = 68460, upload-time = "2026-11-07T14:23:02.525Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/d7/9a40876b4b45e6c70c6344fbdbc9cef8a2feb5c2f1f0c4ea6208162132ba/oaknut_basic-12.18.2-py3-none-any.whl", hash = "sha256:37dfd2b7da20e3cd590ca7444e7c66cf9040305611e0f21706c35cf916604ce2", size = 44902, upload-time = "2026-09-18T09:24:11.746Z" },
+    { url = "https://files.pythonhosted.org/packages/be/b4/0c3875136ed86dc4efcb26ec41ec2b4da93927135264f731693411da23b1/oaknut_basic-13.6.1-py3-none-any.whl", hash = "sha256:f67c34d7e8187b4e80094b8658350d1e38371384795c7eaf9610501de792941b", size = 45004, upload-time = "2026-11-07T14:22:40.85Z" },
 ]
 
 [[package]]
@@ -379,16 +397,16 @@ wheels = [
 
 [[package]]
 name = "oaknut-codecs"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4a/6b/72c7a1209b6c9c8b205dd3d4ae3bb3bf543e9fa0c36ea7cfcda15229e5b3/oaknut_codecs-12.18.2.tar.gz", hash = "sha256:84fd9c32b13236e0d84344ac487dfabb1a6e9b4b93cf9893199581e7df0ae5fe", size = 6161, upload-time = "2026-09-18T09:24:25.828Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/d8/437704deae8fb66686e036ef81c0d6f149ac71641fb24e1ad79cc8e7b4c6/oaknut_codecs-13.6.1.tar.gz", hash = "sha256:739729fe1bf25efdfcecb64bc633d23a41a17edf1eb9d7523866187469247ce5", size = 6164, upload-time = "2026-11-07T14:23:04.027Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/37/57b116027f5c18b37a3c8df47852d7c32e85365707a46361375e8d6fe802/oaknut_codecs-12.18.2-py3-none-any.whl", hash = "sha256:27470e39de08469c675315fb825aed96b69d3b1a2c24dff91f195cb15f4fdb91", size = 5465, upload-time = "2026-09-18T09:24:13.811Z" },
+    { url = "https://files.pythonhosted.org/packages/57/1a/416487d4c6b65f86ca277dcb8f1b0f009d9078ef23054b37802d3c239264/oaknut_codecs-13.6.1-py3-none-any.whl", hash = "sha256:dce091196de50f32ec65f06f8240d4062b999e4aaa88bcbb605edd48a6729c56", size = 5461, upload-time = "2026-11-07T14:22:42.826Z" },
 ]
 
 [[package]]
 name = "oaknut-dfs"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "oaknut-basic" },
@@ -397,65 +415,65 @@ dependencies = [
     { name = "oaknut-filesystem" },
     { name = "typename" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/8b/429bcdaf4c5c3e7ccb99ae7162e5f565fe5ffbe7703c76f99f1c77f97a1e/oaknut_dfs-12.18.2.tar.gz", hash = "sha256:78b2fd7709773c4fa14c5b0d564dc355ce31f3abd032e9f4b6d4fdb79fb25473", size = 106019, upload-time = "2026-09-18T09:24:26.416Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/34/47/f841ebdcb9609cf598fed33a2988d43c4d5b0491187b6f05d3b5f642a8a1/oaknut_dfs-13.6.1.tar.gz", hash = "sha256:84dffe6a703f851aa0cb260813bf5f3ce8745b40f2821ddb87ee3d1dec7855f4", size = 117986, upload-time = "2026-11-07T14:23:04.672Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/6f/c701ec5f367feb10d057a6be4f02ee86037d568cbd7a302def76a64b13ae/oaknut_dfs-12.18.2-py3-none-any.whl", hash = "sha256:5e8c9084ef4eb6bac4a5ccf29cdb92e11111251155c4a4565cfe0c73408e844b", size = 52579, upload-time = "2026-09-18T09:24:14.566Z" },
+    { url = "https://files.pythonhosted.org/packages/df/18/5650bc91c5ad31a1952fb69446b26e3cff38eb94870e9e9179342af47d27/oaknut_dfs-13.6.1-py3-none-any.whl", hash = "sha256:9b7620b455cb16b4b9b9614b893cba3176ab2c3df92d5bb4c183854fe0cc1a8e", size = 59487, upload-time = "2026-11-07T14:22:43.807Z" },
 ]
 
 [[package]]
 name = "oaknut-discimage"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "oaknut-file" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/ae/dbec6a01a3458bfe0a45a7299b8d1f0024520327986111df2a36d560d8c6/oaknut_discimage-12.18.2.tar.gz", hash = "sha256:51f03f82deaf20964e8191371b6b7e90c35c092fe120c6804bcd8d22b4c72503", size = 21273, upload-time = "2026-09-18T09:24:27.948Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/72/ba03bb1dd84cebd0f1f11b3197816e07462f638980eb71217e52e5fbb616/oaknut_discimage-13.6.1.tar.gz", hash = "sha256:20053935b250d12e6111d85ba7c7774d7bdb93f63193b4fb43cae3216387446e", size = 21284, upload-time = "2026-11-07T14:23:06.371Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/7d/bc814b036962cb15ff55c4201b88008985277ab8653b548651005889c946/oaknut_discimage-12.18.2-py3-none-any.whl", hash = "sha256:86fdc622392aa676ba23089d64c470803ce7d1030c4268fbb8fba04f924e4e8d", size = 15332, upload-time = "2026-09-18T09:24:16.654Z" },
+    { url = "https://files.pythonhosted.org/packages/45/bd/48b0aec198d457c6d834d775fab3bafe8df451d1b762de44bd6593de8684/oaknut_discimage-13.6.1-py3-none-any.whl", hash = "sha256:8e37d0aecbed97b704e708c5ef4a6c61c2a2df9ca77f1eee151b33262e6c5590", size = 15310, upload-time = "2026-11-07T14:22:45.786Z" },
 ]
 
 [[package]]
 name = "oaknut-exception"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "exit-codes" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/57/e009d3e4c10c0beb3cdfc9e456554026f137cf8de44b0de151063ed889e5/oaknut_exception-12.18.2.tar.gz", hash = "sha256:dda96c9adb111ba42a485ca0e8c4934cd5371a12e29576dd110fddd1c348ed8a", size = 9773, upload-time = "2026-09-18T09:24:28.533Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/f6/c2cae2aa7202b79f142aed2620c0d7e8d850608be2f2f129b4dd31f3dc24/oaknut_exception-13.6.1.tar.gz", hash = "sha256:a38d5b54c37bb368517bc73d6f9d8aa520d73f4261be7edd8cf59be66e491d08", size = 10038, upload-time = "2026-11-07T14:23:11.438Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/8e/0d80d604d10b99509e903b3a092895e6ca305ccb401066d312b3e72dd983/oaknut_exception-12.18.2-py3-none-any.whl", hash = "sha256:a33ec84234f952d7b4356b346b6e913872f36ed4061f4f77f8e6333c1100aae3", size = 7146, upload-time = "2026-09-18T09:24:17.484Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/22/ce8237f231c3db271a85edc5cad701d438e5fc423ac77e2c47b78bc7f67d/oaknut_exception-13.6.1-py3-none-any.whl", hash = "sha256:ef979e5c75d5c5288e543fc816e228320dd560cd5db62deab6fe0cbdb3edacbe", size = 7232, upload-time = "2026-11-07T14:22:53.49Z" },
 ]
 
 [[package]]
 name = "oaknut-extension"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "oaknut-exception" },
     { name = "stevedore" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a1/08/cdae3834dffb1593805c4d4a76de20bd46d089a8262e5e70aa50d06f2984/oaknut_extension-12.18.2.tar.gz", hash = "sha256:8431b8dcc96c9c89daf3163b1e24272208fa193d9606c34a0d9a060a06b2248b", size = 7983, upload-time = "2026-09-18T09:24:29.116Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/25/73/a5242733eadfe844031c1f10bed9bd757284315d369d582a23d4835eff89/oaknut_extension-13.6.1.tar.gz", hash = "sha256:bec254bcaa734cd9154e736a61f3ae3b56e73e1defbd7421be906a39f0cb0255", size = 7985, upload-time = "2026-11-07T14:23:12.165Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/d3/c18c435ac6bbdd07ad8b99f242c215887297d62320238f51985ae5549cc3/oaknut_extension-12.18.2-py3-none-any.whl", hash = "sha256:deddf2f88f1645de322d663a6304aaa81f37c966754463dfc7b45dc5d303c317", size = 7330, upload-time = "2026-09-18T09:24:18.294Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/04/4e3338aff0d4b2b52e5449144756403dc08471285b4231fdb6eb80ae29a6/oaknut_extension-13.6.1-py3-none-any.whl", hash = "sha256:01041ba50fa1b66a975e9a6cb2f8eee93f6a6e0d3b36f5711e834379ab86fc7d", size = 7316, upload-time = "2026-11-07T14:22:54.327Z" },
 ]
 
 [[package]]
 name = "oaknut-file"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "oaknut-codecs" },
     { name = "oaknut-exception" },
     { name = "xattr", marker = "sys_platform == 'darwin'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a5/69/b6ed596a37d6172bb4b7f0dc5696fd5973fa9bb2b1abfbea97e8fa902bfc/oaknut_file-12.18.2.tar.gz", hash = "sha256:ca3869649454fe9d5defe9ea87dffd5db422b44eb4d80f5754954a1e928f8ed7", size = 44932, upload-time = "2026-09-18T09:24:29.68Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/6d/471efb5bb4350c9955300a0dde5608a2d5114f76bb0245d6190f660d51d7/oaknut_file-13.6.1.tar.gz", hash = "sha256:3194fc4de9436eb2824e78297a9205b707d7dab0fb3a27cd240e5dcf2a7cb333", size = 60638, upload-time = "2026-11-07T14:23:12.843Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/63/11c7fbdf44b04841c69be8396bb1b34f76dfddfab3f287179c609a2cd32f/oaknut_file-12.18.2-py3-none-any.whl", hash = "sha256:7dcda0fdda91f1d82040cd21e5b1a67c205982c56471af2457b0a15e831edc8f", size = 36055, upload-time = "2026-09-18T09:24:19.054Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/3d/627a2450e73ff1ee508e6f334a4cde2583cba1a1a83d32f66462e39b4977/oaknut_file-13.6.1-py3-none-any.whl", hash = "sha256:37883d17d40b6d07471d6ab0e3baa25d999adfae37fe8b8843a005bcf79fe873", size = 44809, upload-time = "2026-11-07T14:22:55.171Z" },
 ]
 
 [[package]]
 name = "oaknut-filesystem"
-version = "12.18.2"
+version = "13.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "oaknut-discimage" },
@@ -463,9 +481,9 @@ dependencies = [
     { name = "oaknut-extension" },
     { name = "oaknut-file" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/88/da/5236a53946fb001c25706c828bbb68128b42f1f77d513451c4b59444b531/oaknut_filesystem-12.18.2.tar.gz", hash = "sha256:f0127f73716cbf9595a1fe634ff945bbbabc0d8c67e0b28f9d5cde3cb0f8f741", size = 39789, upload-time = "2026-09-18T09:24:30.322Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/a1/a169aac8252c6067f34f857697b2043af4607cff0d762102e81452d02d8f/oaknut_filesystem-13.6.1.tar.gz", hash = "sha256:08938bdda55816e81ab0fa1ebc69375595a85b9ed561738fa0626c1db5c9bf0f", size = 45468, upload-time = "2026-11-07T14:23:13.715Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/ff/25b83e0a264f1c507dcd92c1f2cb702f4118adc52aac485ce3edad177c48/oaknut_filesystem-12.18.2-py3-none-any.whl", hash = "sha256:117d16032ce89d5a0a128d548d70ca0c44e649155830c5ce8b03962bcc5454a4", size = 35329, upload-time = "2026-09-18T09:24:19.958Z" },
+    { url = "https://files.pythonhosted.org/packages/14/b4/7b48c16a5e875fcfe66e5b6d1b5ba88b53c7f89de5a028b4807fe8e4cb8e/oaknut_filesystem-13.6.1-py3-none-any.whl", hash = "sha256:6becf110a9622d948a2bb767d9dcd39c10342b772cf6de097e73824a8f2bb724", size = 40119, upload-time = "2026-11-07T14:22:56.08Z" },
 ]
 
 [[package]]

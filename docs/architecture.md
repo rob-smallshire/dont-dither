@@ -109,6 +109,11 @@ uv run dd-render-music                    # build/music/splash_theme.wav
    80-track single-sided disc (204,800 bytes), which is what its catalogue
    records. It uses `oaknut-dfs`, the library behind `disc dfs expand`.
    Some emulators and tools don't recognise a truncated image.
+5. **Make an ADFS copy.** `make_adfs_disc` copies every file, with its
+   load and execution addresses, the title and the boot option, onto a
+   640 KB ADFS L image, `build/dont-dither.adl`. This is for a Master
+   Compact without DFS, and for b2's Compact, whose filing system is ADFS.
+   It boots the same way.
 
 Disc files: `SPLASH`, `DITHER`, `TCARD`, `LOGO`, `TUNE`, `LEVELS2`, `LEVELS4`.
 
@@ -394,8 +399,17 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   (&08), plus `FIRE_BIT` (&10). It comes from the player's control source:
   the keyboard (`CONTROL_KEYS`: the slot's own layout, at
   `key_layouts + slot × 5`; C: W A S D and SHIFT, M: I J K L and M,
-  Y: F C V B and SPACE, K: cursor keys and \), AI, scripted (tests) or
-  none. `CONTROL_JOYSTICK` is reserved.
+  Y: F C V B and SPACE, K: cursor keys and \), a joystick
+  (`CONTROL_JOYSTICK`, below), AI, scripted (tests) or none.
+  - **Joysticks** come through SPItFIRE's ROM on a Master Compact.
+    `detect_joysticks` (at `start`) calls OSWORD &3F, using the sprite
+    save buffers as the block, and sets `joysticks_available`.
+    `joystick_input` reads slot j's X and Y with OSBYTE &80 (only the high
+    bytes matter: &C0 or more is left or up, below &40 right or down) and
+    its fire bit, and builds the keys' four direction bits, so
+    `key_direction` gives the direction. Slot j joins with joystick j's
+    fire (`select_join`). `tests/test_joysticks.py` runs all this against
+    a fake SPItFIRE in RAM.
   - Keys are read with OSBYTE &81 (negative INKEY codes).
   - `*FX4,1` stops the cursor keys and Copy doing cursor editing.
   - The keyboard buffer is flushed every tick.
@@ -680,9 +694,10 @@ screen memory and state against them:
   - session length: 16 five-minute rounds is long, so shorter rounds or
     choosing levels may be wanted;
   - teaching the AI to use tunnels;
-  - joysticks, including SPItFIRE four-joystick support, once Beebium can
-    emulate them: a player joining with a joystick's fire button gets
-    `CONTROL_JOYSTICK` (reserved), and `read_inputs` reads it;
+  - trying SPItFIRE joysticks on a real Compact (two Delta 3B Twins);
+    tuning the dead zone, perhaps using the sticks' analogue readings;
+  - plain BBC Micro joysticks on a Model B, when the SPItFIRE ROM is more
+    general;
   - in-game sound effects (&0800 is reserved for the MOS's sound; memory
     is the limit);
   - perhaps sample playback on the title screen (`docs/music.md`);
