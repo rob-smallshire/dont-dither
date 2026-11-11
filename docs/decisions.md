@@ -222,6 +222,21 @@ Decisions taken during development that refine or depart from
   58,600 of 80,000 cycles. (A tank with fire released reads its ground
   instead, four read_cells, far cheaper than a shot; a test checks the
   game keeps 25 Hz with two tanks firing and two refilling.)
+- With four computer players (the demo, or a game nobody joins all of),
+  ticks sometimes overrun: 14% of demo ticks went past the 80,000-cycle
+  budget, so it runs at about 23 ticks a second. Measured on 2026-11-11:
+  22.7 on Beebium's Model B, 24.1 on b2's Master Compact; the two-player
+  demo keeps 24.95.
+  - Where a demo tick goes (median cycles): one AI thinks, 18,700 (four
+    AIs take turns, one a tick); a shot, 13,600; each tank's redraw
+    (restore, save, draw), 6,400, plus about 3,200 to shift its frame on
+    odd columns, plus waits for the beam.
+  - Accepted: it is measurable but not perceptible in play. Human players
+    cost less than AIs, so games with people in them are less affected.
+  - If it ever needs fixing: AIs could think every 8 ticks rather than 4
+    (half the ticks then have no think; it changes the AI's timing), or
+    the redraw loops could be unrolled (about 5,600 cycles a tick, but
+    about 250 bytes of memory).
 
 ## Level titles
 
