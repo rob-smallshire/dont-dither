@@ -694,8 +694,8 @@ screen memory and state against them:
   - session length: 16 five-minute rounds is long, so shorter rounds or
     choosing levels may be wanted;
   - teaching the AI to use tunnels;
-  - trying SPItFIRE joysticks on a real Compact (two Delta 3B Twins);
-    tuning the dead zone, perhaps using the sticks' analogue readings;
+  - tuning the joysticks' dead zone, perhaps using the sticks' analogue
+    readings (they work on a real Compact with SPItFIRE);
   - plain BBC Micro joysticks on a Model B, when the SPItFIRE ROM is more
     general;
   - in-game sound effects (&0800 is reserved for the MOS's sound; memory

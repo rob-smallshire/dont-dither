@@ -445,6 +445,8 @@ to C than (2,1,1,0), it is a better road and filling station.
   5.00, without SPItFIRE), from an ADFS copy of the disc the build also
   makes (build/dont-dither.adl). A real Compact with Acorn DFS can use the
   .ssd.
+- Played on a real Master Compact with SPItFIRE and joysticks (2026-11-11):
+  it works, with no perceptible flicker and no perceptible slowdown.
 - Each player slot has its own keyboard layout, so up to four people can
   play on one keyboard (tools/dontdither/controls.py):
 
