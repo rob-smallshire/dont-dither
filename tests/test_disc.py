@@ -54,9 +54,20 @@ def test_the_readme_points_to_the_repository_and_the_licence():
     assert "github.com/rob-smallshire/dont-dither" in text and "*TYPE LICENSE" in text
 
 
-def test_the_adfs_title_is_the_game_and_its_version():
-    assert adfs_title("0.2.0") == "Don't Dither! 0.2.0"
-    assert len(adfs_title("10.11.12")) <= 19
+@pytest.mark.parametrize("version, title", [
+    ("0.2.0", "Don't Dither! 0.2.0"),
+    ("0.12.0", "Don't Dither 0.12.0"),       # one two-digit component: no "!"
+    ("1.10.11", "Dont Dither 1.10.11"),      # two: no "'" either
+    ("10.11.12", "DontDither 10.11.12"),     # three: no space
+])
+def test_the_adfs_title_is_the_game_and_its_version(version, title):
+    assert adfs_title(version) == title
+    assert len(title) <= 19
+
+
+def test_a_version_too_long_for_a_title_is_refused():
+    with pytest.raises(ValueError):
+        adfs_title("100.100.100")
 
 
 def test_the_readme_fits_a_mode_7_line():

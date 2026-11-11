@@ -4,7 +4,9 @@ two small text files that make the version evident from a *CAT.
 - The images are named for the version: dont-dither-v0.2.0.ssd and .adl.
 - The DFS title is DFS_TITLE (DFS allows 12 characters, too few for the
   version too); the ADFS disc's root directory title, which ADFS's *CAT
-  shows first, is "Don't Dither! 0.2.0" (19 characters, ADFS's limit).
+  shows first, is "Don't Dither! 0.2.0" (19 characters, ADFS's limit),
+  losing the "!", then the "'", then the space, as two-digit version
+  components need the room (adfs_title).
 - A file named for the version, version_filename(): "0_2_0" (an Acorn
   name has no dots), or, if that would not fit DFS's seven characters,
   zero-padded "v001203" (for 0.12.3). *TYPE it for the version in full.
@@ -52,12 +54,20 @@ def version_filename(version: str = __version__) -> str:
     return name
 
 
+# The game's name, losing its punctuation a step at a time to make room
+# for longer versions in a title: one two-digit component, then two, then
+# three.
+TITLE_NAMES = ("Don't Dither!", "Don't Dither", "Dont Dither", "DontDither")
+
+
 def adfs_title(version: str = __version__) -> str:
-    """The ADFS root directory title: the game and its version."""
-    title = f"Don't Dither! {version}"
-    if len(title) > ADFS_TITLE_LIMIT:
-        title = f"Don't Dither {version}"[:ADFS_TITLE_LIMIT]
-    return title
+    """The ADFS root directory title: the game and its version, in the
+    first form of the name that leaves room for the version."""
+    for name in TITLE_NAMES:
+        title = f"{name} {version}"
+        if len(title) <= ADFS_TITLE_LIMIT:
+            return title
+    raise ValueError(f"version {version} does not fit an ADFS title")
 
 
 def version_text(version: str = __version__) -> str:

@@ -552,8 +552,10 @@ to C than (2,1,1,0), it is a better road and filling station.
   (Acorn names have no dots), or zero-padded vXXYYZZ if x_y_z would not
   fit DFS's seven characters; *TYPE it for the version in full. The ADFS
   disc's title is the game and its version ("Don't Dither! 0.2.0", ADFS's
-  19 characters); DFS titles hold only 12, so the DFS title is "Don't
-  Dither". (MODE 7 shows the file name's underscores as long dashes.)
+  19 characters), the name losing its "!", then its "'", then its space
+  as two-digit version components need the room ("Don't Dither 0.12.0",
+  "Dont Dither 1.10.11", "DontDither 10.11.12"); DFS titles hold only 12,
+  so the DFS title is "Don't Dither", without the version. (MODE 7 shows the file name's underscores as long dashes.)
 - Each disc also holds a README (what the game is, how to play, and the
   GitHub repository, in lines that fit MODE 7) and the LICENSE, as Acorn
   text with CR line ends (tools/dontdither/disc_files.py).

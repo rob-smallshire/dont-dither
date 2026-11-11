@@ -118,8 +118,9 @@ uv run dd-render-music                    # build/music/splash_theme.wav
 6. **Make an ADFS copy.** `make_adfs_disc` copies every file, with its
    load and execution addresses and the boot option, onto a 640 KB ADFS L
    image, `build/dont-dither-v<version>.adl`, titled with the version
-   ("Don't Dither! 0.2.0", ADFS's 19 characters; the DFS title, at most
-   12, is "Don't Dither"). This is for a Master
+   ("Don't Dither! 0.2.0", ADFS's 19 characters, dropping the "!", then
+   the "'", then the space for two-digit version components; the DFS
+   title, at most 12, is "Don't Dither"). This is for a Master
    Compact without DFS, and for b2's Compact, whose filing system is ADFS.
    It boots the same way.
 
