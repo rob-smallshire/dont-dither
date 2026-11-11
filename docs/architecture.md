@@ -45,7 +45,7 @@ awarded by rank.
 
 | Path | Contents |
 |---|---|
-| `asm/` | 6502 source. `main.asm` is the game; `splash.asm` the title screen; `testcard.asm` the test card; `tune.asm` the title music alone; the rest are modules (among them `music.asm`, the music player, and `handoff.asm`, the key block both programs share) |
+| `asm/` | 6502 source. `main.asm` is the game; `splash.asm` the title screen; `testcard.asm` the test card; `tune.asm` the title music alone; the rest are modules (among them `music.asm`, the music player, `handoff.asm`, the key block both programs share, and `spitfire.asm`, which both use to ask SPItFIRE for joysticks) |
 | `tools/dontdither/` | Python: build, generators, and the models that specify the game |
 | `data/ink_patterns.json` | the canonical 2×2 pattern of each of the 35 ink states |
 | `levels/*.lvl` | level sources |
@@ -402,8 +402,11 @@ check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   Y: F C V B and SPACE, K: cursor keys and \), a joystick
   (`CONTROL_JOYSTICK`, below), AI, scripted (tests) or none.
   - **Joysticks** come through SPItFIRE's ROM on a Master Compact.
-    `detect_joysticks` (at `start`) calls OSWORD &3F, using the sprite
-    save buffers as the block, and sets `joysticks_available`.
+    `detect_joysticks` (at `start`) asks SPItFIRE through `spitfire.asm`
+    (OSWORD &3F, using the sprite save buffers as the block) and sets
+    `joysticks_available`. SPLASH asks it the same way and, in
+    `show_spitfire`, says on the title screen what it found and marks each
+    player's keys "J1"-"J4" for their joystick.
     `joystick_input` reads slot j's X and Y with OSBYTE &80 (only the high
     bytes matter: &C0 or more is left or up, below &40 right or down) and
     its fire bit, and builds the keys' four direction bits, so

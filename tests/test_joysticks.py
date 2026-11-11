@@ -13,10 +13,19 @@ import subprocess
 
 import pytest
 
-from conftest import boot_game, load_game, step_ticks
+from conftest import boot_game, load_game, step_ticks, to_title
 from dontdither.build import BUILD_DIRPATH, PROJECT_DIRPATH, find_beebasm, parse_labels
 from dontdither.game import FIRE_BIT, NO_DIRECTION, Game
-from dontdither.joysticks import FIRE_CHANNELS, FIRE_MASKS, X_CHANNELS, Y_CHANNELS, input_of_joystick
+from dontdither.gen_tables import key_line
+from dontdither.joysticks import (
+    FIRE_CHANNELS,
+    FIRE_MASKS,
+    X_CHANNELS,
+    Y_CHANNELS,
+    input_of_joystick,
+    joystick_marker,
+    spitfire_line,
+)
 from dontdither.levels import level_set
 
 CONTROL_KEYS, CONTROL_JOYSTICK, CONTROL_SCRIPTED = 1, 2, 3
@@ -25,6 +34,7 @@ CENTRE = 0x8000
 FAKE_SOURCE_FILEPATH = PROJECT_DIRPATH / "tests" / "fake_spitfire.asm"
 FAKE_BINARY_FILEPATH = BUILD_DIRPATH / "fake_spitfire.bin"
 FAKE_LABELS_FILEPATH = BUILD_DIRPATH / "labels" / "FAKE_SPITFIRE.txt"
+SCREENSHOT_DIRPATH = BUILD_DIRPATH / "screenshots"
 
 
 @pytest.fixture(scope="session")
@@ -61,18 +71,32 @@ class FakeSpitfire:
         bus[address] = (peek[address] | mask) if held else (peek[address] & ~mask & 0xFF)
 
 
-def installer(fake, joysticks=4, flags=0, signature=0x53):
+TWIN, SINGLE = 4, 1                # SPItFIRE port types
+PORT_B = 0x80
+
+
+def spitfire_block(joysticks=4, flags=0, signature=0x53, sticks=None) -> bytes:
+    """What SPItFIRE's OSWORD &3F answers (11 bytes): by default two Delta
+    3B Twins, on ports A and B, giving `joysticks` joysticks."""
+    if sticks is None:
+        sticks = [TWIN, TWIN, PORT_B | TWIN, PORT_B | TWIN][:joysticks]
+    block = bytearray(11)
+    block[0], block[1], block[4], block[10] = signature, 1, joysticks, flags
+    block[6:10] = bytes(sticks) + bytes([0xFF] * (4 - len(sticks)))
+    return bytes(block)
+
+
+def installer(fake, joysticks=4, flags=0, signature=0x53, sticks=None):
     """A function installing the fake SPItFIRE (describing `joysticks`
-    joysticks, sticks centred, buttons up) into a machine; for load_game's
-    and boot_game's at_title."""
+    joysticks, sticks centred, buttons up) into a machine; for to_title's,
+    load_game's and boot_game's at_title."""
     code, labels = fake
+    block = spitfire_block(joysticks, flags, signature, sticks)
 
     def install(bbc):
         bus, peek = bbc.memory.address.bus, bbc.memory.address.peek
         bus[labels["fake_block"]:labels["fake_block"] + len(code)] = code
-        block = bytearray(11)
-        block[0], block[1], block[4], block[10] = signature, 1, joysticks, flags
-        bus[labels["fake_block"]:labels["fake_block"] + 11] = bytes(block)
+        bus[labels["fake_block"]:labels["fake_block"] + 11] = block
         stick = FakeSpitfire(bbc, labels)
         for channel in range(21):
             stick.set_channel(channel, 0)
@@ -107,6 +131,60 @@ def test_without_spitfire_there_are_no_joysticks(bbc, game_build):
 def test_spitfire_is_detected(bbc, game_build, fake, joysticks, flags, signature, expected):
     labels = load_game(bbc, game_build, at_title=installer(fake, joysticks, flags, signature))
     assert bbc.memory.address.peek[labels["joysticks_available"]] == expected
+
+
+# ---- The title screen -------------------------------------------------------------
+
+TITLE_SECONDS = 0.1
+
+
+def title_lines(bbc) -> list[str]:
+    bbc.run_for_emulated_seconds(TITLE_SECONDS)
+    return bbc.video.screen_text().text.splitlines()
+
+
+def test_the_title_screen_says_there_is_no_spitfire(bbc, game_build):
+    to_title(bbc, game_build)
+    lines = title_lines(bbc)
+    assert any(line.strip() == "No SPItFIRE: keyboard only" for line in lines)
+    assert not any("J1" in line for line in lines)
+
+
+@pytest.mark.parametrize("joysticks, flags, sticks, marked", [
+    (4, 0, None, 4),
+    (2, 0, None, 2),
+    (3, 0, [TWIN, TWIN, PORT_B | SINGLE], 3),
+    (1, 0, [PORT_B | SINGLE], 1),
+    (0, 0, [], 0),
+    (0, 1, [], 0),
+    (0, 2, [], 0),
+], ids=["two-twins", "one-twin", "twin-and-single", "port-b-only", "none", "ctrl-break",
+        "not-answering"])
+def test_the_title_screen_lists_spitfires_joysticks_against_the_players(
+        bbc, game_build, fake, joysticks, flags, sticks, marked):
+    to_title(bbc, game_build, at_title=installer(fake, joysticks, flags, sticks=sticks))
+    lines = title_lines(bbc)
+    expected = spitfire_line(spitfire_block(joysticks, flags, sticks=sticks))
+    assert any(line.strip() == expected for line in lines), expected
+    for slot, ink in enumerate("CMYK"):
+        keys = key_line(ink)
+        line = next(line for line in lines if keys in line)
+        margin = f" {joystick_marker(slot)} " if slot < marked else "    "
+        assert line.startswith(margin + keys), line
+    if joysticks == 4:
+        SCREENSHOT_DIRPATH.mkdir(parents=True, exist_ok=True)
+        bbc.video.capture_frame().save_png(SCREENSHOT_DIRPATH / "title_spitfire.png")
+
+
+def test_redefining_keys_keeps_the_joystick_mark(bbc, game_build, fake):
+    from test_keys import redefine
+    from dontdither.gen_tables import layout_line
+
+    to_title(bbc, game_build, at_title=installer(fake))
+    redefine(bbc, "f1", ["Q", "Z", "X", "E", "TAB"])
+    lines = title_lines(bbc)
+    expected = f" J1 {layout_line('C', ['Q', 'Z', 'X', 'E', 'TAB'])}"
+    assert any(line.startswith(expected) for line in lines), expected
 
 
 # ---- Joining -----------------------------------------------------------------------

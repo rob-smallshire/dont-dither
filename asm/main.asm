@@ -56,6 +56,7 @@
 
 INCLUDE "asm/os.asm"
 INCLUDE "build/generated/level_format.asm"
+INCLUDE "build/generated/spitfire_data.asm"
 INCLUDE "asm/macros.asm"
 INCLUDE "asm/zeropage.asm"
 INCLUDE "build/generated/hud_logo.asm"
@@ -298,6 +299,7 @@ INCLUDE "asm/game.asm"
 INCLUDE "asm/paint.asm"
 INCLUDE "asm/hud.asm"
 INCLUDE "asm/ai.asm"
+INCLUDE "asm/spitfire.asm"
 INCLUDE "asm/joystick.asm"
 INCLUDE "asm/flow.asm"
 INCLUDE "build/generated/screen_tables.asm"
@@ -442,6 +444,9 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 
 .sprite_save_buffers
     SKIP MAX_PLAYERS * SPRITE_FRAME_BYTES   \ The screen under each tank.
+spitfire_block = sprite_save_buffers   \ Start-up only, before any tank is
+ASSERT MAX_PLAYERS * SPRITE_FRAME_BYTES >= SPITFIRE_BLOCK_BYTES   \ drawn:
+                               \ detect_joysticks asks SPItFIRE here.
 .sprite_shifted_mask
     SKIP SPRITE_FRAME_BYTES    \ prepare_sprite: a frame shifted for odd sx,
 .sprite_shifted_select         \ its mask and select planes.

@@ -6,12 +6,9 @@
 \ interface (the SPItFIRE repository's docs/joystick-programming.md); it
 \ must match tools/dontdither/joysticks.py.
 \
-\ Detection, once at start-up: OSWORD &3F with reason code 0. SPItFIRE
-\ answers by setting byte 0 of the block to &53; byte 4 is the number of
-\ joysticks allocated and byte 10 holds flags (non-zero: not ready). Without
-\ SPItFIRE nothing claims the call and the block comes back unchanged, so a
-\ Model B (or a Compact without it) has no joysticks and the game is played
-\ on the keyboard alone.
+\ Detection, once at start-up, asks SPItFIRE through spitfire.asm (shared
+\ with SPLASH, which shows what it found). Without SPItFIRE, or with it not
+\ ready, there are no joysticks and the game is played on the keyboard alone.
 \
 \ Reading: OSBYTE &80 (ADVAL) with X = a channel returns its 16-bit value in
 \ X (low) and Y (high). Joystick j (slot j-1: C, M, Y, K) has X and Y on
@@ -27,35 +24,20 @@
 \ direction through the keys' own table (key_direction).
 \
 \ Requires: os.asm, zeropage.asm, game_data.asm (the channel tables and
-\ key_direction), and joysticks_available, joystick_slot defined by the
-\ program.
+\ key_direction), spitfire.asm, and joysticks_available, joystick_slot,
+\ joystick_buttons and spitfire_block defined by the program.
 \ ============================================================================
 
 \ ----------------------------------------------------------------------------
 \ detect_joysticks -- set joysticks_available (0-4) from SPItFIRE, if fitted
 \
-\ On entry:  sprite_save_buffers free (only at start-up: it is the block)
+\ On entry:  spitfire_block free (only at start-up: see main.asm)
 \ On exit:   A, X, Y corrupted
 \ ----------------------------------------------------------------------------
 
 .detect_joysticks
-    LDA #0                     \ Reason code 0: describe the joysticks.
-    STA sprite_save_buffers    \ (Also byte 0: stays 0 if nothing answers.)
-    LDA #OSWORD_SPITFIRE
-    LDX #LO(sprite_save_buffers)
-    LDY #HI(sprite_save_buffers)
-    JSR OSWORD
-    LDX #0                     \ None, unless...
-    LDA sprite_save_buffers
-    CMP #SPITFIRE_SIGNATURE    \ ...SPItFIRE answered...
-    BNE detect_joysticks_done
-    LDA sprite_save_buffers + SPITFIRE_FLAGS
-    BNE detect_joysticks_done  \ ...and is ready (no Ctrl-Break needed, the
-    LDX sprite_save_buffers + SPITFIRE_COUNT   \ hardware answering).
-    CPX #MAX_PLAYERS + 1       \ (At most four; anything more is not ours.)
-    BCC detect_joysticks_done
-    LDX #MAX_PLAYERS
-.detect_joysticks_done
+    JSR ask_spitfire           \ Fills spitfire_block...
+    JSR count_joysticks        \ ...X = the joysticks we can use.
     STX joysticks_available
     RTS
 

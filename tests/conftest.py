@@ -198,20 +198,30 @@ def show_display(bbc: Beebium, labels: dict[str, int], seconds: float = SETTLE_E
     bbc.cpu.pc = resume
 
 
+def to_title(bbc: Beebium, game_build: BuildResult,
+             at_title: Callable[[Beebium], None] | None = None) -> None:
+    """Shift-Break boot the game disc and stop at the title screen's
+    question (splash_key). at_title, if given, is called first, as SPLASH
+    starts: before it draws anything or asks SPItFIRE what it has."""
+    splash = game_build.labels["SPLASH"]
+    bbc.boot_disc(game_build.disc_filepath)
+    if at_title is not None:
+        bbc.debugger.run_to(splash["splash"], timeout=60)
+        at_title(bbc)
+    bbc.debugger.run_to(splash["splash_key"], timeout=60)
+
+
 def load_game(bbc: Beebium, game_build: BuildResult, players: int = 4,
               at_title: Callable[[Beebium], None] | None = None) -> dict[str, int]:
     """Shift-Break boot the game disc, answer the title screen (SPLASH) with
     the number of players (2 or 4, choosing that level set), and stop at the
     start of the game's player selection. Returns the game's labels.
 
-    at_title, if given, is called at the title screen, before the game is
-    loaded and starts (and so before it looks for SPItFIRE's joysticks): to
-    install a fake SPItFIRE, say (test_joysticks.py)."""
+    at_title, if given, is called as the title screen program starts, before
+    it (and later the game) looks for SPItFIRE's joysticks: to install a
+    fake SPItFIRE, say (test_joysticks.py)."""
     labels = game_build.labels["DITHER"]
-    bbc.boot_disc(game_build.disc_filepath)
-    bbc.debugger.run_to(game_build.labels["SPLASH"]["splash_key"], timeout=60)
-    if at_title is not None:
-        at_title(bbc)
+    to_title(bbc, game_build, at_title)
     bbc.keyboard.type(str(players))
     bbc.debugger.run_to(labels["select_players"], timeout=60)
     return labels

@@ -8,8 +8,10 @@
 \   3. selects MODE 1 with every colour black and loads the logo (the disc
 \      file LOGO: a band of ready-made screen bytes, converted from
 \      art/splash.png by the build) straight into screen memory;
-\   4. shows a short guide -- the aim, each player's keys (from the resident
-\      layouts), and how ink works -- asks for two or four players and
+\   4. shows a short guide -- the aim, whether SPItFIRE is fitted and the
+\      joysticks it gives (see show_spitfire), each player's keys (from the
+\      resident layouts, marked with the player's joystick), and how ink
+\      works -- asks for two or four players and
 \      waits for 2 or 4, meanwhile letting f1-f4 redefine players 1-4's
 \      keys (see redefine_keys) -- then shows it all at once with the CMYK
 \      palette, to the title music (music.asm), which plays from the vsync
@@ -28,9 +30,11 @@
 
 INCLUDE "asm/os.asm"
 INCLUDE "build/generated/level_format.asm"
+INCLUDE "build/generated/spitfire_data.asm"
 INCLUDE "asm/handoff.asm"      \ key_layouts: labels only, at &0CE0.
 
-TEXT_COLUMN = 4                \ Everything is left-aligned here.
+TEXT_COLUMN = 4                \ Everything is left-aligned here...
+MARKER_COLUMN = 1              \ ...but the joystick marks, in the margin.
 FUNCTION_KEY_BASE = &80        \ fn gives character &80 + n (*FX225).
 VDU_POINTER = &00              \ splash_vdu's block pointer.
 NAME_POINTER = &02             \ print_key_name's walk through key_names.
@@ -69,6 +73,7 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     LDA #splash_guide_end - splash_guide
     JSR splash_vdu
     JSR print_all_keys         \ Each player's keys.
+    JSR show_spitfire          \ SPItFIRE's joysticks, and whose they are.
     LDX #LO(splash_version)    \ The version, top right.
     LDY #HI(splash_version)
     LDA #splash_version_end - splash_version
@@ -274,14 +279,7 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     LDA #HI(ink_names)
     STA NAME_POINTER+1
     LDX key_slot
-    BEQ start_key_line_name
-.start_key_line_skip_name
-    JSR skip_name
-    DEX
-    BNE start_key_line_skip_name
-.start_key_line_name
-    LDY #&FF
-    JSR print_name_at
+    JSR print_nth_name
     LDA #':'
     JSR key_char
     LDA #' '
@@ -290,6 +288,13 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 \ start_key_line_position: player key_slot's colours, and the cursor to the
 \ start of its line. A, X corrupted.
 .start_key_line_position
+    LDA #TEXT_COLUMN
+    \ Fall through.
+
+\ key_line_at: player key_slot's colours, and the cursor to column A of its
+\ line. A, X corrupted.
+.key_line_at
+    PHA
     LDA #17                    \ Its colours: text...
     JSR OSWRCH
     LDX key_slot
@@ -303,7 +308,7 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     JSR OSWRCH
     LDA #31                    \ ...and its row.
     JSR OSWRCH
-    LDA #TEXT_COLUMN
+    PLA                        \ The column.
     JSR OSWRCH
     LDA key_slot
     CLC
@@ -350,6 +355,19 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     LDA #'?'
     JMP key_char
 
+\ print_nth_name: print name X (from 0) of the names at NAME_POINTER, each
+\ ending with a character with bit 7 set. A, X, Y corrupted.
+.print_nth_name
+    TXA
+    BEQ print_nth_name_found
+.print_nth_name_skip
+    JSR skip_name
+    DEX
+    BNE print_nth_name_skip
+.print_nth_name_found
+    LDY #&FF
+    JMP print_name_at          \ Tail call.
+
 \ skip_name: move NAME_POINTER past the name it points at (up to and
 \ including the character with bit 7 set). X preserved.
 .skip_name
@@ -387,6 +405,142 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 .key_char_full
     PLA
     RTS
+
+\ ----------------------------------------------------------------------------
+\ show_spitfire -- say what SPItFIRE gave, and mark whose each joystick is
+\
+\ Asks SPItFIRE (spitfire.asm) and says, in yellow on SPITFIRE_ROW, as
+\ tools/dontdither/joysticks.py's spitfire_line does: "No SPItFIRE:
+\ keyboard only"; or "SPItFIRE: " and why it is not ready (Ctrl-Break
+\ needed, or the hardware not answering); or its joysticks, grouped by
+\ port with the port's type -- "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4" -- or
+\ "no joysticks". The line stops at SPITFIRE_LINE_LENGTH characters.
+\
+\ Then each player slot with a joystick the game will use (count_joysticks,
+\ as the game counts them: joystick j is slot j's) gets "J<j>" in the margin
+\ by its keys, in the player's colours. A, X, Y corrupted.
+\ ----------------------------------------------------------------------------
+
+.show_spitfire
+    JSR ask_spitfire           \ spitfire_block: what SPItFIRE has.
+    LDA #17                    \ Yellow (logical colour 3), on its row.
+    JSR OSWRCH
+    LDA #3
+    JSR OSWRCH
+    LDA #31
+    JSR OSWRCH
+    LDA #TEXT_COLUMN
+    JSR OSWRCH
+    LDA #SPITFIRE_ROW
+    JSR OSWRCH
+    LDA #SPITFIRE_LINE_LENGTH  \ key_char keeps the line to its length.
+    STA line_room
+
+    LDA spitfire_block         \ Did SPItFIRE answer?
+    CMP #SPITFIRE_SIGNATURE
+    BEQ show_spitfire_present
+    LDX #LO(no_spitfire_text)
+    LDY #HI(no_spitfire_text)
+    JMP print_text             \ Tail call: no marks without it.
+
+.show_spitfire_present
+    LDX #LO(spitfire_text)     \ "SPItFIRE: "
+    LDY #HI(spitfire_text)
+    JSR print_text
+    LDA spitfire_block + SPITFIRE_FLAGS
+    ASSERT SPITFIRE_NO_WORKSPACE = 1 AND SPITFIRE_NOT_ANSWERING = 2
+    LSR A                      \ Bit 0 (no workspace) into carry: the user
+    BCC show_spitfire_not_break   \ must press Ctrl-Break.
+    LDX #LO(ctrl_break_text)
+    LDY #HI(ctrl_break_text)
+    JMP print_text             \ Tail call.
+.show_spitfire_not_break
+    LSR A                      \ Bit 1: the hardware did not answer.
+    BCC show_spitfire_ready
+    LDX #LO(not_answering_text)
+    LDY #HI(not_answering_text)
+    JMP print_text             \ Tail call.
+
+.show_spitfire_ready
+    LDA #&FF                   \ No port's group started yet (a port is
+    STA spitfire_port          \ 0 or &80).
+    LDX #0
+.show_spitfire_joystick
+    STX key_index              \ Joystick key_index + 1:
+    LDA spitfire_block + SPITFIRE_JOYSTICKS,X
+    CMP #SPITFIRE_NOT_ALLOCATED
+    BEQ show_spitfire_next     \ not there.
+    AND #&80                   \ Its port (bit 7): the same as the last
+    CMP spitfire_port          \ joystick's, so in its group?
+    BEQ show_spitfire_number
+    LDY spitfire_port          \ A new group: after another, a comma.
+    STA spitfire_port
+    INY                        \ (&FF + 1 = 0: the first group.)
+    BEQ show_spitfire_port
+    LDA #','
+    JSR key_char
+    LDA #' '
+    JSR key_char
+.show_spitfire_port
+    LDA #'A'                   \ The port's letter...
+    BIT spitfire_port          \ (N = bit 7 = 1 for port B.)
+    BPL show_spitfire_port_letter
+    LDA #'B'
+.show_spitfire_port_letter
+    JSR key_char
+    LDA #' '
+    JSR key_char
+    LDA #LO(port_type_names)   \ ...and its type's name (bits 0-2).
+    STA NAME_POINTER
+    LDA #HI(port_type_names)
+    STA NAME_POINTER+1
+    LDX key_index
+    LDA spitfire_block + SPITFIRE_JOYSTICKS,X
+    AND #7
+    TAX
+    JSR print_nth_name
+.show_spitfire_number
+    LDA #' '                   \ " J<n>"
+    JSR key_char
+    LDA #'J'
+    JSR key_char
+    LDA key_index
+    CLC
+    ADC #'1'
+    JSR key_char
+.show_spitfire_next
+    LDX key_index
+    INX
+    CPX #SPITFIRE_MAX_JOYSTICKS
+    BNE show_spitfire_joystick
+    LDA spitfire_port          \ No joystick at all?
+    CMP #&FF
+    BNE show_spitfire_marks
+    LDX #LO(no_joysticks_text)
+    LDY #HI(no_joysticks_text)
+    JSR print_text
+
+.show_spitfire_marks
+    JSR count_joysticks        \ X = the joysticks the game will use.
+    STX spitfire_joysticks
+    LDX #0
+.show_spitfire_mark
+    CPX spitfire_joysticks
+    BCS show_spitfire_done
+    STX key_slot               \ Slot key_slot plays joystick key_slot + 1:
+    LDA #MARKER_COLUMN         \ "J<n>" in its colours, in the margin.
+    JSR key_line_at
+    LDA #'J'
+    JSR OSWRCH
+    LDA key_slot
+    CLC
+    ADC #'1'
+    JSR OSWRCH
+    LDX key_slot
+    INX
+    BNE show_spitfire_mark     \ (Always.)
+.show_spitfire_done
+    JMP background_black       \ Tail call.
 
 \ ----------------------------------------------------------------------------
 \ redefine_keys -- let player key_slot choose its keys
@@ -576,6 +730,9 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 .key_index        EQUB 0       \ The direction being shown.
 .key_code         EQUB 0       \ print_key_name: the key sought.
 .line_room        EQUB 0       \ Characters the line has room for.
+.spitfire_port    EQUB 0       \ show_spitfire: the port being listed.
+.spitfire_joysticks EQUB 0     \ show_spitfire: joysticks the game will use.
+.spitfire_block   SKIP SPITFIRE_BLOCK_BYTES   \ OSWORD &3F's (spitfire.asm).
 
 .ink_text_colours              \ Each player's text and background colours:
     EQUB 1, 2, 3, 0            \ its ink on black, but for K black on yellow,
@@ -608,6 +765,7 @@ ASSERT KEY_LAYOUT_BYTES = 5    \ needs its size before splash_data defines it.)
 .splash_setup_end
 
 INCLUDE "build/generated/splash_data.asm"
+INCLUDE "asm/spitfire.asm"
 INCLUDE "asm/music.asm"
 INCLUDE "build/generated/splash_theme.asm"
 
@@ -615,11 +773,15 @@ INCLUDE "build/generated/splash_theme.asm"
 \ in groups a blank row apart, filling the screen to its last row:
 AIM_ROW    = LOGO_TOP_ROW + LOGO_ROWS   \ the aim, centred;
 PROMPT_ROW = AIM_ROW + 2       \ two lines asking for two or four players;
-KEYS_ROW   = PROMPT_ROW + 5    \ a heading on changing keys, then each
-                               \ player's keys, a line each;
+KEYS_ROW   = PROMPT_ROW + 5    \ what SPItFIRE gave, a heading on changing
+                               \ keys, then each player's keys, a line
+                               \ each (marked with its joystick, if any);
+SPITFIRE_ROW = KEYS_ROW - 2
 INK_ROW    = KEYS_ROW + 5      \ three lines on how ink works.
 ASSERT INK_ROW + 2 <= 31
 ASSERT TEXT_COLUMN + KEY_LINE_LENGTH <= 39   \ Short of the last column.
+ASSERT TEXT_COLUMN + SPITFIRE_LINE_LENGTH <= 40  \ (Not the bottom row.)
+ASSERT MARKER_COLUMN + 2 < TEXT_COLUMN
 
 .splash_prompt                 \ Two lines under the logo, in the players'
     EQUB 17, 1                 \ colours (logical 1 = C, 2 = M, 3 = Y).
@@ -643,7 +805,7 @@ ASSERT TEXT_COLUMN + KEY_LINE_LENGTH <= 39   \ Short of the last column.
 .aim_text
     EQUS "Paint as much as you can!"
 .aim_text_end
-    EQUB 31, TEXT_COLUMN, KEYS_ROW - 2
+    EQUB 31, TEXT_COLUMN, KEYS_ROW - 1
     EQUS "f1-f4 change a player's keys:"
     EQUB 31, TEXT_COLUMN, INK_ROW
     EQUS "Firing uses ink. Release fire on"

@@ -247,13 +247,16 @@ tests; they must stay consistent):
   column 39): the MOS would scroll the screen and move it in memory.
 - User zero page is &70-&8F.
 - 25 Hz game tick.
-- Joysticks only through SPItFIRE, on a Master Compact (`asm/joystick.asm`,
-  `tools/dontdither/joysticks.py`; the interface is in
+- Joysticks only through SPItFIRE, on a Master Compact (`asm/spitfire.asm`
+  asks it, shared by SPLASH, which lists the joysticks on the title screen,
+  and DITHER; `asm/joystick.asm` reads them;
+  `tools/dontdither/joysticks.py` models both; the interface is in
   `~/Code/spitfire/docs/joystick-programming.md`). Without SPItFIRE the game
   is keyboard only, so it still runs on a Model B. Beebium emulates neither
   the Compact nor SPItFIRE: `tests/test_joysticks.py` installs a fake of the
   ROM's interface (`tests/fake_spitfire.asm`, at &0880 in the printer
-  buffer) through `load_game`/`boot_game`'s `at_title`.
+  buffer) through `to_title`/`load_game`/`boot_game`'s `at_title`, called
+  as SPLASH starts.
 - b2 (`/Applications/b2 Debug.app`) emulates a Master Compact: launch it with
   `-c "Master Compact (MOS 5.00)" -0 build/dont-dither.adl -b`. Only the
   debug build has the HTTP API's peek/poke/paste (port 48075, window `b2`,

@@ -51,7 +51,9 @@ or in an emulator of one.
   joysticks: joystick 1 is cyan, 2 magenta, 3 yellow and 4 black. Join by
   pressing your joystick's fire button instead of your fire key; the
   select screen then shows JOY rather than YOU. Keyboards and joysticks
-  mix freely.
+  mix freely. The title screen says whether SPItFIRE was found, lists its
+  joysticks by port, and marks each player's keys with their joystick
+  (J1-J4).
 - **A session** plays every level of the set, each a 5-minute round. Each
   shot splats paint that moves the cells it hits a step towards your ink.
   When time runs out the territory is tallied, and points are awarded by

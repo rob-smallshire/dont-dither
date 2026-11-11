@@ -19,6 +19,11 @@ through its ROM's documented interface:
 Joystick j plays player slot j (C, M, Y, K). A player chooses it by joining
 with the joystick's fire button.
 
+The title screen says what it found (spitfire_line): whether SPItFIRE is
+there, and if so each port's hardware and the joysticks it gives, e.g.
+"SPItFIRE: A 3BT J1 J2, B 3BT J3 J4". It marks each player's key line
+"J1"-"J4" for the joystick the player may use instead.
+
 A stick counts as pointing in a direction when it is more than a quarter of
 full scale from the centre on that axis (the threshold SPItFIRE itself uses
 for its direction bits): only the high byte of each reading is needed.
@@ -43,6 +48,27 @@ HIGH_THRESHOLD = 0xC0              # high byte >= this: left (X) or up (Y)
 LOW_THRESHOLD = 0x40               # high byte < this: right (X) or down (Y)
 
 UP, DOWN, LEFT, RIGHT = 1, 2, 4, 8  # the key mask's bits (controls.LAYOUT_KEYS)
+
+# The OSWORD &3F block's bytes.
+BLOCK_BYTES = 16                   # 11 used; the guide says to allow 16
+COUNT_BYTE = 4                     # joysticks allocated (0-4)
+JOYSTICK_BYTES = 6                 # 6-9: joysticks 1-4: bit 7 port, bits 0-2 type
+FLAGS_BYTE = 10
+NOT_ALLOCATED = 0xFF               # a joystick byte for a joystick not there
+FLAG_NO_WORKSPACE = 1              # the user must press Ctrl-Break
+FLAG_NOT_ANSWERING = 2             # the hardware did not answer
+
+# The port types, by number, as SPItFIRE's *SPITFIRE JOYSTICK PORT names them.
+PORT_TYPE_NAMES = ("NONE", "SINGLE", "DUAL", "3BS", "3BT", "14B", "BITSTIK", "QUINKEY")
+PORT_NAMES = ("A", "B")
+
+# What the title screen says.
+SPITFIRE_LINE_LENGTH = 36          # characters, from column 4 to the last
+NO_SPITFIRE_TEXT = "No SPItFIRE: keyboard only"
+SPITFIRE_TEXT = "SPItFIRE: "
+CTRL_BREAK_TEXT = "press Ctrl-Break to start"
+NOT_ANSWERING_TEXT = "hardware not responding"
+NO_JOYSTICKS_TEXT = "no joysticks"
 
 
 def joystick_mask(x: int, y: int) -> int:
@@ -69,6 +95,37 @@ def input_of_joystick(x: int, y: int, fire: bool) -> int:
 def joysticks_available(block: bytes) -> int:
     """How many joysticks the game can use, from the OSWORD &3F block as it
     came back: 0 unless SPItFIRE answered, is ready, and allocated some."""
-    if block[0] != SPITFIRE_SIGNATURE or block[10] != 0:
+    if block[0] != SPITFIRE_SIGNATURE or block[FLAGS_BYTE] != 0:
         return 0
-    return min(block[4], JOYSTICKS)
+    return min(block[COUNT_BYTE], JOYSTICKS)
+
+
+def spitfire_line(block: bytes) -> str:
+    """What the title screen says SPItFIRE gave, from the OSWORD &3F block:
+    whether it is there and ready, and if so its joysticks, grouped by port
+    with the port's type (e.g. "SPItFIRE: A 3BT J1 J2, B SINGLE J3"); cut at
+    SPITFIRE_LINE_LENGTH characters."""
+    if block[0] != SPITFIRE_SIGNATURE:
+        return NO_SPITFIRE_TEXT
+    flags = block[FLAGS_BYTE]
+    if flags & FLAG_NO_WORKSPACE:
+        return SPITFIRE_TEXT + CTRL_BREAK_TEXT
+    if flags & FLAG_NOT_ANSWERING:
+        return SPITFIRE_TEXT + NOT_ANSWERING_TEXT
+    groups: list[str] = []
+    port = None
+    for j in range(JOYSTICKS):
+        joystick = block[JOYSTICK_BYTES + j]
+        if joystick == NOT_ALLOCATED:
+            continue
+        if joystick >> 7 != port:
+            port = joystick >> 7
+            groups.append(f"{PORT_NAMES[port]} {PORT_TYPE_NAMES[joystick & 7]}")
+        groups[-1] += f" J{j + 1}"
+    return (SPITFIRE_TEXT + (", ".join(groups) or NO_JOYSTICKS_TEXT))[:SPITFIRE_LINE_LENGTH]
+
+
+def joystick_marker(slot: int) -> str:
+    """The mark beside player slot's keys on the title screen when it may
+    use a joystick: the joystick's number."""
+    return f"J{slot + 1}"
