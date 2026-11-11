@@ -480,6 +480,8 @@ to C than (2,1,1,0), it is a better road and filling station.
   .ssd.
 - Played on a real Master Compact with SPItFIRE and joysticks (2026-11-11):
   it works, with no perceptible flicker and no perceptible slowdown.
+  Played again the same day with SPItFIRE ROM 0.03 (switch bytes, and
+  OSWORD &3F reasons 0-3 for detection and the title screen): it works.
 - Each player slot has its own keyboard layout, so up to four people can
   play on one keyboard (tools/dontdither/controls.py):
 
