@@ -220,8 +220,8 @@ HUD_BELOW_LOGO = HUD_LOGO_ADDRESS + HUD_LOGO_ROWS * MODE1_ROW_BYTES
 \ ----------------------------------------------------------------------------
 
 .main_loop
-    JSR check_demo_exit        \ In demo mode, a player key returns to
-                               \ player selection.
+    JSR check_exit             \ ESCAPE held, or in demo mode a player
+                               \ key, returns to player selection.
     JSR wait_for_tick          \ Two vertical syncs...
     JSR start_beam_timer       \ ...then time the beam from here.
     JSR read_inputs            \ player_input from keyboard or script.
@@ -418,12 +418,13 @@ GUARD &0D00                    \ &0D00 holds the NMI routine and ROM tables.
 .ai_scores        SKIP 8       \ ai_input: score of each direction.
 .session_humans   SKIP 1       \ Bit per player slot: played by a human.
 .session_joined   SKIP 1       \ select_players: who has pressed fire,
-.session_controls SKIP MAX_PLAYERS \ and with what (CONTROL_KEYS; one day
+.session_controls SKIP MAX_PLAYERS \ and with what (CONTROL_KEYS, or
                                \ CONTROL_JOYSTICK, for a joystick's fire).
 .session_level    SKIP 1       \ The session's current level.
 .session_points   SKIP MAX_PLAYERS \ Points so far this session.
 .session_seconds  SKIP 1       \ Countdown / pause seconds left.
 .session_fields   SKIP 1       \ Fields left in the current second.
+.escape_ticks     SKIP 1       \ check_exit: ticks ESCAPE has been held.
 
 \ Working variables of the round clock and tally (hud.asm). Used rarely, so
 \ kept out of zero page.

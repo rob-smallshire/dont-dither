@@ -44,7 +44,8 @@ or in an emulator of one.
   each key asked for (another player's keys, and ESCAPE, are refused).
   Keys you choose are kept when you press BREAK; CTRL-BREAK restores the
   defaults. The computer plays everyone else. If nobody joins, the computer plays a
-  demo until you press a key. (The BBC keyboard has no diodes, so some
+  demo until you press a key. Hold ESCAPE for half a second to end a game
+  and go back to joining. (The BBC keyboard has no diodes, so some
   combinations of three or more held keys can make another key appear
   pressed.)
 - **Joysticks:** on a Master Compact with SPItFIRE, up to four analogue

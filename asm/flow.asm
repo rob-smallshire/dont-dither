@@ -27,6 +27,12 @@
 \ key (a direction or fire of any layout) is pressed, which returns to
 \ player selection.
 \
+\ Ending a game: holding ESCAPE for ESCAPE_HOLD_TICKS ticks (about half a
+\ second) abandons the session, or the demo, for player selection, from
+\ play or from any of the pauses between rounds (check_exit). The select
+\ screen says so ("ESC ENDS"). ESCAPE is an ordinary key (*FX229,1, see
+\ init_keyboard) and never a player's key.
+\
 \ Must match tools/dontdither/game.py (round_points).
 \
 \ Requires: os.asm, zeropage.asm, and the other game modules.
@@ -35,6 +41,7 @@
 SELECT_TEXT_ROW  = 6           \ "PRESS" "FIRE TO" "JOIN" below the title.
 SELECT_COUNT_ROW = 10          \ The seconds left to join.
 SELECT_SLOT_ROW  = 12          \ One row per player: "C CPU" or "C YOU".
+SELECT_ESCAPE_ROW = SELECT_SLOT_ROW + MAX_PLAYERS + 1   \ "ESC ENDS".
 POINTS_ROW       = 6           \ "POINTS"/"FINAL", then a row per player.
 FIELDS_PER_SECOND = 50
 
@@ -49,6 +56,8 @@ FIELDS_PER_SECOND = 50
     LDA #0                     \ Level 1 as the backdrop.
     STA zp_level
     STA session_joined
+    STA escape_ticks           \ ESCAPE's hold starts again (it may still be
+                               \ held from ending the last game).
     JSR draw_level
     SEND_VDU select_vdu_bytes, select_vdu_bytes_end
 
@@ -196,7 +205,8 @@ ARENA_TEXT_COLUMNS = 32
     BNE show_title_card_char
 .title_card_shown              \ Tests stop here.
     LDA #3
-    JMP pause_seconds          \ Tail call; in demo mode a key may leave.
+    JMP pause_seconds          \ Tail call; ESCAPE (or in demo mode a key)
+                               \ may leave.
 
 \ select_join: player zp_player joins (if not already joined), with control
 \ A (CONTROL_KEYS or CONTROL_JOYSTICK, as it pressed fire), and shows it.
@@ -408,15 +418,39 @@ ARENA_TEXT_COLUMNS = 32
 .pause_field
     LDA #19
     JSR OSBYTE
-    JSR check_demo_exit
+    LDA session_fields         \ Every other field, as if a tick: ESCAPE's
+    LSR A                      \ hold is counted in ticks.
+    BCS pause_field_next
+    JSR check_exit
+.pause_field_next
     DEC session_fields
     BNE pause_field
     DEC session_seconds
     BNE pause_second
     RTS
 
-\ check_demo_exit: in demo mode (no humans), any player key -- a direction
-\ or fire of either layout -- abandons the demo for player selection.
+\ check_exit: once a tick, between ticks. ESCAPE held for ESCAPE_HOLD_TICKS
+\ calls in a row, or in demo mode (no humans) any player key -- a direction
+\ or fire of any layout, or a joystick's fire -- abandons the game for
+\ player selection. Otherwise returns; A, X, Y corrupted.
+.check_exit
+    LDA #&81                   \ OSBYTE &81 with a negative INKEY code: is
+    LDX #ESCAPE_CODE           \ ESCAPE held? X = &FF if so, else 0.
+    LDY #&FF
+    JSR OSBYTE
+    INX                        \ 0 if held.
+    BNE check_exit_released
+    INC escape_ticks           \ Held long enough?
+    LDA escape_ticks
+    CMP #ESCAPE_HOLD_TICKS
+    BCS check_demo_exit_yes
+    BCC check_demo_exit        \ (Always.)
+.check_exit_released
+    LDA #0                     \ Released: count again from 0.
+    STA escape_ticks
+
+\ check_demo_exit: in demo mode (no humans), any player key abandons the
+\ demo for player selection.
 .check_demo_exit
     LDA session_humans
     BNE check_demo_exit_done
@@ -469,6 +503,8 @@ ARENA_TEXT_COLUMNS = 32
     EQUS "FIRE TO"
     EQUB VDU_TAB, HUD_TEXT_COLUMN + 2, SELECT_TEXT_ROW + 2
     EQUS "JOIN"
+    EQUB VDU_TAB, HUD_TEXT_COLUMN, SELECT_ESCAPE_ROW
+    EQUS "ESC ENDS"            \ (Holding ESCAPE ends a game: check_exit.)
 .select_vdu_bytes_end
 
 .cpu_text

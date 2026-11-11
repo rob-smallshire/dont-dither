@@ -386,7 +386,7 @@ explains the victim rule and the game's other fairness measures.)
 `main_loop` runs one tick per iteration at 25 Hz, two fields per tick:
 
 ```
-check_demo_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
+check_exit ─ wait_for_tick ─ start_beam_timer ─ read_inputs
   ─ update_players ─ fire_players ─ render_sprites ─ update_gauges
   ─ tick_count++ ─ tick_clock ─ (round over? end_of_round) ─ tick_done
 ```
@@ -591,6 +591,11 @@ The model is in `game.py` (`_into_tunnel`, `_tunnel`); `game.asm`
   player select.
 - **Demo mode:** if nobody joins, the AIs play one-minute rounds and cycle
   the levels for ever. Any player key returns to player select.
+- **Ending a game:** `check_exit` (at the top of every tick, and every
+  other field of the pauses between rounds) counts the ticks ESCAPE has
+  been held in `escape_ticks`; at `ESCAPE_HOLD_TICKS` (half a second) the
+  game, or the demo, is abandoned for `select_players`, which resets the
+  stack and the session. The select screen shows "ESC ENDS".
 
 ---
 

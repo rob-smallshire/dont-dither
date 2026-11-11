@@ -12,6 +12,7 @@ from conftest import SAMPLE_SET_LEVELS, SAMPLE_SET_LEVEL_IDS, boot_game, enter_l
 from dontdither.controls import LAYOUTS, matrix_position
 from dontdither.game import (
     DEMO_ROUND_TICKS,
+    ESCAPE_HOLD_TICKS,
     FIRE_BIT,
     NO_DIRECTION,
     ROUND_TICKS,
@@ -55,7 +56,7 @@ def test_player_select_screen_invites_players_to_join(bbc, game_build):
     labels = to_player_select(bbc, game_build)
     bbc.run_for_emulated_seconds(0.2)
     text = bbc.video.screen_text().text
-    for words in ("PRESS", "FIRE TO", "JOIN", "C CPU", "M CPU"):
+    for words in ("PRESS", "FIRE TO", "JOIN", "C CPU", "M CPU", "ESC ENDS"):
         assert words in text
 
 
@@ -250,3 +251,68 @@ def test_the_title_screen_is_drawn_in_black_then_shown_at_once(bbc, game_build):
     assert set(bbc.video_ula.state.palette) == {0}
     bbc.debugger.run_to(splash["splash_key"], timeout=10)
     assert set(bbc.video_ula.state.palette) == set(PHYSICAL_COLOUR.values())
+
+
+# ---- Ending a game with ESCAPE ------------------------------------------------------
+
+ESCAPE = matrix_position("ESCAPE")
+
+
+def test_holding_escape_ends_a_game_for_player_select(bbc, game_build):
+    boot_game(bbc, game_build)
+    labels = game_build.labels["DITHER"]
+    step_ticks(bbc, labels, 10)
+    bus, peek = bbc.memory.address.bus, bbc.memory.address.peek
+    bus[labels["session_points"]] = 5                     # a session under way
+    bbc.keyboard.matrix_down(*ESCAPE)
+    step_ticks(bbc, labels, ESCAPE_HOLD_TICKS - 1)        # not quite long enough
+    assert peek[labels["escape_ticks"]] == ESCAPE_HOLD_TICKS - 1
+    bbc.debugger.step(1)                                  # off tick_done
+    bbc.debugger.run_to(labels["select_players"], timeout=1)
+    bbc.debugger.run_to(labels["select_field"], timeout=10)
+    bbc.keyboard.matrix_up(*ESCAPE)
+    assert peek[labels["escape_ticks"]] == 0
+    assert peek[labels["session_joined"]] == 0
+    bbc.run_for_emulated_seconds(0.2)
+    text = bbc.video.screen_text().text
+    for words in ("PRESS", "FIRE TO", "JOIN", "C CPU", "ESC ENDS"):
+        assert words in text
+
+
+def test_a_tap_of_escape_does_not_end_the_game(bbc, game_build):
+    boot_game(bbc, game_build)
+    labels = game_build.labels["DITHER"]
+    peek = bbc.memory.address.peek
+    step_ticks(bbc, labels)                               # (boot_game skipped player
+    start = peek.word(labels["tick_count"])               # selection, which zeroes the
+    bbc.keyboard.matrix_down(*ESCAPE)                     # hold; the released key does)
+    step_ticks(bbc, labels, ESCAPE_HOLD_TICKS - 1)
+    bbc.keyboard.matrix_up(*ESCAPE)
+    step_ticks(bbc, labels, ESCAPE_HOLD_TICKS)            # still playing
+    assert peek[labels["escape_ticks"]] == 0
+    assert (peek.word(labels["tick_count"]) - start) & 0xFFFF == 2 * ESCAPE_HOLD_TICKS - 1
+
+
+def test_holding_escape_between_rounds_ends_the_game(bbc, game_build):
+    boot_game(bbc, game_build)
+    labels = game_build.labels["DITHER"]
+    bus = bbc.memory.address.bus
+    bus[labels["round_length_ticks"]] = 10
+    bus[labels["round_length_ticks"] + 1] = 0
+    enter_level(bbc, labels, 0)
+    bbc.debugger.run_to(labels["points_awarded"], timeout=60)
+    bbc.keyboard.matrix_down(*ESCAPE)
+    bbc.debugger.run_to(labels["select_players"], timeout=3)   # well within the pause
+    bbc.keyboard.matrix_up(*ESCAPE)
+
+
+def test_holding_escape_ends_the_demo(bbc, game_build):
+    labels = to_player_select(bbc, game_build)
+    shorten_window(bbc, labels)
+    bbc.debugger.run_to(labels["main_loop"], timeout=60)
+    assert bbc.memory.address.peek[labels["session_humans"]] == 0
+    step_ticks(bbc, labels, 10)
+    bbc.keyboard.matrix_down(*ESCAPE)
+    bbc.debugger.step(1)
+    bbc.debugger.run_to(labels["select_players"], timeout=3)
+    bbc.keyboard.matrix_up(*ESCAPE)

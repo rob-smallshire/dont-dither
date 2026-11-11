@@ -86,6 +86,8 @@ SELECT_SECONDS = 10        # time to press fire and join, before a session
 ROUND_SECONDS = 300        # five minutes
 ROUND_TICKS = ROUND_SECONDS * TICKS_PER_SECOND
 DEMO_ROUND_TICKS = DEMO_ROUND_SECONDS * TICKS_PER_SECOND
+ESCAPE_HOLD_TICKS = 12     # ESCAPE held this many ticks (about half a second)
+                           # ends a game, back to player selection
 
 POINTS_BY_RANK = {4: (3, 2, 1, 0), 2: (3, 0)}
 

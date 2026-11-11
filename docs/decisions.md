@@ -380,6 +380,15 @@ to C than (2,1,1,0), it is a better road and filling station.
 - If nobody joins, the computer plays a demo (attract mode) in 1-minute
   rounds, cycling the levels for ever; any player key (a direction or
   fire, of any layout) returns to player selection.
+- Holding ESCAPE for half a second (ESCAPE_HOLD_TICKS, 12 ticks) ends a
+  game -- or the demo -- at once, from play or any pause between rounds,
+  and returns to player selection, where the next game's players join as
+  usual. The hold, rather than a press, keeps a brush of the key from
+  throwing away a session. The select screen says "ESC ENDS". The check
+  (one keyboard read) costs about 250 cycles a tick. ESCAPE stays an
+  ordinary key (*FX229,1) and can never be a player's key. Changing the
+  number of players still means reloading the game; ESCAPE does not go
+  back to the title screen.
 - Player slot k always plays in ink k (C, M, Y, K), so colours are
   consistent across a session; two-player levels are played by slots 1 and
   2 (C and M). (Supersedes the earlier "C against Y" default.)

@@ -483,6 +483,7 @@ def generate_game_data() -> str:
     from dontdither.controls import LAYOUT_KEYS, LAYOUTS, inkey_code
     from dontdither.game import (
         DEMO_ROUND_TICKS,
+        ESCAPE_HOLD_TICKS,
         FIRING_GROUND,
         MOUTH_HIGH,
         MOUTH_LOW,
@@ -523,6 +524,8 @@ def generate_game_data() -> str:
         f"ROUND_TICKS      = {ROUND_TICKS}   \\ default round length ({ROUND_TICKS // TICKS_PER_SECOND} s)",
         f"DEMO_ROUND_TICKS = {DEMO_ROUND_TICKS}   \\ demo mode rounds ({DEMO_ROUND_TICKS // TICKS_PER_SECOND} s)",
         f"SELECT_SECONDS   = {SELECT_SECONDS}   \\ time to join before a session",
+        f"ESCAPE_HOLD_TICKS = {ESCAPE_HOLD_TICKS}  \\ ticks ESCAPE is held to end a game",
+        f"ESCAPE_CODE      = &{inkey_code('ESCAPE'):02X}   \\ ESCAPE's negative-INKEY code",
         "",
         "\\ Player control sources.",
         "CONTROL_NONE     = 0   \\ no input (stationary)",
