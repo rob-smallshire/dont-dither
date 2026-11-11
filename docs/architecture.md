@@ -57,7 +57,7 @@ awarded by rank.
 ### Commands
 
 ```bash
-uv run dd-build                           # generate, assemble -> build/dont-dither.ssd
+uv run dd-build                           # generate, assemble -> build/dont-dither-v<version>.ssd, .adl
 uv run pytest                             # everything (about 17 minutes)
 uv run pytest tests/test_inks.py          # a pure-model file, no emulator
 uv run --group solver dd-solve-patterns   # re-solve data/ink_patterns.json
@@ -109,13 +109,22 @@ uv run dd-render-music                    # build/music/splash_theme.wav
    80-track single-sided disc (204,800 bytes), which is what its catalogue
    records. It uses `oaknut-dfs`, the library behind `disc dfs expand`.
    Some emulators and tools don't recognise a truncated image.
-5. **Make an ADFS copy.** `make_adfs_disc` copies every file, with its
-   load and execution addresses, the title and the boot option, onto a
-   640 KB ADFS L image, `build/dont-dither.adl`. This is for a Master
+5. **Add the text files.** `add_text_files` puts three Acorn text files
+   (`disc_files.py`) on the disc: one named for the version (`0_2_0`, or
+   zero-padded `vXXYYZZ` if that would not fit seven characters) holding
+   the version in full, a `README` pointing to the GitHub repository, and
+   the `LICENSE`. So `*CAT` shows the version. The images are named for
+   it too: `build/dont-dither-v<version>.ssd`.
+6. **Make an ADFS copy.** `make_adfs_disc` copies every file, with its
+   load and execution addresses and the boot option, onto a 640 KB ADFS L
+   image, `build/dont-dither-v<version>.adl`, titled with the version
+   ("Don't Dither! 0.2.0", ADFS's 19 characters; the DFS title, at most
+   12, is "Don't Dither"). This is for a Master
    Compact without DFS, and for b2's Compact, whose filing system is ADFS.
    It boots the same way.
 
-Disc files: `SPLASH`, `DITHER`, `TCARD`, `LOGO`, `TUNE`, `LEVELS2`, `LEVELS4`.
+Disc files: `SPLASH`, `DITHER`, `TCARD`, `LOGO`, `TUNE`, `LEVELS2`, `LEVELS4`,
+and the text files `README`, `LICENSE` and the version's (`0_2_0`).
 
 **Versions and releases:** the version is kept in `.bumpversion.toml`;
 bump-my-version keeps `pyproject.toml`, `tools/dontdither/_version.py`

@@ -5,7 +5,7 @@
 #   git push --follow-tags              # push the commit AND the v* tag
 #
 # The v* tag triggers .github/workflows/release.yml, which runs the tests and
-# publishes a GitHub release with the game's disc image (.ssd).
+# publishes a GitHub release with the game's disc images (.ssd and .adl).
 #
 # Validate first with:
 #   uvx bump-my-version bump --dry-run --verbose patch

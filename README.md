@@ -22,10 +22,13 @@ magenta, yellow and black. See [the design](docs/dont_dither_game_design.md),
 
 ## Playing
 
-Download the disc image (`dont-dither-vX.Y.Z.ssd`) from the
+Download a disc image from the
 [latest release](https://github.com/rob-smallshire/dont-dither/releases/latest),
-or build it yourself (below). Boot it (Shift-Break) on a Model B with DFS,
-or in an emulator of one.
+or build it yourself (below): `dont-dither-vX.Y.Z.ssd` for DFS, or
+`dont-dither-vX.Y.Z.adl` for ADFS (a Master Compact's own filing system).
+Boot it (Shift-Break) on a Model B with DFS or a Master Compact, or in an
+emulator of one. Each disc also holds a README, the LICENSE, and a file
+named for the version (e.g. `0_2_0`), so `*CAT` shows which version it is.
 
 - **Two or four players:** the title screen asks; press 2 or 4. Each mode
   has its own set of levels.
@@ -81,7 +84,7 @@ The Beebium client and headless server come from PyPI via uv.
 ## Build and test
 
 ```bash
-uv run dd-build     # -> build/dont-dither.ssd (auto-booting DFS disc)
+uv run dd-build     # -> build/dont-dither-vX.Y.Z.ssd (auto-booting DFS disc) and .adl (ADFS)
 uv run pytest       # builds, boots the disc in Beebium, checks the screen
 ```
 
@@ -149,8 +152,9 @@ git push --follow-tags             # push the commit and the tag
 ```
 
 The tag triggers the release workflow: it runs the whole test suite, then
-publishes a GitHub release with the game's disc image. CI builds the disc
-and runs the tests on every push to master and every pull request.
+publishes a GitHub release with the game's disc images (.ssd and .adl). CI
+builds the discs, keeps them as a `disc-images` artifact, and runs the
+tests on every push to master and every pull request.
 
 ## Licence
 

@@ -55,8 +55,19 @@ jobs:
       - name: Install
         run: uv sync --locked
 
-      - name: Build the disc
+      - name: Build the discs
         run: uv run dd-build
+
+      # Both images, named for the version: the DFS disc (.ssd) and its ADFS
+      # copy for the Master Compact (.adl).
+      - name: Keep the disc images
+        uses: actions/upload-artifact@v4
+        with:
+          name: disc-images
+          path: |
+            build/dont-dither-v*.ssd
+            build/dont-dither-v*.adl
+          if-no-files-found: error
 
       - name: Run the tests
         run: uv run pytest -q

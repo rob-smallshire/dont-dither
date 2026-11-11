@@ -11,7 +11,7 @@ source). Decisions that refine or depart from it are recorded in
 ## Commands
 
 ```bash
-uv run dd-build                                   # generate tables + assemble -> build/dont-dither.ssd
+uv run dd-build                                   # generate tables + assemble -> build/dont-dither-v<version>.ssd, .adl
 uv run pytest                                     # all tests (builds the disc first)
 uv run pytest tests/test_inks.py                  # pure-Python tests, no emulator
 uv run pytest tests/test_boot.py::test_palette_maps_logical_colours_to_cmyk
@@ -128,7 +128,7 @@ data/ink_patterns.json            canonical pattern per state (written by solve_
        level_data (from levels/*.lvl), sprite_data (from sprites/tank.spr),
        game_data (controls, speeds), paint_data (state arithmetic, splat trees)
   -> asm/*.asm INCLUDE them; tools/dontdither/build.py runs beebasm from the project root
-  -> build/dont-dither.ssd + build/labels/<PROGRAM>.txt
+  -> build/dont-dither-v<version>.ssd and .adl + build/labels/<PROGRAM>.txt
 ```
 
 Change inks, palette or table layout in the Python model or generator, never
@@ -260,7 +260,7 @@ tests; they must stay consistent):
   &0880 (the printer buffer) through `to_title`/`load_game`/`boot_game`'s
   `at_title`, called as SPLASH starts.
 - b2 (`/Applications/b2 Debug.app`) emulates a Master Compact: launch it with
-  `-c "Master Compact (MOS 5.00)" -0 build/dont-dither.adl -b`. Only the
+  `-c "Master Compact (MOS 5.00)" -0 build/dont-dither-v<version>.adl -b`. Only the
   debug build has the HTTP API's peek/poke/paste (port 48075, window `b2`,
   e.g. `/peek/b2/70/71`); the release build has only `launch`.
 

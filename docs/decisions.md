@@ -476,7 +476,7 @@ to C than (2,1,1,0), it is a better road and filling station.
   the ROM is.
 - The game runs on a Master Compact: checked in b2 (as a Compact, MOS
   5.00, without SPItFIRE), from an ADFS copy of the disc the build also
-  makes (build/dont-dither.adl). A real Compact with Acorn DFS can use the
+  makes (build/dont-dither-v<version>.adl). A real Compact with Acorn DFS can use the
   .ssd.
 - Played on a real Master Compact with SPItFIRE and joysticks (2026-11-11):
   it works, with no perceptible flicker and no perceptible slowdown.
@@ -541,3 +541,19 @@ to C than (2,1,1,0), it is a better road and filling station.
 - Zero page: `zp_boot_status` in the MOS user block &70–&8F; everything else
   in &00–&6F, BASIC's workspace, free because our programs never return to
   BASIC.
+
+## Disc images
+
+- The build makes two images, both named for the version:
+  dont-dither-v<version>.ssd (80-track DFS) and dont-dither-v<version>.adl
+  (ADFS L, the Master Compact's own filing system). CI keeps both as an
+  artifact; a release publishes both.
+- A *CAT shows the version: each disc holds a file named for it, x_y_z
+  (Acorn names have no dots), or zero-padded vXXYYZZ if x_y_z would not
+  fit DFS's seven characters; *TYPE it for the version in full. The ADFS
+  disc's title is the game and its version ("Don't Dither! 0.2.0", ADFS's
+  19 characters); DFS titles hold only 12, so the DFS title is "Don't
+  Dither". (MODE 7 shows the file name's underscores as long dashes.)
+- Each disc also holds a README (what the game is, how to play, and the
+  GitHub repository, in lines that fit MODE 7) and the LICENSE, as Acorn
+  text with CR line ends (tools/dontdither/disc_files.py).

@@ -8,14 +8,20 @@ Then the level sets LEVELS2 and LEVELS4, which the game's loader loads (one
 of them, as the player chooses), are generated for the game's level area and
 added. Each file's labels are written to build/labels/<NAME>.txt.
 
+Small text files make the version evident from a *CAT: one named for the
+version (e.g. 0_2_0), a README pointing to the GitHub repository, and the
+LICENSE (see disc_files.py). The images are
+named for the version too: build/dont-dither-v0.2.0.ssd and .adl.
+
 beebasm truncates a disc image after its last file, so the image is finally
 expanded to its full size, 80 tracks of 10 sectors (204,800 bytes, the size
 its own catalogue records), with oaknut-dfs: some emulators and tools do not
 recognise a truncated image.
 
 The same files are then copied onto an ADFS L (640 KB) image,
-build/dont-dither.adl, for the Master Compact, whose own filing system is
-ADFS: it boots the same way (*EXEC !BOOT, which runs SPLASH).
+build/dont-dither-v<version>.adl, for the Master Compact, whose own filing
+system is ADFS: it boots the same way (*EXEC !BOOT, which runs SPLASH). Its
+title is the game and its version.
 
     uv run dd-build
 """
@@ -30,18 +36,28 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from dontdither.disc_files import (
+    DFS_TITLE,
+    LICENSE_FILENAME,
+    README_FILENAME,
+    acorn_text,
+    adfs_title,
+    disc_filename,
+    license_text,
+    readme_text,
+    version_filename,
+    version_text,
+)
 from dontdither.gen_tables import LEVEL_TEMP, generate_all, generate_level_set
 from dontdither.inks import PROJECT_DIRPATH, InkTable
 from dontdither.levels import PLAYER_COUNTS
 
 BUILD_DIRPATH = PROJECT_DIRPATH / "build"
 GENERATED_DIRPATH = BUILD_DIRPATH / "generated"
-DISC_FILEPATH = BUILD_DIRPATH / "dont-dither.ssd"
-ADFS_DISC_FILEPATH = BUILD_DIRPATH / "dont-dither.adl"
+DISC_FILEPATH = BUILD_DIRPATH / disc_filename(".ssd")
+ADFS_DISC_FILEPATH = BUILD_DIRPATH / disc_filename(".adl")
 LABELS_DIRPATH = BUILD_DIRPATH / "labels"
 ASM_DIRPATH = PROJECT_DIRPATH / "asm"
-
-DISC_TITLE = "DONT DITHER"
 
 # DFS file name -> source. The first is run by !BOOT; each source must SAVE
 # a file of the same name.
@@ -105,7 +121,7 @@ def build() -> BuildResult:
         labels_filepath = LABELS_DIRPATH / f"{name}.txt"
         if name == BOOT_PROGRAM:
             # Create a fresh disc with a !BOOT that runs the game.
-            disc_args = ["-do", disc, "-boot", name, "-title", DISC_TITLE]
+            disc_args = ["-do", disc, "-boot", name, "-title", DFS_TITLE]
             _assemble(source_filepath, labels_filepath, disc_args)
         else:
             # Add to the existing disc via a staging copy.
@@ -129,9 +145,21 @@ def build() -> BuildResult:
         if LEVEL_TEMP + size > 0x7C00:
             raise RuntimeError(f"{name} ({size} bytes) would reach MODE 7 screen memory when loaded")
 
-    expand_disc(DISC_FILEPATH)
+    expand_disc(DISC_FILEPATH)         # (first: oaknut writes only within the file)
+    add_text_files(DISC_FILEPATH)
     make_adfs_disc(DISC_FILEPATH, ADFS_DISC_FILEPATH)
     return BuildResult(DISC_FILEPATH, labels)
+
+
+def add_text_files(disc_filepath: Path) -> None:
+    """Add the version file, the README and the LICENSE (disc_files.py), as
+    Acorn text, to the DFS disc."""
+    from oaknut.dfs.dfs import DFS
+
+    with DFS.from_file(disc_filepath) as dfs:
+        for name, text in ((version_filename(), version_text()), (README_FILENAME, readme_text()),
+                           (LICENSE_FILENAME, license_text())):
+            (dfs.root / "$" / name).write_bytes(acorn_text(text))
 
 
 def expand_disc(disc_filepath: Path) -> None:
@@ -152,14 +180,15 @@ def expand_disc(disc_filepath: Path) -> None:
 def make_adfs_disc(dfs_disc_filepath: Path, adfs_disc_filepath: Path) -> None:
     """Copy every file of the DFS disc, with its load and execution
     addresses, onto a new ADFS L (640 KB, the Master Compact's 3.5-inch
-    format) disc with the same title and boot option, for machines whose
-    filing system is ADFS."""
+    format) disc with the same boot option, for machines whose filing
+    system is ADFS. Its title is the game and its version, which ADFS's
+    *CAT shows first."""
     from oaknut.adfs import ADFS, ADFS_L
     from oaknut.dfs.dfs import DFS
 
     adfs_disc_filepath.unlink(missing_ok=True)
     with DFS.from_file(dfs_disc_filepath, read_only=True) as dfs:
-        with ADFS.create_file(adfs_disc_filepath, ADFS_L, title=dfs.title,
+        with ADFS.create_file(adfs_disc_filepath, ADFS_L, title=adfs_title(),
                               boot_option=dfs.boot_option) as adfs:
             for source in (dfs.root / "$").iterdir():
                 stat = source.stat()

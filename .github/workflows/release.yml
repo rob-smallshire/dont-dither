@@ -2,8 +2,9 @@ name: Release
 
 # Triggered by a version tag (v0.1.1, ...), which `uvx bump-my-version bump
 # patch` makes (see .bumpversion.toml). Runs the whole test suite first; only
-# if it passes does it build the disc and publish a GitHub release with the
-# game's disc image, ready to run: Shift-Break to boot.
+# if it passes does it build the discs and publish a GitHub release with the
+# game's disc images, ready to run: Shift-Break to boot. The build names
+# them for the version: dont-dither-v<version>.ssd (DFS) and .adl (ADFS).
 
 on:
   push:
@@ -63,16 +64,19 @@ jobs:
             exit 1
           fi
 
-      - name: Build the disc
+      - name: Build the discs
         run: |
           uv run dd-build
-          cp build/dont-dither.ssd "dont-dither-${GITHUB_REF_NAME}.ssd"
+          test -f "build/dont-dither-${GITHUB_REF_NAME}.ssd"
+          test -f "build/dont-dither-${GITHUB_REF_NAME}.adl"
 
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" "dont-dither-${GITHUB_REF_NAME}.ssd" \
+          gh release create "${GITHUB_REF_NAME}" \
+            "build/dont-dither-${GITHUB_REF_NAME}.ssd" \
+            "build/dont-dither-${GITHUB_REF_NAME}.adl" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "Don't Dither! ${GITHUB_REF_NAME}" \
-            --notes "The game on a DFS disc image for a BBC Micro Model B (or an emulator of one): insert it and press Shift-Break to boot. Choose two or four players on the title screen."
+            --notes "The game on disc images for a BBC Micro Model B or a Master Compact (or an emulator of one): the .ssd is a DFS disc, the .adl an ADFS one (the Compact's own filing system). Insert one and press Shift-Break to boot, then choose two or four players on the title screen. Each disc has a README, the LICENSE, and a file named for the version."
