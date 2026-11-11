@@ -28,10 +28,11 @@ a 16-entry table (switch_direction) made from the keys' own
 (game.direction_of_keys), so a joystick steers exactly as a player's keys
 would.
 
-The title screen says what it found (spitfire_line): whether SPItFIRE is
-there, and if so each port's hardware and the joysticks it gives, e.g.
-"SPItFIRE: A 3BT J1 J2, B 3BT J3 J4". It marks each player's key line
-"J1"-"J4" for the joystick the player may use instead.
+The title screen says what it found (spitfire_line): nothing at all
+without SPItFIRE; with it, why it is not ready, or each port's hardware
+and the joysticks it gives, e.g. "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4". It
+marks each player's key line "J1"-"J4" for the joystick the player may
+use instead.
 """
 
 from __future__ import annotations
@@ -95,7 +96,6 @@ PORT_NAMES = ("A", "B")
 
 # What the title screen says.
 SPITFIRE_LINE_LENGTH = 36          # characters, from column 4 to the last
-NO_SPITFIRE_TEXT = "No SPItFIRE: keyboard only"
 SPITFIRE_TEXT = "SPItFIRE: "
 CTRL_BREAK_TEXT = "press Ctrl-Break to start"
 NOT_ANSWERING_TEXT = "hardware not responding"
@@ -112,11 +112,12 @@ def joysticks_available(block: bytes) -> int:
 
 def spitfire_line(block: bytes) -> str:
     """What the title screen says SPItFIRE gave, from the OSWORD &3F block:
-    whether it is there and ready, and if so its joysticks, grouped by port
+    nothing if it is not there; if it is, whether it is ready, and its
+    joysticks, grouped by port
     with the port's type (e.g. "SPItFIRE: A 3BT J1 J2, B SINGLE J3"); cut at
     SPITFIRE_LINE_LENGTH characters."""
     if block[0] != SPITFIRE_SIGNATURE:
-        return NO_SPITFIRE_TEXT
+        return ""                  # nothing: no mention of SPItFIRE at all
     flags = block[FLAGS_BYTE]
     if flags & FLAG_NO_WORKSPACE:
         return SPITFIRE_TEXT + CTRL_BREAK_TEXT

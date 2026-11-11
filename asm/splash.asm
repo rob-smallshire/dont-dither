@@ -409,10 +409,11 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
 \ ----------------------------------------------------------------------------
 \ show_spitfire -- say what SPItFIRE gave, and mark whose each joystick is
 \
-\ Asks SPItFIRE (spitfire.asm) and says, in yellow on SPITFIRE_ROW, as
-\ tools/dontdither/joysticks.py's spitfire_line does: "No SPItFIRE:
-\ keyboard only"; or "SPItFIRE: " and why it is not ready (Ctrl-Break
-\ needed, or the hardware not answering); or its joysticks, grouped by
+\ Asks SPItFIRE (spitfire.asm). Without it, says nothing: a player who has
+\ never heard of SPItFIRE need not read about it. With it, says in yellow
+\ on SPITFIRE_ROW, as tools/dontdither/joysticks.py's spitfire_line does,
+\ "SPItFIRE: " and why it is not ready (Ctrl-Break needed, or the
+\ hardware not answering); or its joysticks, grouped by
 \ port with the port's type -- "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4" -- or
 \ "no joysticks". The line stops at SPITFIRE_LINE_LENGTH characters.
 \
@@ -439,9 +440,8 @@ GUARD MODE1_SCREEN_BASE        \ The logo loads into the screen; DITHER too.
     LDA spitfire_block         \ Did SPItFIRE answer?
     CMP #SPITFIRE_SIGNATURE
     BEQ show_spitfire_present
-    LDX #LO(no_spitfire_text)
-    LDY #HI(no_spitfire_text)
-    JMP print_text             \ Tail call: no marks without it.
+    RTS                        \ No: say nothing, mark nothing (its row
+                               \ stays blank).
 
 .show_spitfire_present
     LDX #LO(spitfire_text)     \ "SPItFIRE: "

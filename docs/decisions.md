@@ -434,13 +434,15 @@ to C than (2,1,1,0), it is a better road and filling station.
   - at start-up, OSWORD &3F says whether SPItFIRE is fitted and ready and
     how many joysticks it allocated. Without it the game is keyboard only,
     as before, and still runs on a Model B;
-  - the title screen says what it found, above the keys: "No SPItFIRE:
-    keyboard only", why SPItFIRE is not ready (Ctrl-Break needed, or the
-    hardware not responding), or its joysticks grouped by port with the
+  - with SPItFIRE fitted, the title screen says what it found, above the
+    keys: why it is not ready (Ctrl-Break needed, or the hardware not
+    responding), or its joysticks grouped by port with the
     port's type ("SPItFIRE: A 3BT J1 J2, B 3BT J3 J4", the type keywords
     of *SPITFIRE JOYSTICK PORT). Each player's key line is marked "J1"-"J4"
     in the margin, in the player's colours, for the joystick that player
-    may use instead (joysticks.spitfire_line, asm/splash.asm show_spitfire);
+    may use instead (joysticks.spitfire_line, asm/splash.asm show_spitfire).
+    Without SPItFIRE it says nothing about it: to a player who has never
+    heard of SPItFIRE, a message about its absence only confuses;
   - joystick j plays player slot j (C, M, Y, K); with two Delta 3B Twins,
     port A's left and right handsets are cyan and magenta, port B's yellow
     and black;

@@ -146,10 +146,10 @@ def title_lines(bbc) -> list[str]:
     return bbc.video.screen_text().text.splitlines()
 
 
-def test_the_title_screen_says_there_is_no_spitfire(bbc, game_build):
+def test_without_spitfire_the_title_screen_does_not_mention_it(bbc, game_build):
     to_title(bbc, game_build)
     lines = title_lines(bbc)
-    assert any(line.strip() == "No SPItFIRE: keyboard only" for line in lines)
+    assert not any("SPItFIRE" in line for line in lines)
     assert not any("J1" in line for line in lines)
 
 

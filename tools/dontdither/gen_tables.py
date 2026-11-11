@@ -825,8 +825,6 @@ def generate_splash(dirpath) -> None:
         "\\ What SPItFIRE gave (joysticks.spitfire_line): texts, each ending with",
         "\\ bit 7 set, and the port types' names by number.",
         f"SPITFIRE_LINE_LENGTH = {joysticks.SPITFIRE_LINE_LENGTH}",
-        ".no_spitfire_text",
-        *name_lines([joysticks.NO_SPITFIRE_TEXT]),
         ".spitfire_text",
         *name_lines([joysticks.SPITFIRE_TEXT]),
         ".ctrl_break_text",

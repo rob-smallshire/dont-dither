@@ -94,7 +94,7 @@ def test_detection():
 
 
 @pytest.mark.parametrize("found, line", [
-    (block(signature=0), "No SPItFIRE: keyboard only"),
+    (block(signature=0), ""),     # not mentioned at all
     (block(), "SPItFIRE: A 3BT J1 J2, B 3BT J3 J4"),
     (block(joysticks=2), "SPItFIRE: A 3BT J1 J2"),
     (block(joysticks=3, sticks=[TWIN, TWIN, PORT_B | SINGLE]), "SPItFIRE: A 3BT J1 J2, B SINGLE J3"),
