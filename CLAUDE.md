@@ -235,8 +235,8 @@ tests; they must stay consistent):
   (`GUARD &3000`, over DFS workspace), the low block of tables (paint data,
   game data, HUD font) to &0400-&07FF, and the level set to `level_area`,
   which runs from the end of the main block (not page-aligned) to &2FFF:
-  code growth shrinks it. Keep an eye on its size: 980 bytes today, with
-  each set of 16 levels using about 560 (`uv run dd-preview-levels`).
+  code growth shrinks it. Keep an eye on its size: 632 bytes today, with
+  each set of 16 levels using about 560 (74 spare) (`uv run dd-preview-levels`).
   Uninitialised buffers are at &0900-&0CDF. The key layouts are at &0CE0
   (`asm/handoff.asm`): SPLASH (at &1900) fills them, the game reads them,
   and they survive BREAK. &0800 is left to

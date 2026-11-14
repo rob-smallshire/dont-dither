@@ -207,7 +207,8 @@ Decisions taken during development that refine or depart from
 
 ## Firing and painting
 
-- Holding fire shoots every FIRE_PERIOD (6) ticks, about 4 shots a second.
+- Holding fire shoots every FIRE_PERIOD (4) ticks, about 6 shots a second.
+  (It was 6 ticks, 4 a second, until the pace retune of 2026-11-14.)
   Shots happen after all movement in the tick, in the same rotating player
   order, from each tank's new position and facing.
 - Players shoot only on ticks of their own parity ((tick + player) even), so
@@ -227,6 +228,12 @@ Decisions taken during development that refine or depart from
   budget, so it runs at about 23 ticks a second. Measured on 2026-11-11:
   22.7 on Beebium's Model B, 24.1 on b2's Master Compact; the two-player
   demo keeps 24.95.
+  - After the pace retune (2026-11-14, Beebium's Model B, 40 s of the
+    first level): the four-AI demo ran at 23.7 ticks a second with the
+    faster tanks, and 22.25 once shots came every 4 ticks rather than 6.
+    Two players firing with two AIs: 24.6, then 24.15. The two-player
+    demo, and four people firing, keep 25. The cost of the faster fire was
+    accepted for the pace it gives.
   - Where a demo tick goes (median cycles): one AI thinks, 18,700 (four
     AIs take turns, one a tick); a shot, 13,600; each tank's redraw
     (restore, save, draw), 6,400, plus about 3,200 to shift its frame on
@@ -275,7 +282,8 @@ to C than (2,1,1,0), it is a better road and filling station.
 
 - Each tank carries a reservoir of RESERVOIR_SPLATS (128) splats, full at the
   start of a level. Each shot uses one; with none left, holding fire does
-  nothing. A full reservoir lasts about 30 seconds of continuous fire. (It
+  nothing. A full reservoir lasts about 21 seconds of continuous fire (30
+  at the old 4 shots a second). (It
   started at 32, about 7.7 seconds; that ran dry too often, and play spent
   more time refilling than painting.)
 - While fire is held the tank moves at normal speed and does not refill,

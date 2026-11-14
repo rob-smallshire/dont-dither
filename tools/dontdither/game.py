@@ -115,7 +115,7 @@ def round_points(percentages: list[int]) -> list[int]:
     table = POINTS_BY_RANK[len(percentages)]
     return [table[sum(1 for other in percentages if other > mine)] for mine in percentages]
 
-FIRE_PERIOD = 6            # ticks between shots while fire is held (4 per second);
+FIRE_PERIOD = 4            # ticks between shots while fire is held (6 per second);
                            # must be even (see the firing parity rule)
 
 # The ink reservoir (like Splatoon's ink tank and squid form). Each shot
@@ -135,7 +135,7 @@ FIRE_PERIOD = 6            # ticks between shots while fire is held (4 per secon
 TUNNEL_TICKS = 12          # about half a second
 MOUTH_LOW, MOUTH_HIGH = 56, 66   # sx or sy of a footprint within a mouth (cells 14-17)
 
-RESERVOIR_SPLATS = 128     # a full reservoir, in splats (about 30 s of fire)
+RESERVOIR_SPLATS = 128     # a full reservoir, in splats (about 21 s of fire)
 GROUND_LEVELS = 5
 FIRING_GROUND = 1          # the ground level whose speed applies while firing
 # By ground level: speed in 1/256 superpixel per tick (axial, then diagonal

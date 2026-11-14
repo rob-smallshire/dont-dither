@@ -237,12 +237,13 @@ appear in the labels. beebasm exports labels, not `=` constants.
 | &0CE0–&0CF5 | **key handoff**: the four key layouts, magic and checksum, left by `SPLASH` (`asm/handoff.asm`); kept across BREAK |
 | &0D00–&0DFF | left alone (DFS NMI routine, ROM tables) |
 | &0E00–&2C2B | **main block**: ink tables first (so the page-aligned `pattern_to_state` needs no padding), then code and tables |
-| &2C2C–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
+| &2D88–&2FFF | **level area**: the loaded level set. It starts right after the main block (not page-aligned, so nothing is lost to padding) and shrinks as code grows. The loader's whole-page copy runs a few bytes on into screen memory, which `start` clears |
 | &3000–&7FFF | MODE 1 screen (the loader and level set pass through here while loading) |
 
-At the last build (with tunnels): the level area is 980 bytes, of which
-each set of 16 levels uses about 530–560; 66 bytes free in the low block;
-about 38 in the buffers below the key handoff block. `SPLASH`, at &1900, has plenty of room up to the screen.
+At the last build (2026-11-14, with the joysticks): the level area is 632
+bytes, of which each set of 16 levels uses about 530–560 (LEVELS4, 558,
+leaves 74); 50 bytes free in the low block; 25 in the buffers below the
+key handoff block. `SPLASH`, at &1900, has plenty of room up to the screen.
 Where memory came from:
 - Building the superpixel row tables at start-up freed 256 bytes, which
   the reservoir then used.
@@ -716,6 +717,11 @@ screen memory and state against them:
 - **Next:**
   - session length: 16 rounds of two and a half minutes is still long, so
     choosing levels may be wanted;
+  - a finale for the last 10 seconds (the clock flashing, pips each
+    second, higher for the last three, a long tone at 0:00) was designed
+    but set aside on 2026-11-14: it needs about 85 bytes of DITHER, more
+    than the level area can spare, unless small tables move to the low
+    block;
   - teaching the AI to use tunnels;
   - perhaps using the sticks' analogue readings (the joysticks work on a
     real Compact with SPItFIRE, through its switch bytes);
