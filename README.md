@@ -12,6 +12,10 @@ magenta, yellow and black. See [the design](docs/dont_dither_game_design.md),
 [the decisions since](docs/decisions.md) and
 [the architecture and implementation](docs/architecture.md).
 
+**Website:** [rob-smallshire.github.io/dont-dither](https://rob-smallshire.github.io/dont-dither/),
+with articles on how the game works, starting with
+[choosing the 35 dither patterns](https://rob-smallshire.github.io/dont-dither/articles/choosing_the_dither_patterns.html).
+
 <p align="center">
   <img src="docs/images/title_screen.png" width="48%"
        alt="The title screen: the Don't Dither! logo, the question of two or four players, each player's keys, and how ink works">
