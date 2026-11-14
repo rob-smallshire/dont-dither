@@ -20,6 +20,8 @@ dd-preview-splats = "dontdither.preview_splats:main"
 dd-render-music = "dontdither.splash_theme:main"
 dd-preview-levels = "dontdither.preview_levels:main"
 dd-preview-ink-graph = "dontdither.preview_ink_graph:main"
+dd-preview-dither-figures = "dontdither.preview_dither_figures:main"
+dd-build-site = "dontdither.site:main"
 
 [dependency-groups]
 test = [
