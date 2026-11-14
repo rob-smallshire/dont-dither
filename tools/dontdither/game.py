@@ -83,7 +83,7 @@ HUMAN_PLAYERS = 2          # the default (test) session: players 1 and 2 human, 
 TICKS_PER_SECOND = 25
 DEMO_ROUND_SECONDS = 60    # demo (attract) rounds, with no human players
 SELECT_SECONDS = 10        # time to press fire and join, before a session
-ROUND_SECONDS = 300        # five minutes
+ROUND_SECONDS = 150        # two and a half minutes
 ROUND_TICKS = ROUND_SECONDS * TICKS_PER_SECOND
 DEMO_ROUND_TICKS = DEMO_ROUND_SECONDS * TICKS_PER_SECOND
 ESCAPE_HOLD_TICKS = 12     # ESCAPE held this many ticks (about half a second)
@@ -141,9 +141,9 @@ FIRING_GROUND = 1          # the ground level whose speed applies while firing
 # By ground level: speed in 1/256 superpixel per tick (axial, then diagonal
 # = axial / sqrt 2; more than 256 takes two steps on some ticks) and refill
 # in 1/256 splat per tick.
-GROUND_AXIAL_SPEED = (100, 200, 200, 250, 300)
-GROUND_DIAGONAL_SPEED = (71, 141, 141, 177, 212)
-GROUND_REFILL = (0, 16, 64, 104, 192)
+GROUND_AXIAL_SPEED = (100, 200, 200, 320, 400)
+GROUND_DIAGONAL_SPEED = (71, 141, 141, 226, 283)
+GROUND_REFILL = (0, 16, 64, 144, 255)
 
 
 def direction_of_keys(mask: int) -> int:

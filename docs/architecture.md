@@ -497,8 +497,8 @@ colour, dash and refill, emerge and paint again. The rules are in
 | 0 | 100 / 71 | 0 |
 | 1 | 200 / 141 | 16 |
 | 2 | 200 / 141 | 64 |
-| 3 | 250 / 177 | 104 |
-| 4 | 300 / 212 | 192 |
+| 3 | 320 / 226 | 144 |
+| 4 | 400 / 283 | 255 |
 
 - **Buffers:** `player_reservoir`, `player_reservoir_fraction`,
   `gauge_drawn`, `ai_refilling`, and the working bytes `move_ground`,
@@ -573,7 +573,7 @@ The model is in `game.py` (`_into_tunnel`, `_tunnel`); `game.asm`
 ## 12. Rounds, HUD and scoring
 
 - **During play,** the HUD shows only the logo, "LEVEL n", an m:ss
-  countdown (5-minute rounds, or 1 minute in the demo) and the ink gauges.
+  countdown (2½-minute rounds, or 1 minute in the demo) and the ink gauges.
   There are no running scores.
 - **At the end of a round:**
   - `hide_sprites` removes the tanks, and `clear_gauges` the ink gauges;
@@ -714,7 +714,7 @@ screen memory and state against them:
 - **Tuning:** the reservoir's size, refill rates and ground speeds, and the
   AI's refill threshold, are constants in `game.py` and `ai.py`.
 - **Next:**
-  - session length: 16 five-minute rounds is long, so shorter rounds or
+  - session length: 16 rounds of two and a half minutes is still long, so
     choosing levels may be wanted;
   - teaching the AI to use tunnels;
   - perhaps using the sticks' analogue readings (the joysticks work on a

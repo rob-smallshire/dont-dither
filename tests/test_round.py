@@ -81,9 +81,11 @@ def test_clock_starts_at_the_round_length(game):
     assert "1:22" in bbc.video.screen_text().text
 
 
-def test_default_round_is_five_minutes(game):
+def test_the_clock_starts_at_the_default_round_length(game):
+    from dontdither.game import ROUND_SECONDS
     bbc, labels = game
-    assert "5:00" in bbc.video.screen_text().text
+    minutes, seconds = divmod(ROUND_SECONDS, 60)
+    assert f"{minutes}:{seconds:02}" in bbc.video.screen_text().text     # 2:30
 
 
 @pytest.mark.parametrize("players, level_number", SAMPLE_SET_LEVELS, ids=SAMPLE_SET_LEVEL_IDS)

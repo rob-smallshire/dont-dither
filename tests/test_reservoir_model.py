@@ -54,7 +54,7 @@ def test_ground_counts_only_the_centre_four_superpixels():
 
 @pytest.mark.parametrize("own", range(5))
 def test_released_speed_depends_on_the_ground(own):
-    ticks = 100
+    ticks = 75                  # short of the arena's edge at the fastest speed
     game = game_on_ground(own)
     for _ in range(ticks):
         game.tick([EAST])

@@ -58,7 +58,7 @@ named for the version (e.g. `0_2_0`), so `*CAT` shows which version it is.
   mix freely. The title screen says whether SPItFIRE was found, lists its
   joysticks by port, and marks each player's keys with their joystick
   (J1-J4).
-- **A session** plays every level of the set, each a 5-minute round. Each
+- **A session** plays every level of the set, each a round of two and a half minutes. Each
   shot splats paint that moves the cells it hits a step towards your ink.
   When time runs out the territory is tallied, and points are awarded by
   rank (3/2/1/0, or 3/0 with two players).

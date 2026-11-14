@@ -68,7 +68,7 @@ Decisions taken during development that refine or depart from
   - the set has no address tables: the game walks to the level it wants.
   A level costs 25–48 bytes.
 - A session plays every level of its set, so with 16 levels a session is
-  long (16 five-minute rounds). Shorter rounds, or choosing levels, may be
+  long (16 rounds of two and a half minutes). Choosing levels may be
   wanted later.
 - Emulator tests that simulate hundreds of ticks per level run on a sample
   (the first, a middle and the last level of each set): the engine is the
@@ -291,12 +291,18 @@ to C than (2,1,1,0), it is a better road and filling station.
   | 0 | 0.5x | none |
   | 1 | 1x | trickle: 1.6 splats/s (82 s from empty) |
   | 2 | 1x | 6 splats/s (20 s from empty) |
-  | 3 | 1.25x | 10 splats/s (13 s from empty) |
-  | 4 | 1.5x | 19 splats/s (7 s from empty) |
+  | 3 | 1.6x | 14 splats/s (9 s from empty) |
+  | 4 | 2x | 25 splats/s (5 s from empty) |
 
   The trickle on ground 1 means a tank on the grey start arena is never
   stranded. The values are GROUND_AXIAL_SPEED, GROUND_DIAGONAL_SPEED and
   GROUND_REFILL in game.py.
+- Retuned for pace (2026-11-14): play-testing found five-minute rounds too
+  long and the game slow, so rounds were halved to 150 s and own ink made
+  a much better road and filling station: ground 3 went from 1.25x and
+  13 s to fill to 1.6x and 9 s, ground 4 from 1.5x and 7 s to 2x and 5 s
+  (255, the most an 8-bit refill allows). Hostile ground stays at 0.5x, so
+  where a tank stands matters more.
 - The reservoir is kept in whole splats plus 1/256ths. Speeds above 256
   (1/256 superpixel per tick) take a second step on some ticks; each step is
   tried and slides as before.
@@ -412,7 +418,7 @@ to C than (2,1,1,0), it is a better road and filling station.
   countdown during the round, and the result is revealed at the end. This
   replaces the design document's running totals: the framebuffer is the
   only record of territory, so the tally can never drift from it.
-- Rounds last five minutes (ROUND_SECONDS in game.py; tests shorten them by
+- Rounds last two and a half minutes (ROUND_SECONDS in game.py; tests shorten them by
   writing round_length_ticks before entering a level).
 - At the end the tanks are removed, revealing the bare territory; every open
   cell is decoded into a histogram of ink states (about 0.4 s); each
